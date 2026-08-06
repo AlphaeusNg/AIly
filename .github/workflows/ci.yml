@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: JS syntax
+        run: node --check apps/web/js/*.js
+      - name: capacity unit smoke
+        run: node tools/test-capacity.mjs

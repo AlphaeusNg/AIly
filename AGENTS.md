@@ -1,0 +1,43 @@
+# AIly — agent notes
+
+**Brand:** **AIly** (stylized capital **I**) — *Your AI Ally*  
+**Plan:** `/home/alph/projects/plans/aily-heavy-plan.md`  
+**Workflow:** `~/.grok/workflows/aily.rhai`
+
+## Product spine
+
+1. Targets the user sets (metrics required).  
+2. Guided **tutorial** for non-technical setup (everything in-app).  
+3. **App usage tracking** (with consent).  
+4. **Self-admin productivity blocks** (Covenant Eyes *shape*, productivity *substance*) + break-glass.  
+5. Local-first; auto bootstrap; no terminal for free path.
+
+## Repo layout
+
+| Path | Role |
+|---|---|
+| `crates/aily-core` | Domain: targets, capacity, replan, tutorial state, block rules model |
+| `apps/web` | Phase 0 UI dogfood (static HTML/CSS/JS) |
+| `docs/` | Architecture, tutorial, privacy, blocking |
+| `packages/*` | Placeholders for usage/block/tutorial services |
+
+Tauri desktop shell lands when WebKit GTK deps are available; core logic stays in Rust.
+
+## Rules
+
+- Do not invent cloud exfil of usage.  
+- Blocks cannot arm without tutorial admin consent + usage grant.  
+- Break-glass always available for hard blocks.  
+- Bump `apps/web/js/version.js` `SITE_VERSION.id` on ship as `YYYY.MM.DD.N`.  
+- Run: `cargo test` and `node --check apps/web/js/*.js`.
+
+## Commands
+
+```bash
+source "$HOME/.cargo/env"
+cd /home/alph/projects/AIly
+cargo test
+node --check apps/web/js/*.js
+python3 -m http.server 8765 --directory apps/web
+# open http://127.0.0.1:8765/
+```

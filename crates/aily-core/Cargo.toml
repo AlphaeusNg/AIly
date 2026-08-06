@@ -1,0 +1,13 @@
+[package]
+name = "aily-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AIly domain: targets, capacity, replan, tutorial, block rules"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde", "clock"] }

@@ -1,0 +1,17 @@
+{
+  "appId": "com.alphaeusng.aily",
+  "appName": "AIly",
+  "webDir": "apps/web",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0e1116"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}

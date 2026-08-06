@@ -1,0 +1,26 @@
+/target/
+**/*.rs.bk
+.DS_Store
+*.swp
+.env
+.env.*
+node_modules/
+dist/
+.idea/
+.vscode/
+*.log
+.aily/
+_site/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+*.apk
+*.aab
+*.keystore
+dist/
+# Keep android project; ignore local SDK path
+android/local.properties
+.capacitor/
+ios/

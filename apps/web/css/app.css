@@ -1,0 +1,379 @@
+:root {
+  --bg: #0e1116;
+  --panel: #161b22;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --muted: #8b9bb0;
+  --accent: #6ea8fe;
+  --accent-2: #3dd6c6;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --danger: #f85149;
+  --radius: 12px;
+  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(1200px 600px at 10% -10%, #1a2740 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(14, 17, 22, 0.85);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.brand-mark {
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-mark .ai {
+  color: var(--accent);
+}
+
+.brand-mark .ly {
+  color: var(--accent-2);
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tray {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  min-height: 0;
+}
+
+nav.side {
+  padding: 1rem 0.75rem;
+  border-right: 1px solid var(--border);
+}
+
+nav.side button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  margin-bottom: 0.25rem;
+}
+
+nav.side button:hover {
+  background: #1c2430;
+  color: var(--text);
+}
+
+nav.side button.active {
+  background: #1e2a3d;
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.badge {
+  margin-left: auto;
+  background: var(--warn);
+  color: #111;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+main {
+  padding: 1.25rem 1.5rem 2rem;
+  min-width: 0;
+}
+
+.panel-head h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.banner {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  margin: 0.75rem 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.banner.ok {
+  border-color: #238636;
+  background: #12261a;
+}
+
+.banner.warn {
+  border-color: #9e6a03;
+  background: #2a2108;
+}
+
+.banner.danger {
+  border-color: #da3633;
+  background: #2a1214;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+input,
+select {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+}
+
+button {
+  background: #21262d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+
+button.primary {
+  background: linear-gradient(135deg, #3d6df0, #2bb5a8);
+  border: 0;
+  color: #fff;
+  font-weight: 600;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.list li {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.tag {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #243044;
+  color: var(--accent);
+}
+
+.tag.armed {
+  background: #3d1f24;
+  color: #ff7b72;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.form label {
+  display: block;
+  margin: 0.5rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.form label input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--border);
+  display: inline-block;
+}
+
+.dot.done {
+  background: var(--ok);
+}
+
+.dot.skipped {
+  background: var(--muted);
+}
+
+.dot.pending {
+  background: var(--warn);
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 0.6rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Tutorial modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal {
+  width: min(520px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem 1.1rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.modal h2 {
+  margin: 0 0 0.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.modal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  nav.side {
+    display: flex;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+  nav.side button {
+    width: auto;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.65rem;
+  }
+  main {
+    padding: 1rem;
+    padding-bottom: 5rem;
+  }
+  .topbar {
+    padding: 0.65rem 0.85rem;
+  }
+  .tagline {
+    display: none;
+  }
+}
+
+/* Safe area for Android gesture nav when installed as PWA */
+@supports (padding: max(0px)) {
+  body {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
