@@ -14,6 +14,22 @@ export function checkPlanAccept({
   weekOther, // [{ targetId, estimateMin }]
   today, // [{ id, targetId, estimateMin, mustKeep }]
 }) {
+  const validNonnegative = (value) => Number.isFinite(value) && value >= 0;
+  if (
+    !validNonnegative(weeklyCapacityHours) ||
+    !Number.isFinite(nightsPerWeek) ||
+    nightsPerWeek <= 0 ||
+    !Array.isArray(softCaps) ||
+    !Array.isArray(weekOther) ||
+    !Array.isArray(today) ||
+    softCaps.some((soft) => !soft || !validNonnegative(soft.hours)) ||
+    [...weekOther, ...today].some(
+      (commitment) => !commitment || !validNonnegative(commitment.estimateMin)
+    )
+  ) {
+    return { ok: false, error: "invalid_input" };
+  }
+
   const weeklyMin = weeklyCapacityHours * 60;
   const dailyCap = dailySoftCapMinutes(weeklyCapacityHours, nightsPerWeek);
 
@@ -102,6 +118,8 @@ export function replanToday({
 
 export function errorLabel(err) {
   switch (err) {
+    case "invalid_input":
+      return "That plan contains an invalid time or capacity value.";
     case "global_over":
       return "That plan needs more hours than your week allows.";
     case "daily_over":

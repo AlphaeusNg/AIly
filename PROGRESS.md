@@ -10,17 +10,18 @@ cycle log for autonomous improvement work. Product direction remains in
   block-rule model, PWA, and Android shell).
 - Baseline on 2026-08-09: all documented automated checks across the projects
   workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 2: 11 Rust unit tests, JavaScript capacity and
+- AIly baseline after Cycle 3: 12 Rust unit tests, JavaScript capacity and
   persisted-state tests, JavaScript syntax checks, and strict Clippy all pass.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Reject non-finite and negative capacity inputs in Rust and JS | Correctness / robustness | High: invalid numbers can bypass or distort capacity checks | Small / low | Public domain functions currently assume validated callers | Next |
-| 2 | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Rust and JS intentionally duplicate the same rules | Backlog |
-| 3 | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Existing files predate a formatting gate | Backlog |
+| 1 | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Rust and JS intentionally duplicate the same rules | Next |
+| 2 | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Existing files predate a formatting gate | Backlog |
+| 3 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Backlog |
 | 4 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| — | Reject non-finite and negative capacity inputs in Rust and JS | Correctness / robustness | High: invalid numbers bypassed capacity checks | Small / low | Reproduced in both public domain functions | Completed in Cycle 3 |
 | — | Deep-merge and validate persisted web state | Bug / test gap | High: a partial or older state could crash startup | Small / low | Reproduced with a partial tutorial object | Completed in Cycle 2 |
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
@@ -129,3 +130,55 @@ Tests should exercise both the pure hydrator and the storage-facing wrapper.
 
 **Next opportunity:** Reject non-finite and negative capacity/estimate inputs in
 both Rust and JavaScript so malformed callers cannot bypass capacity limits.
+
+### Cycle 3 — Reject invalid capacity numbers (2026-08-09)
+
+**Why this won:** JavaScript comparisons with `NaN` are false, so a `NaN`
+weekly capacity or estimate returned `{ ok: true }`; negative estimates also
+reduced totals. Rust exposed the same unchecked numeric fields. Capacity is a
+core correctness boundary, so invalid inputs must fail explicitly rather than
+silently weaken it.
+
+**Plan and success criteria**
+
+1. Reject non-finite/negative capacities, soft caps, and estimates in both
+   implementations; reject non-positive/non-finite nights and malformed JS
+   collection shapes.
+2. Return a stable `invalid_input`/`InvalidInput` error and useful browser copy.
+3. Add parity coverage and keep every existing check green.
+
+**Changes**
+
+- Added `CapacityError::InvalidInput` and validation at the start of Rust
+  `check_plan_accept`.
+- Added matching JavaScript validation and an `invalid_input` user-facing label.
+- Extended both capacity suites with invalid-number regression cases.
+
+**Verification evidence**
+
+- `npm test`: 12 Rust tests (up from 11), both JavaScript suites, and syntax
+  checks passed.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- `git diff --check`: passed.
+- Before: `NaN` week, `NaN` estimate, `-500` estimate, and infinite soft cap all
+  returned `{ ok: true }` in JavaScript.
+- After: all four return `{ ok: false, error: "invalid_input" }`; Rust covers
+  `NaN`, infinities, and negative values with the same fail-closed result.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 3/10 | 9/10 | Four reproduced bypass classes now fail explicitly in both ports |
+| Test coverage / verifiability | 5/10 | 8/10 | Invalid boundary cases run in the standard Rust and JS suites |
+| Maintainability | 6/10 | 8/10 | Each domain boundary has one early validation block and stable error |
+| Performance | 9/10 | 9/10 | One linear validation pass over already-small plan collections |
+| Security / safety | 6/10 | 8/10 | Malformed callers can no longer weaken capacity enforcement |
+
+**Lesson / process improvement:** HTML input constraints and storage hydration
+are useful defenses, but public domain functions must validate independently.
+Boundary regressions should be reproduced in every maintained implementation.
+
+**Next opportunity:** Replace hand-maintained duplicate cases with shared JSON
+contract fixtures consumed by Rust and JavaScript, reducing future semantic
+drift in the capacity/replan ports.

@@ -54,6 +54,8 @@ pub struct CapacityInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CapacityError {
+    #[error("capacity input contains an invalid number")]
+    InvalidInput,
     #[error("global weekly capacity exceeded")]
     GlobalOver,
     #[error("target soft capacity exceeded for {0}")]
@@ -65,9 +67,29 @@ pub enum CapacityError {
 }
 
 pub fn check_plan_accept(input: &CapacityInput) -> Result<(), CapacityError> {
+    let valid_nonnegative = |value: f64| value.is_finite() && value >= 0.0;
+    if !valid_nonnegative(input.config.weekly_capacity_hours)
+        || !valid_nonnegative(input.config.daily_soft_cap_minutes)
+        || input
+            .active_soft_caps
+            .iter()
+            .any(|soft| !valid_nonnegative(soft.soft_capacity_hours))
+        || input
+            .week_other_minutes
+            .iter()
+            .chain(input.today_candidate.iter())
+            .any(|commitment| !valid_nonnegative(commitment.estimate_min))
+    {
+        return Err(CapacityError::InvalidInput);
+    }
+
     // D14-style: if ≥2 soft caps present, sum ≤ weekly hours
     if input.active_soft_caps.len() >= 2 {
-        let sum: f64 = input.active_soft_caps.iter().map(|s| s.soft_capacity_hours).sum();
+        let sum: f64 = input
+            .active_soft_caps
+            .iter()
+            .map(|s| s.soft_capacity_hours)
+            .sum();
         if sum > input.config.weekly_capacity_hours + 1e-9 {
             return Err(CapacityError::SoftSumOver);
         }
@@ -76,7 +98,11 @@ pub fn check_plan_accept(input: &CapacityInput) -> Result<(), CapacityError> {
     let mut week_total = 0.0_f64;
     let mut per_goal: std::collections::HashMap<Uuid, f64> = std::collections::HashMap::new();
 
-    for c in input.week_other_minutes.iter().chain(input.today_candidate.iter()) {
+    for c in input
+        .week_other_minutes
+        .iter()
+        .chain(input.today_candidate.iter())
+    {
         week_total += c.estimate_min;
         *per_goal.entry(c.target_id).or_insert(0.0) += c.estimate_min;
     }
@@ -201,5 +227,53 @@ mod tests {
             check_plan_accept(&input),
             Err(CapacityError::GoalSoftOver(_))
         ));
+    }
+
+    #[test]
+    fn rejects_invalid_numeric_inputs() {
+        let target_id = uid();
+        let valid = CapacityInput {
+            config: CapacityConfig::from_weekly_hours(10.0, 4.0),
+            active_soft_caps: vec![TargetSoftCap {
+                target_id,
+                soft_capacity_hours: 10.0,
+                priority: 0,
+            }],
+            week_other_minutes: vec![],
+            today_candidate: vec![CommitmentMinutes {
+                id: uid(),
+                target_id,
+                estimate_min: 30.0,
+                must_keep: false,
+            }],
+        };
+
+        let mut invalid_week = valid.clone();
+        invalid_week.config.weekly_capacity_hours = f64::NAN;
+        assert_eq!(
+            check_plan_accept(&invalid_week),
+            Err(CapacityError::InvalidInput)
+        );
+
+        let mut invalid_daily = valid.clone();
+        invalid_daily.config.daily_soft_cap_minutes = f64::INFINITY;
+        assert_eq!(
+            check_plan_accept(&invalid_daily),
+            Err(CapacityError::InvalidInput)
+        );
+
+        let mut invalid_soft_cap = valid.clone();
+        invalid_soft_cap.active_soft_caps[0].soft_capacity_hours = -1.0;
+        assert_eq!(
+            check_plan_accept(&invalid_soft_cap),
+            Err(CapacityError::InvalidInput)
+        );
+
+        let mut invalid_estimate = valid;
+        invalid_estimate.today_candidate[0].estimate_min = f64::NEG_INFINITY;
+        assert_eq!(
+            check_plan_accept(&invalid_estimate),
+            Err(CapacityError::InvalidInput)
+        );
     }
 }

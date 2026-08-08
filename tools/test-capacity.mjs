@@ -42,6 +42,31 @@ assert(dailySoftCapMinutes(10, 4) === 150, "daily soft cap 10h/4n = 150m");
   assert(!r.ok && r.error === "global_over", "global over");
 }
 
+// reject invalid numeric values instead of letting NaN/negative totals bypass checks
+{
+  const t = id();
+  const commitment = { id: id(), targetId: t, estimateMin: 30, mustKeep: false };
+  const base = {
+    weeklyCapacityHours: 10,
+    nightsPerWeek: 4,
+    softCaps: [],
+    weekOther: [],
+    today: [commitment],
+  };
+  const invalidCases = [
+    { ...base, weeklyCapacityHours: Number.NaN },
+    { ...base, nightsPerWeek: Number.POSITIVE_INFINITY },
+    { ...base, softCaps: [{ targetId: t, hours: Number.POSITIVE_INFINITY }] },
+    { ...base, today: [{ ...commitment, estimateMin: Number.NaN }] },
+    { ...base, today: [{ ...commitment, estimateMin: -500 }] },
+    { ...base, today: null },
+  ];
+  for (const invalid of invalidCases) {
+    const result = checkPlanAccept(invalid);
+    assert(!result.ok && result.error === "invalid_input", "invalid input is rejected");
+  }
+}
+
 // replan drops
 {
   const t = id();
