@@ -1,0 +1,202 @@
+{
+  "capacityCases": [
+    {
+      "name": "accepts an under-budget plan",
+      "input": {
+        "weeklyCapacityHours": 10,
+        "nightsPerWeek": 4,
+        "softCaps": [
+          { "targetId": "00000000-0000-0000-0000-000000000001", "hours": 10 }
+        ],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000101",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 0
+          }
+        ]
+      },
+      "expected": { "ok": true }
+    },
+    {
+      "name": "rejects the global weekly limit before the daily limit",
+      "input": {
+        "weeklyCapacityHours": 1,
+        "nightsPerWeek": 1,
+        "softCaps": [],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000102",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 120,
+            "mustKeep": false,
+            "priority": 0
+          }
+        ]
+      },
+      "expected": { "ok": false, "error": "global_over" }
+    },
+    {
+      "name": "rejects a daily overload",
+      "input": {
+        "weeklyCapacityHours": 10,
+        "nightsPerWeek": 4,
+        "softCaps": [],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000103",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 180,
+            "mustKeep": false,
+            "priority": 0
+          }
+        ]
+      },
+      "expected": { "ok": false, "error": "daily_over" }
+    },
+    {
+      "name": "rejects soft caps whose sum exceeds the week",
+      "input": {
+        "weeklyCapacityHours": 10,
+        "nightsPerWeek": 4,
+        "softCaps": [
+          { "targetId": "00000000-0000-0000-0000-000000000001", "hours": 6 },
+          { "targetId": "00000000-0000-0000-0000-000000000002", "hours": 6 }
+        ],
+        "weekOther": [],
+        "today": []
+      },
+      "expected": { "ok": false, "error": "soft_sum_over" }
+    },
+    {
+      "name": "rejects a target soft-cap overload",
+      "input": {
+        "weeklyCapacityHours": 20,
+        "nightsPerWeek": 1,
+        "softCaps": [
+          { "targetId": "00000000-0000-0000-0000-000000000001", "hours": 1 }
+        ],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000104",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 90,
+            "mustKeep": false,
+            "priority": 0
+          }
+        ]
+      },
+      "expected": { "ok": false, "error": "goal_soft_over" }
+    }
+  ],
+  "replanCases": [
+    {
+      "name": "protects must-keep work",
+      "input": {
+        "weeklyCapacityHours": 2,
+        "nightsPerWeek": 4,
+        "softCaps": [],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000201",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 30,
+            "mustKeep": true,
+            "priority": 0
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000202",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 0
+          }
+        ]
+      },
+      "expected": {
+        "keep": ["00000000-0000-0000-0000-000000000201"],
+        "drop": ["00000000-0000-0000-0000-000000000202"],
+        "shrink": [
+          { "id": "00000000-0000-0000-0000-000000000202", "newEstimateMin": 15 }
+        ],
+        "untouched": ["00000000-0000-0000-0000-000000000201"]
+      }
+    },
+    {
+      "name": "sacrifices lower-importance work first",
+      "input": {
+        "weeklyCapacityHours": 2,
+        "nightsPerWeek": 2,
+        "softCaps": [],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000203",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 0
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000204",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 5
+          }
+        ]
+      },
+      "expected": {
+        "keep": ["00000000-0000-0000-0000-000000000203"],
+        "drop": ["00000000-0000-0000-0000-000000000204"],
+        "shrink": [
+          { "id": "00000000-0000-0000-0000-000000000204", "newEstimateMin": 15 }
+        ],
+        "untouched": ["00000000-0000-0000-0000-000000000203"]
+      }
+    },
+    {
+      "name": "shrinks lower-importance work when that is enough",
+      "input": {
+        "weeklyCapacityHours": 2.5,
+        "nightsPerWeek": 2,
+        "softCaps": [],
+        "weekOther": [],
+        "today": [
+          {
+            "id": "00000000-0000-0000-0000-000000000205",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 0
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000206",
+            "targetId": "00000000-0000-0000-0000-000000000001",
+            "estimateMin": 60,
+            "mustKeep": false,
+            "priority": 5
+          }
+        ]
+      },
+      "expected": {
+        "keep": [
+          "00000000-0000-0000-0000-000000000205",
+          "00000000-0000-0000-0000-000000000206"
+        ],
+        "drop": [],
+        "shrink": [
+          { "id": "00000000-0000-0000-0000-000000000206", "newEstimateMin": 15 }
+        ],
+        "untouched": ["00000000-0000-0000-0000-000000000205"]
+      }
+    }
+  ]
+}

@@ -10,17 +10,18 @@ cycle log for autonomous improvement work. Product direction remains in
   block-rule model, PWA, and Android shell).
 - Baseline on 2026-08-09: all documented automated checks across the projects
   workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 3: 12 Rust unit tests, JavaScript capacity and
-  persisted-state tests, JavaScript syntax checks, and strict Clippy all pass.
+- AIly baseline after Cycle 4: 12 Rust unit tests, 2 Rust shared-contract
+  integration tests, 3 JavaScript suites, syntax checks, and strict Clippy all
+  pass.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Rust and JS intentionally duplicate the same rules | Next |
-| 2 | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Existing files predate a formatting gate | Backlog |
-| 3 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Backlog |
-| 4 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| 1 | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Existing files predate a formatting gate | Next |
+| 2 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Backlog |
+| 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| — | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Five capacity and three replan scenarios | Completed in Cycle 4 |
 | — | Reject non-finite and negative capacity inputs in Rust and JS | Correctness / robustness | High: invalid numbers bypassed capacity checks | Small / low | Reproduced in both public domain functions | Completed in Cycle 3 |
 | — | Deep-merge and validate persisted web state | Bug / test gap | High: a partial or older state could crash startup | Small / low | Reproduced with a partial tutorial object | Completed in Cycle 2 |
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
@@ -182,3 +183,53 @@ Boundary regressions should be reproduced in every maintained implementation.
 **Next opportunity:** Replace hand-maintained duplicate cases with shared JSON
 contract fixtures consumed by Rust and JavaScript, reducing future semantic
 drift in the capacity/replan ports.
+
+### Cycle 4 — Share the capacity/replan contract (2026-08-09)
+
+**Why this won:** Rust is the intended domain source of truth while the Phase 0
+browser app carries a JavaScript port. Separate tests could approve different
+behavior. One executable scenario set compounds future test work and makes
+semantic drift visible in both stacks.
+
+**Plan and success criteria**
+
+1. Represent normal capacity outcomes and safety-critical replan invariants in
+   a language-neutral fixture.
+2. Execute every named scenario in Rust and JavaScript.
+3. Compare exact error codes and keep/drop/shrink sets while retaining focused
+   unit regressions.
+
+**Changes**
+
+- Added `tests/capacity-contract.json` with five capacity and three replan
+  scenarios.
+- Added Rust integration consumers in
+  `crates/aily-core/tests/capacity_contract.rs`.
+- Added `tools/test-capacity-contract.mjs` and wired it into `npm test` and CI.
+
+**Verification evidence**
+
+- `npm test`: 12 Rust unit tests, 2 Rust contract integration tests, all 8
+  shared scenarios in JavaScript, store/capacity suites, and syntax checks
+  passed.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- `git diff --check`: passed.
+- Contract coverage includes accept, global/daily/soft-sum/goal-soft errors,
+  must-keep protection, numeric priority, and shrink-before-drop behavior.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | Both ports are checked against identical expected outcomes |
+| Test coverage / verifiability | 6/10 | 9/10 | Eight shared cases run in both language stacks and CI |
+| Maintainability | 6/10 | 8/10 | New parity scenarios are authored once rather than duplicated |
+| Performance | 9/10 | 9/10 | Small JSON fixture adds negligible test time |
+| Security / safety | 8/10 | 8/10 | Safety invariants gain coverage; runtime boundary is unchanged |
+
+**Lesson / process improvement:** When an implementation is intentionally
+ported, keep focused language tests but add a small shared behavioral contract.
+Compare observable results, not internal ordering or implementation details.
+
+**Next opportunity:** Format the existing Rust sources once and add
+`cargo fmt --all -- --check` to CI so future diffs remain mechanically clean.

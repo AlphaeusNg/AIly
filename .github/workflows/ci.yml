@@ -20,5 +20,7 @@ jobs:
         run: node --check apps/web/js/*.js
       - name: capacity unit smoke
         run: node tools/test-capacity.mjs
+      - name: shared capacity contract
+        run: node tools/test-capacity-contract.mjs
       - name: persisted state tests
         run: node tools/test-store.mjs
