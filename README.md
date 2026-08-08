@@ -43,9 +43,7 @@ python3 -m http.server 8765
 ```bash
 source "$HOME/.cargo/env"   # if needed
 npm ci
-cargo test -p aily-core
-node tools/test-capacity.mjs
-node --check apps/web/js/*.js
+npm test
 
 # Android (needs Android SDK + JDK)
 export ANDROID_HOME=$HOME/Android/Sdk   # or your SDK path

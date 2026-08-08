@@ -5,7 +5,7 @@
   "description": "AIly — Your AI Ally",
   "type": "module",
   "scripts": {
-    "test": "cargo test && node tools/test-capacity.mjs && node tools/test-capacity-contract.mjs && node tools/test-store.mjs && node --check apps/web/js/*.js",
+    "test": "cargo fmt --all -- --check && cargo test && node tools/test-capacity.mjs && node tools/test-capacity-contract.mjs && node tools/test-store.mjs && node --check apps/web/js/*.js",
     "web": "python3 -m http.server 8765 --directory apps/web",
     "cap:sync": "npx cap sync",
     "cap:android": "npx cap open android",

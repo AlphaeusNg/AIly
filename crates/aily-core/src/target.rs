@@ -30,7 +30,12 @@ pub struct Metric {
 }
 
 impl Metric {
-    pub fn new(name: impl Into<String>, unit: impl Into<String>, baseline: f64, target_val: f64) -> Result<Self, String> {
+    pub fn new(
+        name: impl Into<String>,
+        unit: impl Into<String>,
+        baseline: f64,
+        target_val: f64,
+    ) -> Result<Self, String> {
         if (baseline - target_val).abs() < f64::EPSILON {
             return Err("baseline and target must differ".into());
         }

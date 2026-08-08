@@ -10,7 +10,7 @@ pub mod tutorial;
 
 pub use audit::{AllyActionLog, Origin};
 pub use block::{BlockMode, BlockRule, BreakGlassPolicy};
-pub use capacity::{CapacityConfig, CapacityError, CapacityInput, check_plan_accept};
-pub use replan::{CommitmentSlice, ReplanInput, ReplanOutput, replan_today};
+pub use capacity::{check_plan_accept, CapacityConfig, CapacityError, CapacityInput};
+pub use replan::{replan_today, CommitmentSlice, ReplanInput, ReplanOutput};
 pub use target::{Metric, MetricDirection, Target, TargetStatus};
-pub use tutorial::{ChapterId, ChapterStatus, PermissionFlags, TutorialState, TutorialEngine};
+pub use tutorial::{ChapterId, ChapterStatus, PermissionFlags, TutorialEngine, TutorialState};

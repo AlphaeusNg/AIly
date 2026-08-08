@@ -24,7 +24,12 @@ pub struct AllyActionLog {
 }
 
 impl AllyActionLog {
-    pub fn record(tool: impl Into<String>, args_redacted: impl Into<String>, origin: Origin, result: impl Into<String>) -> Self {
+    pub fn record(
+        tool: impl Into<String>,
+        args_redacted: impl Into<String>,
+        origin: Origin,
+        result: impl Into<String>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             tool: tool.into(),

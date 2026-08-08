@@ -10,17 +10,18 @@ cycle log for autonomous improvement work. Product direction remains in
   block-rule model, PWA, and Android shell).
 - Baseline on 2026-08-09: all documented automated checks across the projects
   workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 4: 12 Rust unit tests, 2 Rust shared-contract
+- AIly baseline after Cycle 5: 12 Rust unit tests, 2 Rust shared-contract
   integration tests, 3 JavaScript suites, syntax checks, and strict Clippy all
-  pass.
+  pass; Rust formatting is enforced locally and in CI.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Existing files predate a formatting gate | Next |
-| 2 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Backlog |
+| 1 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Next |
+| 2 | Enforce strict Clippy in CI | Test / maintainability | Medium compounding value: local warning checks should not depend on agent discipline | Small / low | Strict Clippy already passes locally | Backlog |
 | 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| — | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Three files had pre-existing drift | Completed in Cycle 5 |
 | — | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Five capacity and three replan scenarios | Completed in Cycle 4 |
 | — | Reject non-finite and negative capacity inputs in Rust and JS | Correctness / robustness | High: invalid numbers bypassed capacity checks | Small / low | Reproduced in both public domain functions | Completed in Cycle 3 |
 | — | Deep-merge and validate persisted web state | Bug / test gap | High: a partial or older state could crash startup | Small / low | Reproduced with a partial tutorial object | Completed in Cycle 2 |
@@ -233,3 +234,49 @@ Compare observable results, not internal ordering or implementation details.
 
 **Next opportunity:** Format the existing Rust sources once and add
 `cargo fmt --all -- --check` to CI so future diffs remain mechanically clean.
+
+### Cycle 5 — Enforce Rust formatting (2026-08-09)
+
+**Why this won:** The repository's formatting check failed on three existing
+source files, so formatting could not be used as a reliable gate. A one-time
+mechanical cleanup plus enforcement has low risk and reduces noise in every
+future Rust change.
+
+**Plan and success criteria**
+
+1. Apply only rustfmt's output to the existing Rust workspace.
+2. Make the canonical local test command and CI reject format drift.
+3. Keep all behavioral checks green and make developer docs point to the full
+   gate.
+
+**Changes**
+
+- Formatted `audit.rs`, `lib.rs`, and `target.rs` with stable rustfmt.
+- Prepended `cargo fmt --all -- --check` to `npm test`.
+- Added the rustfmt component and formatting step to GitHub Actions.
+- Updated `AGENTS.md` and `README.md` to use `npm test` as the canonical gate.
+
+**Verification evidence**
+
+- Before: `cargo fmt --all -- --check` exited 1 with diffs in three files.
+- After: `npm test` passes its formatting gate, 12 Rust unit tests, 2 contract
+  integration tests, 3 JavaScript suites, and syntax checks.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- `git diff --check`: passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 8/10 | 8/10 | Runtime behavior is intentionally unchanged |
+| Test coverage / verifiability | 6/10 | 9/10 | Format drift is now rejected locally and remotely |
+| Maintainability | 6/10 | 9/10 | Entire Rust workspace is canonical and stays that way |
+| Performance | 9/10 | 9/10 | No runtime change; formatting check is sub-second locally |
+| Developer experience | 6/10 | 8/10 | One documented command runs every current local gate |
+
+**Lesson / process improvement:** A check that already fails at baseline cannot
+protect future work. Normalize once, then add the check to the canonical local
+command and CI in the same cycle.
+
+**Next opportunity:** Normalize or quarantine invalid persisted commitments so
+the new fail-closed capacity error also gives users a clear recovery path.

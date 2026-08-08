@@ -29,15 +29,14 @@ Tauri desktop shell lands when WebKit GTK deps are available; core logic stays i
 - Blocks cannot arm without tutorial admin consent + usage grant.  
 - Break-glass always available for hard blocks.  
 - Bump `apps/web/js/version.js` `SITE_VERSION.id` on ship as `YYYY.MM.DD.N`.  
-- Run: `cargo test` and `node --check apps/web/js/*.js`.
+- Run the complete local gate with `npm test`.
 
 ## Commands
 
 ```bash
 source "$HOME/.cargo/env"
 cd /home/alph/projects/AIly
-cargo test
-node --check apps/web/js/*.js
+npm test
 python3 -m http.server 8765 --directory apps/web
 # open http://127.0.0.1:8765/
 ```
