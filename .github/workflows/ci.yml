@@ -20,3 +20,5 @@ jobs:
         run: node --check apps/web/js/*.js
       - name: capacity unit smoke
         run: node tools/test-capacity.mjs
+      - name: persisted state tests
+        run: node tools/test-store.mjs
