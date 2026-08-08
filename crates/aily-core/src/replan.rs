@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::capacity::{
-    CapacityConfig, CapacityInput, CommitmentMinutes, TargetSoftCap,
-    check_plan_accept,
+    check_plan_accept, CapacityConfig, CapacityInput, CommitmentMinutes, TargetSoftCap,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,18 +104,18 @@ pub fn replan_today(input: &ReplanInput) -> ReplanOutput {
                     reasons.push("protect-set alone still over capacity".into());
                     break;
                 }
-                // Try shrink last rest item first
-                let last = rest.len() - 1;
-                if rest[last].estimate_min > FLOOR_MIN {
+                // `rest` is ordered least-important first (higher priority number).
+                // Reduce that item before touching more important commitments.
+                if rest[0].estimate_min > FLOOR_MIN {
                     let new_e = FLOOR_MIN;
                     shrink.push(ShrinkOp {
-                        id: rest[last].id,
+                        id: rest[0].id,
                         new_estimate_min: new_e,
                     });
-                    rest[last].estimate_min = new_e;
-                    reasons.push(format!("shrink {} to {}m", rest[last].id, new_e));
+                    rest[0].estimate_min = new_e;
+                    reasons.push(format!("shrink {} to {}m", rest[0].id, new_e));
                 } else {
-                    let removed = rest.pop().unwrap();
+                    let removed = rest.remove(0);
                     drop.push(removed.id);
                     reasons.push(format!("drop {}", removed.id));
                 }
@@ -137,11 +136,7 @@ pub fn replan_today(input: &ReplanInput) -> ReplanOutput {
         })
         .collect();
 
-    let keep: Vec<Uuid> = protect
-        .iter()
-        .chain(rest.iter())
-        .map(|c| c.id)
-        .collect();
+    let keep: Vec<Uuid> = protect.iter().chain(rest.iter()).map(|c| c.id).collect();
 
     ReplanOutput {
         keep,
@@ -211,6 +206,43 @@ mod tests {
             week_other_minutes: vec![],
             today_candidate: candidate,
         };
-        assert!(check_plan_accept(&check).is_ok() || !out.drop.is_empty() || !out.shrink.is_empty());
+        assert!(
+            check_plan_accept(&check).is_ok() || !out.drop.is_empty() || !out.shrink.is_empty()
+        );
+    }
+
+    #[test]
+    fn replan_sacrifices_lower_importance_before_higher_importance() {
+        let target_id = Uuid::from_u128(1);
+        let important_id = Uuid::from_u128(2);
+        let optional_id = Uuid::from_u128(3);
+        let input = ReplanInput {
+            config: CapacityConfig::from_weekly_hours(2.0, 2.0),
+            active_soft_caps: vec![],
+            week_other_minutes: vec![],
+            today_candidate: vec![
+                CommitmentSlice {
+                    id: important_id,
+                    target_id,
+                    estimate_min: 60.0,
+                    must_keep: false,
+                    priority: 0,
+                },
+                CommitmentSlice {
+                    id: optional_id,
+                    target_id,
+                    estimate_min: 60.0,
+                    must_keep: false,
+                    priority: 5,
+                },
+            ],
+        };
+
+        let out = replan_today(&input);
+
+        assert!(out.keep.contains(&important_id));
+        assert!(!out.drop.contains(&important_id));
+        assert!(!out.shrink.iter().any(|s| s.id == important_id));
+        assert!(out.drop.contains(&optional_id));
     }
 }

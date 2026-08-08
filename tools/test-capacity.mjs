@@ -61,4 +61,25 @@ assert(dailySoftCapMinutes(10, 4) === 150, "daily soft cap 10h/4n = 150m");
   assert(out.drop.includes(drop) || out.shrink.some((s) => s.id === drop), "drops or shrinks other");
 }
 
+// replan sacrifices a higher numeric priority (lower importance) first
+{
+  const t = id();
+  const important = id();
+  const optional = id();
+  const out = replanToday({
+    weeklyCapacityHours: 2,
+    nightsPerWeek: 2,
+    softCaps: [],
+    weekOther: [],
+    today: [
+      { id: important, targetId: t, estimateMin: 60, mustKeep: false, priority: 0 },
+      { id: optional, targetId: t, estimateMin: 60, mustKeep: false, priority: 5 },
+    ],
+  });
+  assert(out.keep.includes(important), "keeps the more important commitment");
+  assert(!out.drop.includes(important), "does not drop the more important commitment");
+  assert(!out.shrink.some((s) => s.id === important), "does not shrink the more important commitment");
+  assert(out.drop.includes(optional), "drops the lower-importance commitment");
+}
+
 console.log("test-capacity.mjs: ok");

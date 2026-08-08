@@ -78,13 +78,14 @@ export function replanToday({
       reasons.push("protect-set alone still over capacity");
       break;
     }
-    const last = rest[rest.length - 1];
-    if (last.estimateMin > FLOOR) {
-      last.estimateMin = FLOOR;
-      shrink.push({ id: last.id, newEstimateMin: FLOOR });
-      reasons.push(`shrink ${last.id}`);
+    // `rest` is ordered least-important first (higher priority number).
+    const next = rest[0];
+    if (next.estimateMin > FLOOR) {
+      next.estimateMin = FLOOR;
+      shrink.push({ id: next.id, newEstimateMin: FLOOR });
+      reasons.push(`shrink ${next.id}`);
     } else {
-      const removed = rest.pop();
+      const [removed] = rest.splice(0, 1);
       drop.push(removed.id);
       reasons.push(`drop ${removed.id}`);
     }
