@@ -10,17 +10,21 @@ cycle log for autonomous improvement work. Product direction remains in
   block-rule model, PWA, and Android shell).
 - Baseline on 2026-08-09: all documented automated checks across the projects
   workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 5: 12 Rust unit tests, 2 Rust shared-contract
-  integration tests, 3 JavaScript suites, syntax checks, and strict Clippy all
-  pass; Rust formatting is enforced locally and in CI.
+- AIly baseline after Cycle 6: 12 Rust unit tests, 2 Rust shared-contract
+  integration tests, 3 JavaScript suites (including 40 persistence/recovery
+  assertions), syntax checks, and strict Clippy all pass; Rust formatting is
+  enforced locally and in CI.
+- Invalid persisted commitments are quarantined with safe summaries and cannot
+  enter capacity checks; Today offers a confirmed, audited discard path.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: validation is honest but malformed entries can leave a plan unfixable | Small / low | Build on Cycle 2 hydration and Cycle 3 domain errors | Next |
-| 2 | Enforce strict Clippy in CI | Test / maintainability | Medium compounding value: local warning checks should not depend on agent discipline | Small / low | Strict Clippy already passes locally | Backlog |
-| 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| 1 | Enforce strict Clippy in CI | Test / maintainability | Medium compounding value: local warning checks should not depend on agent discipline | Small / low | Strict Clippy already passes locally | Next |
+| 2 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| 3 | Handle localStorage write failures without breaking recovery or input actions | Reliability / UX | Medium: privacy/quota failures can still throw through `persist()` | Small / low | Follow the boolean save/status pattern proven in sibling local-first apps | Backlog |
+| — | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: malformed entries previously left capacity fail-closed with no reliable repair | Small / low | Quarantine plus explicit confirmed discard | Completed in Cycle 6 |
 | — | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Three files had pre-existing drift | Completed in Cycle 5 |
 | — | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Five capacity and three replan scenarios | Completed in Cycle 4 |
 | — | Reject non-finite and negative capacity inputs in Rust and JS | Correctness / robustness | High: invalid numbers bypassed capacity checks | Small / low | Reproduced in both public domain functions | Completed in Cycle 3 |
@@ -280,3 +284,66 @@ command and CI in the same cycle.
 
 **Next opportunity:** Normalize or quarantine invalid persisted commitments so
 the new fail-closed capacity error also gives users a clear recovery path.
+
+### Cycle 6 — Quarantine invalid persisted commitments (2026-08-10)
+
+**Why this won:** Cycle 2 restored collection shapes, but retained every
+object-shaped commitment. Missing IDs, impossible dates, invalid estimates, or
+malformed flags could therefore make capacity fail closed; entries without a
+usable ID could not be repaired by Drop, and Force replan was not guaranteed to
+fix them.
+
+**Plan and success criteria**
+
+1. Keep valid and older-compatible commitments active while quarantining
+   malformed containers and records.
+2. Preserve only bounded, display-safe summaries and reasons for recovery.
+3. Keep quarantined data out of capacity and offer an explicit, confirmed user
+   removal action that preserves valid work.
+4. Make hydration idempotent so saved quarantine metadata never duplicates.
+
+**Changes**
+
+- Added real-calendar and commitment-field normalization at the persisted-state
+  boundary, including ID, target, description, estimate, boolean, priority, and
+  status checks.
+- Default older missing `mustKeep`, `priority`, and `status` values without
+  discarding otherwise valid work.
+- Added a 100-entry bounded quarantine containing only sanitized ID, text, and
+  reason strings; arbitrary malformed objects do not survive into render state.
+- Added a tested `discardInvalidCommitments` domain action.
+- Added a Today warning that lists up to three safe summaries, explains that
+  they no longer block the plan, and requires confirmation before audited
+  removal.
+
+**Verification evidence**
+
+- Test-first: the focused suite failed at module instantiation because the new
+  discard/quarantine API did not exist.
+- `node tools/test-store.mjs`: 40 hydration and recovery assertions passed,
+  including malformed container, negative estimate, impossible date, missing
+  ID, primitive record, compatibility defaults, capacity isolation,
+  idempotence, and discard preservation.
+- `npm test`: formatting, 12 Rust unit tests, 2 Rust contract tests, all 8 shared
+  JS scenarios, store/capacity suites, and JavaScript syntax passed.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities; `git diff --check`: passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 5/10 | 9/10 | Invalid records cannot enter Today or capacity; valid work survives |
+| Test coverage / verifiability | 6/10 | 9/10 | Forty persistence/recovery assertions cover boundary and recovery action |
+| Maintainability | 6/10 | 8/10 | One hydration boundary owns compatibility, rejection, and bounded summaries |
+| User experience | 3/10 | 9/10 | The plan self-recovers and gives a visible, confirmed cleanup path |
+| Security / safety | 6/10 | 9/10 | Arbitrary stored objects are replaced by capped, sanitized metadata |
+
+**Lesson / process improvement:** Fail-closed validation needs a recovery
+surface. Quarantine untrusted records before domain logic, retain only the
+minimum safe explanation, and test that rehydrating repaired state is
+idempotent before adding a destructive discard control.
+
+**Next opportunity:** Add strict Clippy to CI so the locally proven warning
+policy compounds on every future change. Workspace next: pivot to AlpArcade's
+small/low-risk achievement-persistence boundary to keep improvement breadth.

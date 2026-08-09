@@ -5,6 +5,8 @@
 const KEY = "aily.v1.state";
 const CHAPTER_STATUSES = new Set(["pending", "done", "skipped"]);
 const TABS = new Set(["today", "targets", "review", "usage", "blocks", "setup", "activity"]);
+const COMMITMENT_STATUSES = new Set(["pending", "done", "dropped"]);
+const MAX_QUARANTINED_COMMITMENTS = 100;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -16,6 +18,108 @@ function records(value) {
 
 function finiteInRange(value, fallback, min, max) {
   return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function text(value, maxLength = 500) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+}
+
+function validYmd(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 2000 || month < 1 || month > 12 || day < 1) return false;
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function quarantineEntry(value, index, reasons) {
+  const source = isRecord(value) ? value : {};
+  return {
+    id: text(source.id, 100) || `saved-item-${index + 1}`,
+    text: text(source.text, 120) || `Saved commitment ${index + 1}`,
+    reason: reasons.join("; "),
+  };
+}
+
+function normalizeCommitment(value, index) {
+  if (!isRecord(value)) {
+    return {
+      invalid: quarantineEntry(value, index, ["record must be an object"]),
+    };
+  }
+
+  const reasons = [];
+  const id = text(value.id, 200);
+  const targetId = text(value.targetId, 200);
+  const planDate = value.planDate;
+  const description = text(value.text);
+  const estimateMin = value.estimateMin;
+  const mustKeep = value.mustKeep === undefined ? false : value.mustKeep;
+  const priority = value.priority === undefined ? 0 : value.priority;
+  const status = value.status === undefined ? "pending" : value.status;
+
+  if (!id) reasons.push("ID must be a non-empty string");
+  if (!targetId) reasons.push("target ID must be a non-empty string");
+  if (!validYmd(planDate)) reasons.push("plan date must be a real calendar date");
+  if (!description) reasons.push("description must be a non-empty string");
+  if (!Number.isFinite(estimateMin) || estimateMin <= 0) {
+    reasons.push("estimate must be a positive number");
+  }
+  if (typeof mustKeep !== "boolean") reasons.push("must-keep must be a boolean");
+  if (!Number.isFinite(priority) || priority < 0) {
+    reasons.push("priority must be a non-negative number");
+  }
+  if (!COMMITMENT_STATUSES.has(status)) reasons.push("status is not supported");
+
+  if (reasons.length) return { invalid: quarantineEntry(value, index, reasons) };
+  return {
+    valid: {
+      ...value,
+      id,
+      targetId,
+      planDate,
+      text: description,
+      estimateMin,
+      mustKeep,
+      priority,
+      status,
+    },
+  };
+}
+
+function hydrateCommitments(value) {
+  if (value === undefined) return { commitments: [], invalid: [] };
+  if (!Array.isArray(value)) {
+    return {
+      commitments: [],
+      invalid: [
+        quarantineEntry(null, 0, ["commitments container must be a list"]),
+      ],
+    };
+  }
+  const commitments = [];
+  const invalid = [];
+  value.forEach((commitment, index) => {
+    const normalized = normalizeCommitment(commitment, index);
+    if (normalized.valid) commitments.push(normalized.valid);
+    else invalid.push(normalized.invalid);
+  });
+  return { commitments, invalid };
+}
+
+function hydrateQuarantine(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((entry, index) => ({
+      id: text(entry.id, 100) || `quarantined-item-${index + 1}`,
+      text: text(entry.text, 120) || `Quarantined commitment ${index + 1}`,
+      reason: text(entry.reason, 500) || "saved commitment is invalid",
+    }));
 }
 
 export function defaultState() {
@@ -44,6 +148,7 @@ export function defaultState() {
     blockRules: [],
     usageSamples: [],
     audit: [],
+    recovery: { invalidCommitments: [] },
     ui: { tab: "today", tutorialOpen: true },
   };
 }
@@ -58,6 +163,8 @@ export function hydrateState(saved) {
   const savedChapters = isRecord(savedTutorial.chapters) ? savedTutorial.chapters : {};
   const savedPermissions = isRecord(savedTutorial.permissions) ? savedTutorial.permissions : {};
   const savedUi = isRecord(saved.ui) ? saved.ui : {};
+  const savedRecovery = isRecord(saved.recovery) ? saved.recovery : {};
+  const hydratedCommitments = hydrateCommitments(saved.commitments);
 
   const chapters = { ...defaults.tutorial.chapters };
   for (const chapterId of Object.keys(chapters)) {
@@ -87,7 +194,7 @@ export function hydrateState(saved) {
       ...target,
       metrics: records(target.metrics),
     })),
-    commitments: records(saved.commitments),
+    commitments: hydratedCommitments.commitments,
     tutorial: {
       ...defaults.tutorial,
       ...savedTutorial,
@@ -120,6 +227,12 @@ export function hydrateState(saved) {
         typeof sample.ts === "string"
     ),
     audit: records(saved.audit),
+    recovery: {
+      invalidCommitments: [
+        ...hydrateQuarantine(savedRecovery.invalidCommitments),
+        ...hydratedCommitments.invalid,
+      ].slice(0, MAX_QUARANTINED_COMMITMENTS),
+    },
     ui: {
       ...defaults.ui,
       ...savedUi,
@@ -130,6 +243,15 @@ export function hydrateState(saved) {
           : defaults.ui.tutorialOpen,
     },
   };
+}
+
+export function discardInvalidCommitments(state) {
+  if (!isRecord(state.recovery)) state.recovery = { invalidCommitments: [] };
+  const count = Array.isArray(state.recovery.invalidCommitments)
+    ? state.recovery.invalidCommitments.length
+    : 0;
+  state.recovery.invalidCommitments = [];
+  return count;
 }
 
 export function loadState() {

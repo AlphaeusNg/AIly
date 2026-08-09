@@ -6,6 +6,7 @@ import {
   todayISO,
   appendAudit,
   defaultState,
+  discardInvalidCommitments,
 } from "./store.js";
 import {
   checkPlanAccept,
@@ -72,6 +73,7 @@ function renderToday() {
   const cap = state.user.weeklyCapacityHours;
   const daily = dailySoftCapMinutes(cap, state.user.nightsPerWeek);
   const today = todayCommitments();
+  const invalidCommitments = state.recovery?.invalidCommitments || [];
   const used = today.reduce((a, c) => a + c.estimateMin, 0);
   const check = checkPlanAccept({
     weeklyCapacityHours: cap,
@@ -92,6 +94,13 @@ function renderToday() {
       <p class="muted">Journey for ${todayISO()} · ${used|0}m / ${daily|0}m day soft cap · ${cap}h week</p>
     </header>
     ${!isReady(state) ? `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>` : ""}
+    ${invalidCommitments.length ? `<div class="banner warn">
+      <strong>AIly quarantined ${invalidCommitments.length} invalid saved commitment${invalidCommitments.length === 1 ? "" : "s"}.</strong>
+      They cannot block today’s plan. Recreate anything you still need, then remove these damaged records.
+      <ul>${invalidCommitments.slice(0, 3).map((item) => `<li><strong>${escapeHtml(item.text)}</strong> — ${escapeHtml(item.reason)}</li>`).join("")}</ul>
+      ${invalidCommitments.length > 3 ? `<p>And ${invalidCommitments.length - 3} more.</p>` : ""}
+      <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
+    </div>` : ""}
     ${!check.ok ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>` : `<div class="banner ok">Plan fits capacity.</div>`}
     <div class="row">
       <input id="new-commit-text" placeholder="Next commitment…" />
@@ -525,6 +534,16 @@ document.addEventListener("click", (e) => {
   if (action === "drop-commit") {
     const c = state.commitments.find((x) => x.id === id);
     if (c) c.status = "dropped";
+    persist();
+  }
+  if (action === "discard-invalid-commitments") {
+    const count = state.recovery?.invalidCommitments?.length || 0;
+    if (!count) return;
+    if (!confirm(`Remove ${count} quarantined saved commitment${count === 1 ? "" : "s"}?`)) {
+      return;
+    }
+    discardInvalidCommitments(state);
+    appendAudit(state, "state.recovery_discard", `${count} invalid commitment(s)`);
     persist();
   }
   if (action === "replan") {
