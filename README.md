@@ -53,6 +53,10 @@ cd android && ./gradlew assembleDebug
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+The canonical `npm test` gate checks Rust formatting, strict Clippy warnings,
+Rust unit and shared-contract tests, browser-domain suites, CI/Pages policy,
+and recursive web, tool, and service-worker syntax.
+
 ## Repo layout
 
 | Path | Role |

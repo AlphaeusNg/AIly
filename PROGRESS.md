@@ -4,26 +4,32 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
+Last updated: 2026-08-10 (Cycle 87 across the projects workspace; AIly Cycle 7)
+
 ## Current state
 
 - Product phase: Phase 0 dogfood (tutorial, targets, capacity/replan, local
   block-rule model, PWA, and Android shell).
 - Baseline on 2026-08-09: all documented automated checks across the projects
   workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 6: 12 Rust unit tests, 2 Rust shared-contract
-  integration tests, 3 JavaScript suites (including 40 persistence/recovery
-  assertions), syntax checks, and strict Clippy all pass; Rust formatting is
-  enforced locally and in CI.
+- AIly baseline after Cycle 7: 12 Rust unit tests, 2 Rust shared-contract
+  integration tests, 4 JavaScript suites (including 40 persistence/recovery
+  assertions), 30 CI/Pages policy assertions, recursive syntax checks, strict
+  Clippy, and Rust formatting all pass through one canonical local/CI gate.
 - Invalid persisted commitments are quarantined with safe summaries and cannot
   enter capacity checks; Today offers a confirmed, audited discard path.
+- CI uses read-only permissions, bounded/cancelable Node 24 jobs, and current
+  checkout/setup-node majors; Pages uses current Node 24 action majors with only
+  its required deploy permissions.
+- Deployment version: `2026.08.10.1`.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Enforce strict Clippy in CI | Test / maintainability | Medium compounding value: local warning checks should not depend on agent discipline | Small / low | Strict Clippy already passes locally | Next |
+| 1 | Handle localStorage write failures without breaking recovery or input actions | Reliability / UX | Medium: privacy/quota failures can still throw through `persist()` | Small / low | Follow the boolean save/status pattern proven in sibling local-first apps | Next |
 | 2 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
-| 3 | Handle localStorage write failures without breaking recovery or input actions | Reliability / UX | Medium: privacy/quota failures can still throw through `persist()` | Small / low | Follow the boolean save/status pattern proven in sibling local-first apps | Backlog |
+| — | Enforce strict Clippy and modern workflow policy | Test / maintainability / security | High compounding value across all checks and deployments | Small-medium / low | 30 executable CI/Pages policy assertions | Completed in Cycle 7 |
 | — | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: malformed entries previously left capacity fail-closed with no reliable repair | Small / low | Quarantine plus explicit confirmed discard | Completed in Cycle 6 |
 | — | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Three files had pre-existing drift | Completed in Cycle 5 |
 | — | Add shared cross-language capacity/replan contract fixtures | Test / maintainability | High compounding value: prevents drift between Rust and browser ports | Medium / low | Five capacity and three replan scenarios | Completed in Cycle 4 |
@@ -347,3 +353,74 @@ idempotent before adding a destructive discard control.
 **Next opportunity:** Add strict Clippy to CI so the locally proven warning
 policy compounds on every future change. Workspace next: pivot to AlpArcade's
 small/low-risk achievement-persistence boundary to keep improvement breadth.
+
+### Cycle 7 — Enforce the complete verification/deployment policy (2026-08-10)
+
+**Why this won:** Strict Clippy passed only as an extra manual command, while
+the supposedly complete `npm test` gate and hosted CI omitted it. The same
+inspection found deprecated checkout/setup-node and Pages action runtimes,
+end-of-life Node 20, no CI least privilege/timeout/cancellation, and no
+executable protection against workflow regression. Fixing this one boundary
+protects every existing Rust and JavaScript contract plus every web deploy.
+
+**Plan and success criteria**
+
+1. Put strict Clippy and every current check behind the canonical `npm test`.
+2. Modernize CI and Pages with supported official majors and bounded,
+   least-privilege jobs.
+3. Add a test-first policy spanning the local gate and both workflows.
+4. Reproduce the complete gate, dependency audit, and staged web deployment
+   locally before publishing the accumulated verified series.
+
+**Changes**
+
+- Added strict `cargo clippy --all-targets --all-features -- -D warnings` to
+  `npm test`, between format and Rust test gates.
+- Added `tools/test-workflows.mjs` with 30 trigger, permission, concurrency,
+  timeout, runtime, command, staging, and deprecated-major assertions.
+- Replaced CI's duplicated command list with the canonical gate; installed both
+  rustfmt and Clippy; upgraded checkout/setup-node to v7 and Node to 24 LTS;
+  added `contents: read`, ref-scoped cancellation, and a ten-minute timeout.
+- Upgraded Pages to checkout v7, configure-pages v6,
+  upload-pages-artifact v5, and deploy-pages v5; retained only required Pages
+  permissions and added a ten-minute job timeout.
+- Expanded syntax coverage to every web module, test tool, and service worker.
+- Documented the full gate and bumped the web/PWA version to `2026.08.10.1`.
+
+**Verification evidence**
+
+- Test-first: the new policy suite failed on missing read-only CI permissions
+  before implementation.
+- Official GitHub releases identify configure-pages v6,
+  upload-pages-artifact v5, and deploy-pages v5 as current Node 24 majors;
+  checkout/setup-node v7 and Node 24 LTS were independently verified.
+- `npm test`: formatting and strict Clippy passed; 12 Rust unit and 2 Rust
+  integration tests passed; all 8 shared JS scenarios, capacity smoke, 40
+  persistence/recovery assertions, and 30 workflow policies passed.
+- Recursive web/tool/service-worker syntax passed.
+- `npm audit --audit-level=high`: 0 vulnerabilities.
+- Local Pages-equivalent staging produced 21 web files only; a retrying HTTP
+  preview served the app shell, service worker, and `2026.08.10.1` version.
+- `git diff --check`: passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | One canonical gate runs identically locally and in hosted CI |
+| Test coverage / verifiability | 6/10 | 10/10 | Strict lint and 30 workflow/deploy policies cannot drift silently |
+| Maintainability | 6/10 | 9/10 | Recursive discovery and one command replace duplicated workflow lists |
+| Security / robustness | 5/10 | 9/10 | Supported Node 24 actions, least privilege, and bounded jobs are enforced |
+| Developer experience | 6/10 | 9/10 | One fast command validates both domain stacks and delivery infrastructure |
+
+**Lesson / process improvement:** A “complete” local gate must include the
+strictest check developers rely on, or green local runs provide false
+confidence. Treat CI and deployment as one chain: test current action majors,
+permissions, bounds, staging scope, and the exact canonical command together.
+When release documentation and README examples disagree, verify the official
+latest release API before encoding a major.
+
+**Next opportunity:** Make `persist()` return a safe durability result and keep
+input/recovery actions working when localStorage writes fail, with an honest UI
+status. Workspace next: rotate after publishing this infrastructure-focused
+AIly cycle.
