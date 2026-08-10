@@ -435,6 +435,11 @@ function endFocusSessionIfNeeded() {
   return true;
 }
 
+function isMorningLocal() {
+  const h = new Date().getHours();
+  return h >= 5 && h < 11;
+}
+
 function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   const focusLabel = focusRemainingLabel();
@@ -443,6 +448,9 @@ function trayLabel() {
   if (!navigator.onLine) return "AIly · Offline";
   const pending = pendingReviewCount();
   if (isEveningLocal() && pending > 0) return `AIly · Review ${pending}`;
+  if (isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()) {
+    return "AIly · Intention?";
+  }
   return "AIly · Ready";
 }
 
@@ -603,6 +611,11 @@ function renderToday() {
       <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
     </div>` : ""}
     ${!check.ok ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>` : `<div class="banner ok">Plan fits capacity.</div>`}
+    ${
+      isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()
+        ? `<div class="banner warn">Morning pause — set today’s intention before the day runs you. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
+        : ""
+    }
     ${
       isEveningLocal() && pendingReviewCount() > 0
         ? `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
