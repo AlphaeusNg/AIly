@@ -382,15 +382,24 @@ function saveCheckIn() {
   if (focusMin > 0) {
     state.ui.focusSessionEndsAt = Date.now() + focusMin * 60_000;
     // Soft-arm all idle rules the user already created (still requires canArmBlocks).
+    let armed = 0;
     if (canArmBlocks(state)) {
       for (const r of state.blockRules || []) {
-        if (!r.armed) {
+        if (!r.armed && (r.appKeys || []).length) {
           r.armed = true;
+          armed += 1;
           appendAudit(state, "block.arm_focus", r.appKeys.join(","));
         }
       }
     }
     appendAudit(state, "focus.start", `${focusMin}m`);
+    if (focusMin > 0 && !canArmBlocks(state)) {
+      showToast("Focus timer started. Complete usage + admin grants to auto-arm blocks.", "ok", 4500);
+    } else if (armed) {
+      showToast(`Intention set · focus ${focusMin}m · armed ${armed} rule${armed === 1 ? "" : "s"}.`, "ok", 4500);
+      persist();
+      return;
+    }
   }
   appendAudit(state, "checkin.save", text || "(empty)");
   persist();
@@ -1801,6 +1810,8 @@ document.addEventListener("click", (e) => {
   if (action === "open-checkin") {
     state.ui.checkInOpen = true;
     renderCheckInModal();
+    // Focus intention field for speed
+    requestAnimationFrame(() => $("#checkin-intention")?.focus());
   }
   if (action === "checkin-save") {
     saveCheckIn();
