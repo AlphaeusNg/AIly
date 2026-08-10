@@ -30,6 +30,7 @@ import {
   isAppBlocked,
   validateBreakGlassComplete,
 } from "./block.js";
+import { proposeDayPlan, returnNudge } from "./ally.js";
 
 let state = loadState();
 /** @type {{ ok: boolean, error?: string, message?: string } | null} */
@@ -38,11 +39,14 @@ let lastSave = null;
 let pendingIntention = null;
 /** @type {null | { ruleId: string, startedAt: number, timer: number | null }} */
 let pendingBreakGlass = null;
+/** @type {null | { summary: string, proposals: Array }} */
+let allyProposal = null;
 /** @type {BeforeInstallPromptEvent | null} */
 let deferredInstall = null;
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
+let lastHiddenAt = 0;
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -474,6 +478,35 @@ function renderToday() {
         ? `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
         : ""
     }
+    <div class="row">
+      <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
+      ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
+    </div>
+    ${
+      allyProposal
+        ? `<div class="capacity-card ally-propose-card">
+             <h2>Ally proposal (local, not cloud)</h2>
+             <p class="ally-line">${escapeHtml(allyProposal.summary)}</p>
+             <ul class="list">
+               ${allyProposal.proposals
+                 .map(
+                   (p, i) => `<li>
+                   <strong>${escapeHtml(p.text)}</strong>
+                   <span class="muted">${p.estimateMin}m · ${escapeHtml(state.targets.find((t) => t.id === p.targetId)?.title || "?")}${p.mustKeep ? " · must-keep" : ""}</span>
+                   <span class="muted">${escapeHtml(p.reason || "")}</span>
+                   <button type="button" class="primary" data-action="ally-accept-one" data-index="${i}">Add</button>
+                 </li>`
+                 )
+                 .join("") || "<li class='muted'>Nothing to propose right now.</li>"}
+             </ul>
+             ${
+               allyProposal.proposals.length
+                 ? `<button type="button" class="primary" data-action="ally-accept-all">Add all that fit</button>`
+                 : ""
+             }
+           </div>`
+        : ""
+    }
     <div class="row quick-chips" aria-label="Quick commitment templates">
       <button type="button" class="chip" data-action="quick-commit" data-text="Deep work block" data-min="50">Deep work 50m</button>
       <button type="button" class="chip" data-action="quick-commit" data-text="Admin / email batch" data-min="25">Admin 25m</button>
@@ -839,6 +872,8 @@ function friendlyAuditTool(tool) {
     "app.installed": "App installed",
     "state.export": "Exported backup",
     "state.import": "Imported backup",
+    "ally.propose": "Ally proposed plan",
+    "ally.accept_all": "Accepted ally plan",
   };
   return map[tool] || tool;
 }
@@ -984,6 +1019,79 @@ function shouldAskIntention(estimateMin) {
   if (Date.now() < (state.ui.intentionSkipUntil || 0)) return false;
   // Always ask for 30m+; short tasks stay friction-light.
   return estimateMin >= 30;
+}
+
+function runAllyPropose() {
+  const result = proposeDayPlan({
+    targets: state.targets,
+    weeklyCapacityHours: state.user.weeklyCapacityHours,
+    nightsPerWeek: state.user.nightsPerWeek,
+    softCaps: softCaps(),
+    existingToday: todayCommitments(),
+    intention: state.ui.dailyIntention || "",
+    maxItems: 3,
+  });
+  allyProposal = {
+    summary: result.summary,
+    proposals: result.proposals || [],
+  };
+  appendAudit(
+    state,
+    "ally.propose",
+    result.ok ? `${allyProposal.proposals.length} items` : result.error || "failed"
+  );
+  persist();
+  if (!result.ok) {
+    showToast(result.summary, "error", 4500);
+  } else if (!allyProposal.proposals.length) {
+    showToast(result.summary, "ok", 4500);
+  } else {
+    showToast("Proposal ready — accept only what you mean.", "ok");
+  }
+}
+
+function acceptAllyProposal(index) {
+  if (!allyProposal?.proposals?.[index]) return;
+  const p = allyProposal.proposals[index];
+  const payload = {
+    text: p.text,
+    targetId: p.targetId,
+    estimateMin: p.estimateMin,
+    mustKeep: !!p.mustKeep,
+  };
+  if (shouldAskIntention(payload.estimateMin)) {
+    pendingIntention = payload;
+    renderIntentionModal();
+    return;
+  }
+  queueCommitment(payload);
+  allyProposal.proposals.splice(index, 1);
+  if (!allyProposal.proposals.length) allyProposal = null;
+  render();
+}
+
+function acceptAllAllyProposals() {
+  if (!allyProposal?.proposals?.length) return;
+  const list = allyProposal.proposals.slice();
+  allyProposal = null;
+  let n = 0;
+  for (const p of list) {
+    // Skip intention gate for bulk accept — user already reviewed the list.
+    state.commitments.push({
+      id: uid(),
+      targetId: p.targetId,
+      planDate: todayISO(),
+      text: p.text,
+      estimateMin: p.estimateMin,
+      mustKeep: !!p.mustKeep,
+      priority: 0,
+      status: "pending",
+    });
+    n += 1;
+  }
+  appendAudit(state, "ally.accept_all", `${n} commitments`);
+  persist();
+  showToast(`Added ${n} proposed commitment${n === 1 ? "" : "s"}.`, "ok");
 }
 
 function capacityPreview(extraMin = 0) {
@@ -1223,6 +1331,20 @@ document.addEventListener("click", (e) => {
   if (action === "goto-review") {
     state.ui.tab = "review";
     persist();
+  }
+  if (action === "ally-propose") {
+    runAllyPropose();
+  }
+  if (action === "ally-clear") {
+    allyProposal = null;
+    render();
+  }
+  if (action === "ally-accept-one") {
+    const idx = Number(act.dataset.index);
+    acceptAllyProposal(idx);
+  }
+  if (action === "ally-accept-all") {
+    acceptAllAllyProposals();
   }
   if (action === "quick-commit") {
     const text = act.dataset.text || "";
@@ -1465,7 +1587,19 @@ syncUsageTracker();
 
 document.addEventListener("visibilitychange", () => {
   usageTracker?.onVisibilityOrFocus();
-  if (document.visibilityState === "hidden") usageTracker?.flush();
+  if (document.visibilityState === "hidden") {
+    lastHiddenAt = Date.now();
+    usageTracker?.flush();
+  } else if (document.visibilityState === "visible" && lastHiddenAt) {
+    const awayMin = (Date.now() - lastHiddenAt) / 60000;
+    lastHiddenAt = 0;
+    const msg = returnNudge({
+      awayMin,
+      intention: state.ui.dailyIntention || "",
+      focusActive: focusRemainingMin() > 0,
+    });
+    if (msg) showToast(msg, "ok", 5500);
+  }
 });
 window.addEventListener("focus", () => usageTracker?.onVisibilityOrFocus());
 window.addEventListener("blur", () => usageTracker?.onVisibilityOrFocus());

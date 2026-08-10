@@ -33,6 +33,7 @@ check(gate, /cargo clippy --all-targets --all-features -- -D warnings/, "local g
 check(gate, /cargo test/, "local gate runs Rust tests");
 check(gate, /node tools\/test-usage\.mjs/, "local gate runs usage helper tests");
 check(gate, /node tools\/test-block\.mjs/, "local gate runs block helper tests");
+check(gate, /node tools\/test-ally\.mjs/, "local gate runs ally propose tests");
 check(gate, /node tools\/test-workflows\.mjs/, "local gate enforces workflow policy");
 check(gate, /find apps\/web\/js[\s\S]*node --check/, "local gate syntax-checks every web module");
 check(gate, /find tools[\s\S]*node --check/, "local gate syntax-checks every test tool");

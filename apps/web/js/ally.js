@@ -1,0 +1,274 @@
+/**
+ * Local propose-only ally helpers (no cloud, no model download).
+ * Deterministic suggestions the user can accept or ignore.
+ */
+
+import { checkPlanAccept, dailySoftCapMinutes } from "./capacity.js";
+
+const FLOOR = 15;
+
+function clampEstimate(min) {
+  if (!Number.isFinite(min) || min < FLOOR) return FLOOR;
+  // Snap to 15m steps for dogfood friendliness.
+  return Math.max(FLOOR, Math.round(min / 15) * 15);
+}
+
+function targetProgressRatio(target) {
+  const m = target?.metrics?.[0];
+  if (!m) return 0;
+  const span = Math.abs(m.target - m.baseline) || 1;
+  return Math.min(1, Math.max(0, Math.abs(m.current - m.baseline) / span));
+}
+
+/**
+ * Propose a capacity-honest set of commitments for today.
+ * Never mutates state — pure.
+ *
+ * @param {{
+ *   targets: Array,
+ *   weeklyCapacityHours: number,
+ *   nightsPerWeek: number,
+ *   softCaps?: Array,
+ *   existingToday?: Array,
+ *   intention?: string,
+ *   maxItems?: number,
+ * }} input
+ * @returns {{
+ *   ok: boolean,
+ *   proposals: Array<{ text: string, targetId: string, estimateMin: number, mustKeep: boolean, reason: string }>,
+ *   summary: string,
+ *   remainingMin: number,
+ *   error?: string,
+ * }}
+ */
+export function proposeDayPlan(input) {
+  const targets = Array.isArray(input?.targets)
+    ? input.targets.filter((t) => t && t.status === "active" && t.id)
+    : [];
+  const weekly = input?.weeklyCapacityHours;
+  const nights = input?.nightsPerWeek;
+  if (!Number.isFinite(weekly) || weekly <= 0 || !Number.isFinite(nights) || nights <= 0) {
+    return {
+      ok: false,
+      proposals: [],
+      summary: "Set a positive weekly capacity and nights/week first.",
+      remainingMin: 0,
+      error: "invalid_capacity",
+    };
+  }
+  if (!targets.length) {
+    return {
+      ok: false,
+      proposals: [],
+      summary: "Create at least one active target before AIly can propose a plan.",
+      remainingMin: dailySoftCapMinutes(weekly, nights),
+      error: "no_targets",
+    };
+  }
+
+  const dailyCap = dailySoftCapMinutes(weekly, nights);
+  const existing = Array.isArray(input?.existingToday) ? input.existingToday : [];
+  const used = existing.reduce(
+    (a, c) => a + (c && c.status !== "dropped" && Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+    0
+  );
+  let remaining = Math.max(0, dailyCap - used);
+  const maxItems = Number.isFinite(input?.maxItems) ? Math.max(1, Math.min(6, input.maxItems)) : 3;
+  const intention = typeof input?.intention === "string" ? input.intention.trim() : "";
+  const softCaps = Array.isArray(input?.softCaps) ? input.softCaps : [];
+
+  if (remaining < FLOOR) {
+    return {
+      ok: true,
+      proposals: [],
+      summary: "Today is already full under your soft cap. Drop or replan before adding more.",
+      remainingMin: remaining,
+    };
+  }
+
+  // Prefer targets furthest from their metric goal; stable by title for determinism.
+  const ranked = targets
+    .map((t) => ({
+      target: t,
+      progress: targetProgressRatio(t),
+      softHours:
+        softCaps.find((s) => s.targetId === t.id)?.hours ??
+        (Number.isFinite(t.softCapacityHours) ? t.softCapacityHours : null),
+    }))
+    .sort((a, b) => a.progress - b.progress || String(a.target.title).localeCompare(String(b.target.title)));
+
+  const proposals = [];
+  const intentionLower = intention.toLowerCase();
+
+  // If intention mentions a target title, bias first slot toward that target.
+  let order = ranked.slice();
+  if (intention) {
+    const hit = order.findIndex((r) =>
+      String(r.target.title || "")
+        .toLowerCase()
+        .split(/\s+/)
+        .some((word) => word.length > 2 && intentionLower.includes(word.toLowerCase()))
+    );
+    if (hit > 0) {
+      const [item] = order.splice(hit, 1);
+      order.unshift(item);
+    }
+  }
+
+  for (const row of order) {
+    if (proposals.length >= maxItems || remaining < FLOOR) break;
+    const t = row.target;
+    // Share remaining across remaining slots, but leave room for later targets.
+    const slotsLeft = maxItems - proposals.length;
+    let slice = clampEstimate(remaining / slotsLeft);
+
+    // Respect soft weekly hours as a soft daily share when present.
+    if (row.softHours != null && row.softHours > 0) {
+      const softDay = clampEstimate((row.softHours * 60) / Math.max(1, nights));
+      slice = Math.min(slice, softDay);
+    }
+    // Cap deep work blocks for dogfood readability.
+    slice = Math.min(slice, 90);
+    slice = clampEstimate(slice);
+    if (slice > remaining) slice = clampEstimate(remaining);
+    if (slice < FLOOR) continue;
+
+    const metric = t.metrics?.[0];
+    const metricHint = metric?.name ? ` on ${metric.name}` : "";
+    const text = intention && proposals.length === 0
+      ? `Protect: ${intention.slice(0, 80)}`
+      : `Progress: ${String(t.title).slice(0, 60)}${metricHint}`;
+
+    const draft = {
+      text,
+      targetId: t.id,
+      estimateMin: slice,
+      mustKeep: proposals.length === 0 && !!intention,
+      reason:
+        proposals.length === 0 && intention
+          ? "Anchored to today’s intention"
+          : `Lowest progress first (${Math.round(row.progress * 100)}% journey)`,
+    };
+
+    const previewToday = [
+      ...existing
+        .filter((c) => c && c.status !== "dropped")
+        .map((c) => ({
+          id: c.id,
+          targetId: c.targetId,
+          estimateMin: c.estimateMin,
+          mustKeep: !!c.mustKeep,
+        })),
+      ...proposals.map((p, i) => ({
+        id: `prop-${i}`,
+        targetId: p.targetId,
+        estimateMin: p.estimateMin,
+        mustKeep: p.mustKeep,
+      })),
+      {
+        id: "prop-next",
+        targetId: draft.targetId,
+        estimateMin: draft.estimateMin,
+        mustKeep: draft.mustKeep,
+      },
+    ];
+
+    const check = checkPlanAccept({
+      weeklyCapacityHours: weekly,
+      nightsPerWeek: nights,
+      softCaps,
+      weekOther: [],
+      today: previewToday,
+    });
+    if (!check.ok) {
+      // Try smaller slice once.
+      draft.estimateMin = FLOOR;
+      previewToday[previewToday.length - 1].estimateMin = FLOOR;
+      const retry = checkPlanAccept({
+        weeklyCapacityHours: weekly,
+        nightsPerWeek: nights,
+        softCaps,
+        weekOther: [],
+        today: previewToday,
+      });
+      if (!retry.ok) continue;
+    }
+
+    proposals.push(draft);
+    remaining -= draft.estimateMin;
+  }
+
+  // Always leave a small recovery buffer suggestion if room remains and we proposed deep work only.
+  if (remaining >= 15 && proposals.length < maxItems && proposals.length > 0) {
+    const buffer = clampEstimate(Math.min(15, remaining));
+    const anchor = proposals[0];
+    const draft = {
+      text: "Buffer / break — protect recovery",
+      targetId: anchor.targetId,
+      estimateMin: buffer,
+      mustKeep: false,
+      reason: "Leave margin so the day stays honest",
+    };
+    const previewToday = [
+      ...existing
+        .filter((c) => c && c.status !== "dropped")
+        .map((c) => ({
+          id: c.id,
+          targetId: c.targetId,
+          estimateMin: c.estimateMin,
+          mustKeep: !!c.mustKeep,
+        })),
+      ...proposals.map((p, i) => ({
+        id: `prop-${i}`,
+        targetId: p.targetId,
+        estimateMin: p.estimateMin,
+        mustKeep: p.mustKeep,
+      })),
+      {
+        id: "prop-buffer",
+        targetId: draft.targetId,
+        estimateMin: draft.estimateMin,
+        mustKeep: false,
+      },
+    ];
+    const check = checkPlanAccept({
+      weeklyCapacityHours: weekly,
+      nightsPerWeek: nights,
+      softCaps,
+      weekOther: [],
+      today: previewToday,
+    });
+    if (check.ok) {
+      proposals.push(draft);
+      remaining -= buffer;
+    }
+  }
+
+  const summary = proposals.length
+    ? `Proposed ${proposals.length} block${proposals.length === 1 ? "" : "s"} (~${proposals.reduce((a, p) => a + p.estimateMin, 0)}m) under your ~${Math.round(dailyCap)}m day soft cap. Accept only what you mean.`
+    : "No safe proposals fit remaining capacity.";
+
+  return {
+    ok: true,
+    proposals,
+    summary,
+    remainingMin: remaining,
+  };
+}
+
+/**
+ * Lightweight return-from-away check-in copy.
+ * @param {{ awayMin: number, intention?: string, focusActive?: boolean }} ctx
+ */
+export function returnNudge(ctx) {
+  const away = Number.isFinite(ctx?.awayMin) ? ctx.awayMin : 0;
+  if (away < 5) return null;
+  const intention = typeof ctx?.intention === "string" ? ctx.intention.trim() : "";
+  if (ctx?.focusActive) {
+    return `Welcome back (${Math.round(away)}m away). Focus is still on — is this still what you want?`;
+  }
+  if (intention) {
+    return `Welcome back (${Math.round(away)}m away). Your intention was “${intention.slice(0, 80)}”. Still true?`;
+  }
+  return `Welcome back (${Math.round(away)}m away). Pause — what do you want the next stretch to be for?`;
+}

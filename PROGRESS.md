@@ -4,12 +4,12 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 16)
+Last updated: 2026-08-11 (AIly Cycle 17)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell — full daily ally loop.
-- Deployment version: `2026.08.11.6`.
+- Product phase: Phase 0 dogfood executable shell with local propose-only ally.
+- Deployment version: `2026.08.11.7`.
 
 ## Opportunity backlog
 
@@ -17,8 +17,9 @@ Last updated: 2026-08-11 (AIly Cycle 16)
 |---|---|---|---|---|---|---|
 | 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
-| 3 | Optional local AI propose-only planner | Product | Medium: ally brain without cloud | Large / medium | After usage/block honesty | Backlog |
+| 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
 | 4 | Wire Android unit tests into CI when runner has JDK | Test / DX | Medium | Small / low | Local `:app:testDebugUnitTest` green | Backlog |
+| — | Local propose-only day planner + return nudge | Ally UX | High | Medium / low | ally.js + tests | Completed in Cycle 17 |
 | — | AIly Android shell unit + instrumented tests | Test / DX | Medium | Small / low | Replaces Capacitor samples | Completed in Cycle 13 |
 | — | Daily check-in + focus sessions | Ally UX | High | Small / low | Cycle 12 | Completed in Cycle 12 |
 | — | In-app usage tracker + break-glass delay UI | Ally UX | High: honesty loop dogfood | Medium / low | Cycle 11 | Completed in Cycle 11 |

@@ -313,6 +313,11 @@ body.app-ready .app-shell[hidden] {
   border-top: 1px solid var(--border);
 }
 
+.ally-propose-card {
+  border-color: #2a4a6a;
+  background: linear-gradient(160deg, #152033 0%, #121820 70%);
+}
+
 .empty-hero {
   text-align: center;
   padding: 1.5rem 1rem 0.5rem;
