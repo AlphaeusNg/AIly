@@ -288,7 +288,13 @@ function dismissBootSplash() {
   requestAnimationFrame(() => requestAnimationFrame(finish));
 }
 
+function applyUiPrefs() {
+  document.body.classList.toggle("density-compact", state.ui.density === "compact");
+  document.body.classList.toggle("reduce-motion", !!state.ui.reduceMotion);
+}
+
 function render() {
+  applyUiPrefs();
   $("#brand-version").textContent = SITE_VERSION.id;
   $("#tray-status").textContent = trayLabel();
   renderNetStatus();
@@ -947,6 +953,14 @@ function renderSetup() {
       <p class="muted">Day soft cap ≈ ${dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek)|0}m</p>
     </div>
     <div class="card">
+      <h2>Display</h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="setup-compact" ${state.ui.density === "compact" ? "checked" : ""} /> Compact density</label>
+        <label class="chk"><input type="checkbox" id="setup-reduce-motion" ${state.ui.reduceMotion ? "checked" : ""} /> Reduce motion</label>
+        <button type="button" data-action="save-display">Save display</button>
+      </div>
+    </div>
+    <div class="card">
       <h2>Permissions</h2>
       <p>Usage: <strong>${state.tutorial.permissions.usage ? "on" : "off"}</strong>
          · Notifications: <strong>${state.tutorial.permissions.notifications ? "on" : "off"}</strong>
@@ -966,6 +980,7 @@ function renderSetup() {
           <span class="file-pick-label">Import backup…</span>
           <input type="file" id="import-backup" accept="application/json,.json" hidden />
         </label>
+        <button type="button" data-action="clear-audit">Clear activity log</button>
         <button type="button" data-action="reset-demo">Reset demo data</button>
       </div>
     </div>
@@ -1009,6 +1024,8 @@ function friendlyAuditTool(tool) {
     "capacity.save": "Saved capacity",
     "permission.revoke": "Revoked permission",
     "user.name": "Saved display name",
+    "ui.display": "Saved display prefs",
+    "audit.clear": "Cleared activity log",
   };
   return map[tool] || tool;
 }
@@ -1775,6 +1792,22 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "user.name", state.user.displayName || "(cleared)");
     persist();
     showToast(state.user.displayName ? `Hi, ${state.user.displayName}.` : "Name cleared.", "ok");
+  }
+  if (action === "save-display") {
+    state.ui.density = $("#setup-compact")?.checked ? "compact" : "comfortable";
+    state.ui.reduceMotion = !!$("#setup-reduce-motion")?.checked;
+    appendAudit(state, "ui.display", `${state.ui.density},${state.ui.reduceMotion}`);
+    persist();
+    showToast("Display preferences saved.", "ok");
+  }
+  if (action === "clear-audit") {
+    const n = (state.audit || []).length;
+    if (!n) return;
+    if (!confirm(`Clear ${n} activity log entries on this device?`)) return;
+    state.audit = [];
+    appendAudit(state, "audit.clear", `${n}`);
+    persist();
+    showToast("Activity log cleared.", "ok");
   }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);

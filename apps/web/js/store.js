@@ -158,6 +158,8 @@ export function defaultState() {
       checkInOpen: false,
       focusSessionEndsAt: 0,
       dailyIntention: "",
+      density: "comfortable",
+      reduceMotion: false,
     },
   };
 }
@@ -269,6 +271,8 @@ export function hydrateState(saved) {
         ? savedUi.focusSessionEndsAt
         : defaults.ui.focusSessionEndsAt,
       dailyIntention: text(savedUi.dailyIntention, 280),
+      density: savedUi.density === "compact" ? "compact" : defaults.ui.density,
+      reduceMotion: typeof savedUi.reduceMotion === "boolean" ? savedUi.reduceMotion : false,
     },
   };
 }

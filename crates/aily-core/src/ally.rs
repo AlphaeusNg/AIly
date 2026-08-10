@@ -75,7 +75,10 @@ fn day_fits(
     let mut total = 0.0_f64;
     let mut per_goal: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
 
-    let push = |tid: &str, mins: f64, total: &mut f64, per: &mut std::collections::HashMap<String, f64>| {
+    let push = |tid: &str,
+                mins: f64,
+                total: &mut f64,
+                per: &mut std::collections::HashMap<String, f64>| {
         *total += mins;
         *per.entry(tid.to_string()).or_insert(0.0) += mins;
     };
@@ -89,7 +92,12 @@ fn day_fits(
         );
     }
     for p in proposals {
-        push(&p.target_id, p.estimate_min as f64, &mut total, &mut per_goal);
+        push(
+            &p.target_id,
+            p.estimate_min as f64,
+            &mut total,
+            &mut per_goal,
+        );
     }
     push(
         &next.target_id,
@@ -166,8 +174,9 @@ pub fn propose_day_plan(input: &ProposeInput) -> ProposeOutput {
         return ProposeOutput {
             ok: true,
             proposals: vec![],
-            summary: "Today is already full under your soft cap. Drop or replan before adding more."
-                .into(),
+            summary:
+                "Today is already full under your soft cap. Drop or replan before adding more."
+                    .into(),
             remaining_min: remaining,
             error: None,
         };

@@ -9,7 +9,9 @@ pub mod replan;
 pub mod target;
 pub mod tutorial;
 
-pub use ally::{propose_day_plan, ExistingCommitment, Proposal, ProposeInput, ProposeOutput, TargetHint};
+pub use ally::{
+    propose_day_plan, ExistingCommitment, Proposal, ProposeInput, ProposeOutput, TargetHint,
+};
 pub use audit::{AllyActionLog, Origin};
 pub use block::{BlockMode, BlockRule, BreakGlassPolicy};
 pub use capacity::{check_plan_accept, CapacityConfig, CapacityError, CapacityInput};
