@@ -35,6 +35,7 @@ import {
 } from "./block.js";
 import { proposeDayPlan, returnNudge } from "./ally.js";
 import {
+  attentionMismatchNote,
   intentionStreak,
   weekJourneyStats,
   weekReflection,
@@ -584,6 +585,12 @@ function renderToday() {
         <div class="capacity-meter-fill ${meterClass(ratio)}" style="width:${fillPct}%"></div>
       </div>
       <p class="ally-line">${allyTimeMessage(daily, used, usage)}</p>
+      ${
+        (() => {
+          const note = attentionMismatchNote(used, usage);
+          return note ? `<p class="ally-line muted">${escapeHtml(note)}</p>` : "";
+        })()
+      }
       ${
         state.ui.dailyIntention
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>

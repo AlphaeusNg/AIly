@@ -119,3 +119,19 @@ export function weekReflection(stats) {
   }
   return "Plans outpaced completion. Consider fewer, must-keep blocks and an honest replan.";
 }
+
+/**
+ * Compare planned minutes vs logged attention for a gentle mismatch note.
+ * @returns {string|null}
+ */
+export function attentionMismatchNote(plannedMin, usageMin) {
+  if (!Number.isFinite(plannedMin) || !Number.isFinite(usageMin)) return null;
+  if (plannedMin < 30 || usageMin < 15) return null;
+  if (usageMin > plannedMin * 1.5) {
+    return "Logged attention is well above planned work — worth a honest pause.";
+  }
+  if (plannedMin > usageMin * 2 && usageMin >= 15) {
+    return "Plan is much larger than logged attention — replan or protect a real focus block.";
+  }
+  return null;
+}

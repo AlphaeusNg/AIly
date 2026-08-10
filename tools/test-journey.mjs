@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  attentionMismatchNote,
   intentionStreak,
   previousDayISO,
   weekJourneyStats,
@@ -83,5 +84,10 @@ assert.equal(
   ),
   2
 );
+
+assert.equal(attentionMismatchNote(10, 100), null, "ignores tiny plans");
+assert.match(attentionMismatchNote(60, 120), /above planned/i);
+assert.match(attentionMismatchNote(120, 20), /larger than logged/i);
+assert.equal(attentionMismatchNote(60, 50), null);
 
 console.log("test-journey.mjs: week stats and streak helpers passed");
