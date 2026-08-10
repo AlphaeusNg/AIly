@@ -2352,10 +2352,9 @@ window.setInterval(() => {
     }
     return;
   }
-  if (document.visibilityState === "visible" && state.ui.tab === "today" && !state.ui.tutorialOpen) {
-    renderToday();
-    $("#tray-status").textContent = trayLabel();
-  } else if (document.visibilityState === "visible") {
+  if (document.visibilityState === "visible" && !state.ui.tutorialOpen) {
+    if (state.ui.tab === "today") renderToday();
+    if (state.ui.tab === "usage" && state.tutorial.permissions.usage) renderUsage();
     $("#tray-status").textContent = trayLabel();
     renderNav();
   }
