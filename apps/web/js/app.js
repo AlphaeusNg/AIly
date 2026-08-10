@@ -963,11 +963,15 @@ function renderIntentionModal() {
   const fillPct = Math.min(100, Math.round(ratio * 100));
   const target = state.targets.find((t) => t.id === pendingIntention.targetId);
 
+  const preview = capacityPreview(pendingIntention.estimateMin);
   $("#intention-body").innerHTML = `You're about to put <strong>${pendingIntention.estimateMin}m</strong> toward
     <strong>${escapeHtml(pendingIntention.text)}</strong>
     ${target ? ` · target <strong>${escapeHtml(target.title)}</strong>` : ""}.`;
-  $("#intention-hint").textContent =
-    `That would make ~${after|0}m of ~${daily|0}m day soft capacity (${fillPct}%). Do you really want to spend this time this way?`;
+  let hint = `That would make ~${after|0}m of ~${daily|0}m day soft capacity (${fillPct}%). Do you really want to spend this time this way?`;
+  if (!preview.ok) {
+    hint += ` Warning: ${errorLabel(preview.error)}.`;
+  }
+  $("#intention-hint").textContent = hint;
   const fill = $("#intention-meter-fill");
   if (fill) {
     fill.style.width = `${fillPct}%`;

@@ -4,12 +4,12 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 15)
+Last updated: 2026-08-11 (AIly Cycle 16)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell — full daily ally loop.
-- Deployment version: `2026.08.11.5`.
+- Deployment version: `2026.08.11.6`.
 
 ## Opportunity backlog
 
@@ -34,6 +34,18 @@ Last updated: 2026-08-11 (AIly Cycle 15)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 16 — Intention capacity warning + docs honesty (2026-08-11)
+
+**Why this won:** The intention gate should show capacity risk before confirm;
+docs must match dogfood so we do not overclaim OS enforcement.
+
+**Changes**
+
+- Intention modal includes capacity preview error text when over budget.
+- Privacy + blocking docs updated for session tracking and simulation limits.
+
+**Verification:** `npm test`.
 
 ### Cycle 15 — Capacity preflight + readable activity (2026-08-11)
 
