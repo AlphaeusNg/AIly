@@ -120,6 +120,16 @@ function softCaps() {
     .map((t) => ({ targetId: t.id, hours: t.softCapacityHours }));
 }
 
+/** Soft-cap hours still free this week for a target (today + rough week view). */
+function softCapRemainingHours(targetId) {
+  const soft = softCaps().find((s) => s.targetId === targetId);
+  if (!soft) return null;
+  const usedMin = (state.commitments || [])
+    .filter((c) => c.targetId === targetId && c.status !== "dropped")
+    .reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  return Math.max(0, soft.hours - usedMin / 60);
+}
+
 function todayCommitments() {
   const d = todayISO();
   return state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
@@ -704,6 +714,11 @@ function renderTargets() {
                 <div class="capacity-meter-fill" style="width:${pct}%"></div>
               </div>
               <span class="muted">${pct}% of the journey</span>
+              ${
+                t.status === "active" && t.softCapacityHours != null
+                  ? `<span class="muted">~${softCapRemainingHours(t.id)?.toFixed(1) ?? "?"}h soft remaining (all open work)</span>`
+                  : ""
+              }
             </div>
             <div class="row">
               ${t.softCapacityHours != null ? `<span class="tag">${t.softCapacityHours}h soft</span>` : ""}
