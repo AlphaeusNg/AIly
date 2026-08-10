@@ -1447,6 +1447,13 @@ function capacityPreview(extraMin = 0) {
 
 function queueCommitment(payload) {
   const preview = capacityPreview(payload.estimateMin);
+  const active = state.targets.some((t) => t.id === payload.targetId && t.status === "active");
+  if (!active) {
+    showToast("Pick an active target first.", "error");
+    pendingIntention = null;
+    renderIntentionModal();
+    return;
+  }
   state.commitments.push({
     id: uid(),
     targetId: payload.targetId,
@@ -1459,6 +1466,8 @@ function queueCommitment(payload) {
   });
   appendAudit(state, "commitment.add", payload.text);
   pendingIntention = null;
+  // Clear form fields when present
+  if ($("#new-commit-text")) $("#new-commit-text").value = "";
   persist();
   if (!preview.ok) {
     showToast(
