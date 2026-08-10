@@ -2067,6 +2067,8 @@ document.addEventListener("click", (e) => {
     state.tutorial.permissions.usage = true;
     completeChapter("attention");
     persist();
+    syncUsageTracker();
+    showToast("Usage tracking on — AIly will log this tab’s attention.", "ok");
   }
   if (action === "clear-usage") {
     const n = (state.usageSamples || []).length;
