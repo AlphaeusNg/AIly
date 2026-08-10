@@ -732,6 +732,9 @@ function renderUsage() {
              <input name="mins" type="number" min="1" value="15" style="width:5rem" />
              <button class="primary" type="submit">Log sample usage</button>
            </form>
+           <div class="row">
+             <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all samples</button>
+           </div>
            <ul class="list">${(state.usageSamples || [])
              .slice(0, 20)
              .map((u) => `<li>${escapeHtml(u.app)} · ${u.mins}m · ${u.ts.slice(0, 16).replace("T", " ")}</li>`)
@@ -743,18 +746,31 @@ function renderUsage() {
   $("#usage-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const result = appendUsageSample(state.usageSamples || [], {
-      app: String(fd.get("app")),
-      mins: Number(fd.get("mins")),
-    });
+    const app = String(fd.get("app"));
+    const mins = Number(fd.get("mins"));
+    const blocked = isAppBlocked(state.blockRules || [], app);
+    if (blocked) {
+      const ok = confirm(
+        `${app} matches an armed off-limits rule. Log this attention honestly anyway? (No shame — clarity only.)`
+      );
+      if (!ok) return;
+      appendAudit(state, "usage.blocked_sample", app);
+    }
+    const result = appendUsageSample(state.usageSamples || [], { app, mins });
     if (!result.added) {
       showToast("Enter a valid app and minutes.", "error");
       return;
     }
     state.usageSamples = result.samples;
-    appendAudit(state, "usage.sample", String(fd.get("app")));
+    appendAudit(state, "usage.sample", app);
     persist();
-    showToast("Usage sample logged.", "ok");
+    showToast(
+      blocked
+        ? "Logged. Noticing off-limits time is part of the journey."
+        : "Usage sample logged.",
+      "ok",
+      4000
+    );
   });
 }
 
@@ -928,6 +944,8 @@ function friendlyAuditTool(tool) {
     "usage.session": "Session attention",
     "usage.merge": "Merged attention",
     "usage.sample": "Logged usage",
+    "usage.blocked_sample": "Logged off-limits app",
+    "usage.clear": "Cleared usage samples",
     "plan.replan": "Replanned day",
     "tutorial.complete": "Tutorial step",
     "permission.grant": "Granted permission",
@@ -1608,6 +1626,15 @@ document.addEventListener("click", (e) => {
     state.tutorial.permissions.usage = true;
     completeChapter("attention");
     persist();
+  }
+  if (action === "clear-usage") {
+    const n = (state.usageSamples || []).length;
+    if (!n) return;
+    if (!confirm(`Clear ${n} usage sample${n === 1 ? "" : "s"} from this device?`)) return;
+    state.usageSamples = [];
+    appendAudit(state, "usage.clear", `${n}`);
+    persist();
+    showToast("Usage samples cleared.", "ok");
   }
   if (action === "toggle-arm") {
     const r = state.blockRules.find((x) => x.id === id);

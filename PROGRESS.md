@@ -4,12 +4,12 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 18)
+Last updated: 2026-08-11 (AIly Cycle 19)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell with local propose-only ally.
-- Deployment version: `2026.08.11.8`.
+- Deployment version: `2026.08.11.9`.
 
 ## Opportunity backlog
 
@@ -35,6 +35,19 @@ Last updated: 2026-08-11 (AIly Cycle 18)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 19 — Off-limits usage honesty (2026-08-11)
+
+**Why this won:** Logging time on a blocked app should trigger a conscious
+pause — core ally job without needing OS hooks yet.
+
+**Changes**
+
+- Confirm before logging usage that matches an armed block rule.
+- Clear all usage samples action.
+- README refresh for propose + shell commands.
+
+**Verification:** `npm test`.
 
 ### Cycle 18 — Native back, weekly review, setup controls (2026-08-11)
 
