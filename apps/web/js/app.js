@@ -1461,14 +1461,19 @@ function completeChapter(id) {
   appendAudit(state, "tutorial.complete", id);
 }
 
-async function grantAndComplete(chapter) {
+async async function grantAndComplete(chapter) {
   if (chapter.grant === "usage") state.tutorial.permissions.usage = true;
   if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
   if (chapter.grant === "notifications") {
     state.tutorial.permissions.notifications = true;
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
-        await Notification.requestPermission();
+        const result = await Notification.requestPermission();
+        if (result !== "granted") {
+          showToast("Browser notifications blocked — AIly will still work; nudges stay in-app.", "ok", 4500);
+        }
+      } else if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+        showToast("Browser notifications are denied — in-app toasts still work.", "ok", 4000);
       }
     } catch {
       // Browser denied or unavailable — permission flag still records user intent.
@@ -1477,6 +1482,7 @@ async function grantAndComplete(chapter) {
   completeChapter(chapter.id);
   appendAudit(state, "permission.grant", chapter.grant);
   persist();
+  syncUsageTracker();
 }
 
 function onImportBackup(e) {
