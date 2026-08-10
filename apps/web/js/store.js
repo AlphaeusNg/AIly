@@ -162,6 +162,7 @@ export function defaultState() {
       dailyIntention: "",
       density: "comfortable",
       reduceMotion: false,
+      activityFilter: "",
     },
   };
 }
@@ -279,6 +280,7 @@ export function hydrateState(saved) {
       dailyIntention: text(savedUi.dailyIntention, 280),
       density: savedUi.density === "compact" ? "compact" : defaults.ui.density,
       reduceMotion: typeof savedUi.reduceMotion === "boolean" ? savedUi.reduceMotion : false,
+      activityFilter: text(savedUi.activityFilter, 80),
     },
   };
 }

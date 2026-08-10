@@ -1121,11 +1121,23 @@ function friendlyAuditTool(tool) {
 
 function renderActivity() {
   const el = $("#panel-activity");
+  const filter = (state.ui.activityFilter || "").trim().toLowerCase();
+  const rows = (state.audit || []).filter((a) => {
+    if (!filter) return true;
+    const hay = `${a.tool || ""} ${a.detail || ""} ${friendlyAuditTool(a.tool)}`.toLowerCase();
+    return hay.includes(filter);
+  });
   el.innerHTML = `
     <header class="panel-head"><h1>Activity</h1>
     <p class="muted">What AIly recorded (local audit — never leaves this device).</p></header>
+    <div class="row">
+      <input id="activity-filter" type="search" placeholder="Filter log…" value="${escapeHtml(state.ui.activityFilter || "")}" />
+      <button type="button" data-action="apply-activity-filter">Filter</button>
+      ${filter ? `<button type="button" data-action="clear-activity-filter">Clear</button>` : ""}
+    </div>
+    <p class="muted">${rows.length} shown${filter ? ` · filter “${escapeHtml(filter)}”` : ""}</p>
     <ul class="list">
-      ${(state.audit || [])
+      ${rows
         .map((a) => {
           const when = typeof a.ts === "string" ? a.ts.slice(0, 16).replace("T", " ") : "";
           return `<li>
@@ -1137,6 +1149,12 @@ function renderActivity() {
         .join("") || "<li class='muted'>No actions yet. Use Today, Targets, or Blocks to begin.</li>"}
     </ul>
   `;
+  $("#activity-filter")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      state.ui.activityFilter = e.target.value || "";
+      persist();
+    }
+  });
 }
 
 function renderTutorialModal() {
@@ -2183,6 +2201,14 @@ document.addEventListener("click", (e) => {
       .catch(() => {
         showToast("Install prompt failed.", "error");
       });
+  }
+  if (action === "apply-activity-filter") {
+    state.ui.activityFilter = ($("#activity-filter")?.value || "").trim().slice(0, 80);
+    persist();
+  }
+  if (action === "clear-activity-filter") {
+    state.ui.activityFilter = "";
+    persist();
   }
   if (action === "copy-version") {
     const text = `AIly ${SITE_VERSION.id}`;
