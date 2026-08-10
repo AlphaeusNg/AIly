@@ -179,6 +179,10 @@ assert.match(html, /id="boot-splash"/, "index includes boot splash");
 assert.match(html, /assets\/logo\.svg/, "index references logo asset");
 assert.match(html, /id="intention-modal"/, "index includes intention modal");
 assert.match(html, /id="install-banner"/, "index includes install banner");
+assert.match(html, /id="checkin-modal"/, "index includes daily check-in modal");
+assert.match(html, /id="breakglass-modal"/, "index includes break-glass modal");
+assert.equal(defaultState().ui.lastCheckInDate, "", "default has no check-in day");
+assert.equal(typeof defaultState().ui.focusSessionEndsAt, "number", "focus session end is numeric");
 
 const sw = readFileSync(new URL("../apps/web/sw.js", import.meta.url), "utf8");
 assert.match(sw, /assets\/logo\.svg/, "service worker caches logo");

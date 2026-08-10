@@ -4,16 +4,15 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 11)
+Last updated: 2026-08-11 (AIly Cycle 12)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell with in-app attention
-  tracking + simulated block enforcement (break-glass delay UI).
-- Cycle 11: `usage.js` session tracker (visibility/focus), sample merge,
-  day-by-app bars; `block.js` break-glass countdown/validation + try-open
-  simulation; suites `test-usage.mjs` / `test-block.mjs` in `npm test`.
-- Deployment version: `2026.08.11.1`.
+- Product phase: Phase 0 dogfood executable shell with attention tracking,
+  break-glass delay, daily intention check-in, and optional focus sessions.
+- Cycle 12: first-ready daily check-in modal; intention chip on Today;
+  focus session timer that can soft-arm rules; tray shows remaining focus.
+- Deployment version: `2026.08.11.2`.
 
 ## Opportunity backlog
 
@@ -36,6 +35,20 @@ Last updated: 2026-08-11 (AIly Cycle 11)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 12 — Daily intention + focus session (2026-08-11)
+
+**Why this won:** Time consciousness needs a morning pause, not only per-
+commitment friction. Focus sessions make blocks meaningful for dogfood.
+
+**Changes**
+
+- Check-in modal after tutorial-ready first open each day.
+- Persisted `dailyIntention`, `focusSessionEndsAt`, `lastCheckInDate`.
+- Optional focus length arms existing rules when admin grants exist.
+- Today chip + edit; tray countdown; end-early action.
+
+**Verification:** `npm test` green.
 
 ### Cycle 11 — Usage tracker + break-glass delay (2026-08-11)
 

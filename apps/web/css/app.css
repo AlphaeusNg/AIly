@@ -307,6 +307,12 @@ body.app-ready .app-shell[hidden] {
   color: var(--accent-2);
 }
 
+.intention-chip {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
+}
+
 .intention-modal .intention-body {
   margin: 0.25rem 0 0.75rem;
   line-height: 1.5;

@@ -154,6 +154,10 @@ export function defaultState() {
       tutorialOpen: true,
       installBannerDismissed: false,
       intentionSkipUntil: 0,
+      lastCheckInDate: "",
+      checkInOpen: false,
+      focusSessionEndsAt: 0,
+      dailyIntention: "",
     },
   };
 }
@@ -253,6 +257,18 @@ export function hydrateState(saved) {
       intentionSkipUntil: Number.isFinite(savedUi.intentionSkipUntil)
         ? savedUi.intentionSkipUntil
         : defaults.ui.intentionSkipUntil,
+      lastCheckInDate:
+        typeof savedUi.lastCheckInDate === "string" && validYmd(savedUi.lastCheckInDate)
+          ? savedUi.lastCheckInDate
+          : defaults.ui.lastCheckInDate,
+      checkInOpen:
+        typeof savedUi.checkInOpen === "boolean"
+          ? savedUi.checkInOpen
+          : defaults.ui.checkInOpen,
+      focusSessionEndsAt: Number.isFinite(savedUi.focusSessionEndsAt)
+        ? savedUi.focusSessionEndsAt
+        : defaults.ui.focusSessionEndsAt,
+      dailyIntention: text(savedUi.dailyIntention, 280),
     },
   };
 }

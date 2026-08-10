@@ -282,12 +282,97 @@ function render() {
   renderTutorialModal();
   renderIntentionModal();
   renderBreakGlassModal();
+  renderCheckInModal();
   syncUsageTracker();
+  maybeOfferCheckIn();
   updateSaveStatus();
+}
+
+function maybeOfferCheckIn() {
+  if (!isReady(state)) return;
+  if (state.ui.tutorialOpen) return;
+  if (state.ui.checkInOpen) return;
+  const day = todayISO();
+  if (state.ui.lastCheckInDate === day) return;
+  // Defer a beat so boot splash / first paint settle.
+  if (maybeOfferCheckIn._scheduled) return;
+  maybeOfferCheckIn._scheduled = true;
+  window.setTimeout(() => {
+    maybeOfferCheckIn._scheduled = false;
+    if (!isReady(state) || state.ui.tutorialOpen) return;
+    if (state.ui.lastCheckInDate === todayISO()) return;
+    state.ui.checkInOpen = true;
+    renderCheckInModal();
+  }, 700);
+}
+
+function renderCheckInModal() {
+  const modal = $("#checkin-modal");
+  if (!modal) return;
+  const show = !!state.ui.checkInOpen;
+  modal.classList.toggle("hidden", !show);
+  if (!show) return;
+  const input = $("#checkin-intention");
+  if (input && !input.value && state.ui.dailyIntention) {
+    input.value = state.ui.dailyIntention;
+  }
+}
+
+function saveCheckIn() {
+  const text = ($("#checkin-intention")?.value || "").trim().slice(0, 280);
+  const focusMin = Number($("#checkin-focus-min")?.value) || 0;
+  state.ui.dailyIntention = text;
+  state.ui.lastCheckInDate = todayISO();
+  state.ui.checkInOpen = false;
+  if (focusMin > 0) {
+    state.ui.focusSessionEndsAt = Date.now() + focusMin * 60_000;
+    // Soft-arm all idle rules the user already created (still requires canArmBlocks).
+    if (canArmBlocks(state)) {
+      for (const r of state.blockRules || []) {
+        if (!r.armed) {
+          r.armed = true;
+          appendAudit(state, "block.arm_focus", r.appKeys.join(","));
+        }
+      }
+    }
+    appendAudit(state, "focus.start", `${focusMin}m`);
+  }
+  appendAudit(state, "checkin.save", text || "(empty)");
+  persist();
+  showToast(
+    text
+      ? `Intention set${focusMin ? ` · focus ${focusMin}m` : ""}.`
+      : "Check-in noted. You can set an intention anytime from Today.",
+    "ok",
+    4000
+  );
+}
+
+function skipCheckIn() {
+  state.ui.lastCheckInDate = todayISO();
+  state.ui.checkInOpen = false;
+  appendAudit(state, "checkin.skip", todayISO());
+  persist();
+}
+
+function focusRemainingMin() {
+  const ends = state.ui.focusSessionEndsAt || 0;
+  if (!ends || ends <= Date.now()) return 0;
+  return Math.ceil((ends - Date.now()) / 60000);
+}
+
+function endFocusSessionIfNeeded() {
+  if (!state.ui.focusSessionEndsAt) return false;
+  if (state.ui.focusSessionEndsAt > Date.now()) return false;
+  state.ui.focusSessionEndsAt = 0;
+  appendAudit(state, "focus.end", "timer");
+  return true;
 }
 
 function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
+  const focusLeft = focusRemainingMin();
+  if (focusLeft > 0) return `AIly · Focus ${focusLeft}m`;
   if (state.blockRules.some((r) => r.armed)) return "AIly · Focus";
   if (!navigator.onLine) return "AIly · Offline";
   return "AIly · Ready";
@@ -357,6 +442,18 @@ function renderToday() {
         <div class="capacity-meter-fill ${meterClass(ratio)}" style="width:${fillPct}%"></div>
       </div>
       <p class="ally-line">${allyTimeMessage(daily, used, usage)}</p>
+      ${
+        state.ui.dailyIntention
+          ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
+             <button type="button" class="ghost" data-action="open-checkin">Edit</button></p>`
+          : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
+      }
+      ${
+        focusRemainingMin() > 0
+          ? `<p class="ally-line">Focus session: <strong>${focusRemainingMin()}m</strong> left.
+             <button type="button" data-action="end-focus">End early</button></p>`
+          : ""
+      }
     </div>
     ${
       state.blockRules.some((r) => r.armed)
@@ -963,6 +1060,22 @@ document.addEventListener("click", (e) => {
     state.ui.tab = "blocks";
     persist();
   }
+  if (action === "open-checkin") {
+    state.ui.checkInOpen = true;
+    renderCheckInModal();
+  }
+  if (action === "checkin-save") {
+    saveCheckIn();
+  }
+  if (action === "checkin-skip") {
+    skipCheckIn();
+  }
+  if (action === "end-focus") {
+    state.ui.focusSessionEndsAt = 0;
+    appendAudit(state, "focus.end", "manual");
+    persist();
+    showToast("Focus session ended.", "ok");
+  }
   if (action === "open-tutorial") {
     state.ui.tutorialOpen = true;
     persist();
@@ -1200,12 +1313,19 @@ window.addEventListener("pagehide", () => usageTracker?.flush());
 
 // Refresh session clock on Today occasionally while tab is visible
 window.setInterval(() => {
+  const ended = endFocusSessionIfNeeded();
+  if (ended) {
+    persist();
+    showToast("Focus session complete. How did you spend it?", "ok", 4000);
+    return;
+  }
   if (document.visibilityState === "visible" && state.ui.tab === "today" && !state.ui.tutorialOpen) {
     renderToday();
+    $("#tray-status").textContent = trayLabel();
   }
   // Periodic flush so multi-minute sessions land without waiting for hide
   if (usageTracker?.isRunning()) usageTracker.flush();
-}, 60_000);
+}, 30_000);
 
 // Light keyboard nav for desktop dogfood (ignore when typing).
 document.addEventListener("keydown", (e) => {
