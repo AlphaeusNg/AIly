@@ -823,6 +823,9 @@ function renderUsage() {
   const usage = dayUsageMinutes();
   const byApp = summarizeDayByApp(state.usageSamples || [], todayISO());
   const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
+  const pendingMs = usageTracker?.pendingMs?.() || 0;
+  const pendingMin = Math.floor(pendingMs / 60000);
+  const pendingSec = Math.floor((pendingMs % 60000) / 1000);
   el.innerHTML = `
     <header class="panel-head">
       <h1>Usage</h1>
@@ -830,7 +833,11 @@ function renderUsage() {
     </header>
     ${
       granted
-        ? `<div class="banner ok">Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.</div>
+        ? `<div class="banner ok">Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
+            usageTracker?.isRunning?.()
+              ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
+              : ""
+          }</div>
            <div class="capacity-card">
              <h2>Today’s logged attention</h2>
              <p class="ally-line"><strong>${usage|0}m</strong> total. Does that match how you meant to spend the day?</p>
