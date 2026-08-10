@@ -1918,12 +1918,18 @@ document.addEventListener("click", (e) => {
   if (action === "add-commit") {
     const text = $("#new-commit-text")?.value?.trim();
     const targetId = $("#new-commit-target")?.value;
-    const estimateMin = Number($("#new-commit-min")?.value) || 30;
+    let estimateMin = Number($("#new-commit-min")?.value) || 30;
     const mustKeep = $("#new-commit-keep")?.checked;
     if (!text || !targetId) {
       showToast("Add a commitment and pick a target.", "error");
       return;
     }
+    if (!Number.isFinite(estimateMin) || estimateMin < 15) {
+      showToast("Estimate must be at least 15 minutes.", "error");
+      return;
+    }
+    estimateMin = Math.max(15, Math.round(estimateMin / 15) * 15);
+    if ($("#new-commit-min")) $("#new-commit-min").value = String(estimateMin);
     const payload = { text, targetId, estimateMin, mustKeep: !!mustKeep };
     if (shouldAskIntention(estimateMin)) {
       pendingIntention = payload;
