@@ -103,6 +103,10 @@ function updateSaveStatus() {
 function showToast(message, kind = "ok", ms = 3200) {
   const host = $("#toast-host");
   if (!host) return;
+  // Cap concurrent toasts so spam actions don't flood the screen.
+  while (host.children.length >= 3) {
+    host.firstElementChild?.remove();
+  }
   const el = document.createElement("div");
   el.className = `toast is-${kind}`;
   el.textContent = message;
