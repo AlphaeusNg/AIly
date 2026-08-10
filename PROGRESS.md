@@ -10,10 +10,10 @@ Last updated: 2026-08-11 (continuous improve loop — still shipping)
 
 - Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
   full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.33`.
+- Deployment version: `2026.08.11.40`.
 - Gate: Rust (15 unit + 2 contract) + store/usage/block/ally/journey/shell +
   35 CI policy assertions via `npm test`.
-- Continuous loop from shell ship: 30+ commits on `main`.
+- Continuous improve loop still active on `main` (40+ commits since executable shell).
 
 ## Opportunity backlog
 
