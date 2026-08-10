@@ -69,7 +69,7 @@ and recursive web, tool, and service-worker syntax.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.11.9`):
+**Phase 0 dogfood executable shell** (`2026.08.11.15`):
 
 - Boot splash + brand assets, PWA install banner, offline indicator  
 - Time-consciousness meter + intentional check before ≥30m commitments  

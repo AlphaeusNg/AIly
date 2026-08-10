@@ -9,6 +9,17 @@
 | 4 | off_limits | Off-limits apps | no | block list |
 | 5 | ally_admin | Ally admin | no | block admin + break-glass explained |
 | 6 | stay_in_touch | Stay in touch | no | notifications |
-| 7 | smarter | Smarter AIly | no | optional local AI |
+| 7 | smarter | Smarter AIly | no | optional local AI / local propose |
 
 **Rule:** Blocks cannot arm until chapters 3 + 5 grants are true (`usage` && `blockAdmin`).
+
+## Local ally after tutorial
+
+On **Today**:
+
+- Set a daily intention (check-in).
+- **Ask AIly to propose a plan** — deterministic, on-device, capacity-honest.
+- Accept only what you mean; ≥30m items still pass the intention gate.
+- **Clone yesterday** to restart a familiar plan, then replan if over capacity.
+
+Review shows weekly honesty stats + reflection (not shame).

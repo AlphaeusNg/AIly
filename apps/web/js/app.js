@@ -670,7 +670,14 @@ function renderTargets() {
             </div>
             <div class="row">
               ${t.softCapacityHours != null ? `<span class="tag">${t.softCapacityHours}h soft</span>` : ""}
-              <button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+              <span class="tag">${t.status || "active"}</span>
+              ${
+                t.status === "active"
+                  ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+                     <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
+                     <button type="button" data-action="complete-target" data-id="${t.id}">Complete</button>`
+                  : `<button type="button" data-action="activate-target" data-id="${t.id}">Reactivate</button>`
+              }
             </div>
           </li>`;
         })
@@ -1004,6 +1011,9 @@ function friendlyAuditTool(tool) {
     "commitment.edit": "Edited commitment",
     "commitment.priority": "Changed priority",
     "target.create": "Created target",
+    "target.pause": "Paused target",
+    "target.complete": "Completed target",
+    "target.activate": "Reactivated target",
     "checkin.save": "Daily intention",
     "checkin.skip": "Skipped check-in",
     "focus.start": "Focus started",
@@ -1813,6 +1823,31 @@ document.addEventListener("click", (e) => {
     else m.current = Math.max(m.target, m.current - step);
     appendAudit(state, "metric.bump", t.title);
     persist();
+  }
+  if (action === "pause-target") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t) return;
+    t.status = "paused";
+    appendAudit(state, "target.pause", t.title);
+    persist();
+    showToast("Target paused — it won’t appear in new plans.", "ok");
+  }
+  if (action === "complete-target") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t) return;
+    if (!confirm(`Mark “${t.title}” complete?`)) return;
+    t.status = "completed";
+    appendAudit(state, "target.complete", t.title);
+    persist();
+    showToast("Target completed. Nice journey.", "ok");
+  }
+  if (action === "activate-target") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t) return;
+    t.status = "active";
+    appendAudit(state, "target.activate", t.title);
+    persist();
+    showToast("Target active again.", "ok");
   }
   if (action === "review-done") {
     const c = state.commitments.find((x) => x.id === id);
