@@ -1814,6 +1814,20 @@ document.addEventListener("click", (e) => {
       showToast("Estimate must be at least 15 minutes.", "error");
       return;
     }
+    const activeTargets = state.targets.filter((t) => t.status === "active");
+    if (activeTargets.length) {
+      const labels = activeTargets.map((t, i) => `${i + 1}. ${t.title}`).join("\n");
+      const pick = prompt(
+        `Target number (Enter keeps current):\n${labels}`,
+        String(Math.max(1, activeTargets.findIndex((t) => t.id === c.targetId) + 1))
+      );
+      if (pick != null && String(pick).trim() !== "") {
+        const idx = Number(pick) - 1;
+        if (Number.isFinite(idx) && activeTargets[idx]) {
+          c.targetId = activeTargets[idx].id;
+        }
+      }
+    }
     c.text = trimmed;
     c.estimateMin = Math.round(mins);
     appendAudit(state, "commitment.edit", c.id);
