@@ -1930,31 +1930,38 @@ document.addEventListener("click", (e) => {
     persist();
   }
   if (action === "replan") {
-    const today = todayCommitments().map((c) => ({
+    const pending = todayCommitments().filter((c) => c.status === "pending");
+    const today = pending.map((c) => ({
       id: c.id,
       targetId: c.targetId,
       estimateMin: c.estimateMin,
       mustKeep: c.mustKeep,
       priority: c.priority || 0,
     }));
-    const out = replanToday({
+    if (!today.length) {
+      showToast("Nothing pending to replan.", "ok");
+      return;
+    }
+    const preview = replanToday({
       weeklyCapacityHours: state.user.weeklyCapacityHours,
       nightsPerWeek: state.user.nightsPerWeek,
       softCaps: softCaps(),
       weekOther: [],
       today,
     });
-    for (const d of out.drop) {
+    const msg = `Replan will keep ${preview.keep.length}, drop ${preview.drop.length}, shrink ${preview.shrink.length}. Apply?`;
+    if (!confirm(msg)) return;
+    for (const d of preview.drop) {
       const c = state.commitments.find((x) => x.id === d);
       if (c) c.status = "dropped";
     }
-    for (const s of out.shrink) {
+    for (const s of preview.shrink) {
       const c = state.commitments.find((x) => x.id === s.id);
       if (c) c.estimateMin = s.newEstimateMin;
     }
-    appendAudit(state, "plan.replan", out.reasons.join("; "));
+    appendAudit(state, "plan.replan", preview.reasons.join("; "));
     showToast(
-      `Replan: kept ${out.keep.length}, dropped ${out.drop.length}, shrunk ${out.shrink.length}.`,
+      `Replan: kept ${preview.keep.length}, dropped ${preview.drop.length}, shrunk ${preview.shrink.length}.`,
       "ok",
       4500
     );
