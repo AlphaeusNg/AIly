@@ -72,5 +72,12 @@ assert.match(app, /proposeDayPlan/, "app wires ally propose");
 assert.match(app, /cloneYesterday|clone-yesterday/, "app can clone yesterday");
 assert.match(app, /watchServiceWorkerUpdates/, "app watches SW updates");
 assert.match(app, /prefers-reduced-motion|reduceMotion|reduce-motion/, "motion prefs considered");
+assert.match(app, /seedDemoJourney|seed-demo/, "sample journey seeder exists");
+assert.match(app, /upsertBlockRule/, "block upsert is wired");
+assert.match(app, /attentionMismatchNote/, "attention mismatch note is wired");
+
+const offline = read("offline.html");
+assert.match(offline, /offline/i, "offline page mentions offline");
+assert.match(offline, /AIly/i, "offline page brands AIly");
 
 console.log(`test-shell.mjs: ${required.length} assets + shell contracts ok`);
