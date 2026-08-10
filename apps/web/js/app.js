@@ -1055,11 +1055,20 @@ function renderSetup() {
     window.matchMedia("(display-mode: standalone)").matches ||
     // @ts-expect-error iOS
     window.navigator.standalone === true;
+  const doneCh = CHAPTERS.filter((c) => chapterStatus(state, c.id) === "done").length;
+  const setupPct = Math.round((doneCh / CHAPTERS.length) * 100);
   el.innerHTML = `
     <header class="panel-head">
       <h1>Setup</h1>
       <p class="muted">Tutorial checklist — AIly walks you through everything.</p>
     </header>
+    <div class="capacity-card">
+      <h2>Setup progress</h2>
+      <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${setupPct}">
+        <div class="capacity-meter-fill" style="width:${setupPct}%"></div>
+      </div>
+      <p class="muted">${doneCh}/${CHAPTERS.length} chapters · ready: <strong>${isReady(state) ? "yes" : "not yet"}</strong></p>
+    </div>
     <button type="button" class="primary" data-action="open-tutorial">Open tutorial</button>
     <ul class="list checklist">
       ${CHAPTERS.map((c) => {
