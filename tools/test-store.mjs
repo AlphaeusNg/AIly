@@ -12,6 +12,7 @@ import {
   loadState,
   pruneOldCommitments,
   saveState,
+  uid,
 } from "../apps/web/js/store.js";
 
 const partial = hydrateState({
@@ -251,5 +252,11 @@ assert.equal(importState("{not-json").ok, false, "import rejects corrupt JSON");
 assert.equal(importState("{}").ok, true, "import hydrates an empty object to defaults");
 assert.match(appSource, /export-backup/, "Setup exposes export backup");
 assert.match(appSource, /importState/, "UI uses tested import helper");
+
+const id1 = uid();
+const id2 = uid();
+assert.equal(typeof id1, "string");
+assert.notEqual(id1, id2, "uid generates distinct ids");
+assert.match(id1, /./, "uid non-empty");
 
 console.log("test-store.mjs: hydration, recovery, persist, backup, and shell assertions passed");
