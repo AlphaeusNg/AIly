@@ -7,6 +7,8 @@ const CHAPTER_STATUSES = new Set(["pending", "done", "skipped"]);
 const TABS = new Set(["today", "targets", "review", "usage", "blocks", "setup", "activity"]);
 const COMMITMENT_STATUSES = new Set(["pending", "done", "dropped"]);
 const MAX_QUARANTINED_COMMITMENTS = 100;
+const MAX_USAGE_SAMPLES = 200;
+const MAX_BLOCK_RULES = 50;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -225,19 +227,23 @@ export function hydrateState(saved) {
             : defaults.tutorial.permissions.blockAdmin,
       },
     },
-    blockRules: records(saved.blockRules).map((rule) => ({
-      ...rule,
-      appKeys: Array.isArray(rule.appKeys)
-        ? rule.appKeys.filter((appKey) => typeof appKey === "string")
-        : [],
-    })),
-    usageSamples: records(saved.usageSamples).filter(
-      (sample) =>
-        typeof sample.app === "string" &&
-        Number.isFinite(sample.mins) &&
-        typeof sample.ts === "string"
-    ),
-    audit: records(saved.audit),
+    blockRules: records(saved.blockRules)
+      .map((rule) => ({
+        ...rule,
+        appKeys: Array.isArray(rule.appKeys)
+          ? rule.appKeys.filter((appKey) => typeof appKey === "string")
+          : [],
+      }))
+      .slice(0, MAX_BLOCK_RULES),
+    usageSamples: records(saved.usageSamples)
+      .filter(
+        (sample) =>
+          typeof sample.app === "string" &&
+          Number.isFinite(sample.mins) &&
+          typeof sample.ts === "string"
+      )
+      .slice(0, MAX_USAGE_SAMPLES),
+    audit: records(saved.audit).slice(0, 200),
     recovery: {
       invalidCommitments: [
         ...hydrateQuarantine(savedRecovery.invalidCommitments),

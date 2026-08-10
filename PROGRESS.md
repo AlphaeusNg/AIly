@@ -4,14 +4,15 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (continuous improve loop)
+Last updated: 2026-08-11 (continuous improve loop — still shipping)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell with local propose-only ally
-  (JS + Rust), journey helpers, SW updates, display prefs, offline page,
-  target lifecycle, clone-yesterday, configurable break-glass delay.
-- Deployment version: `2026.08.11.17`.
+- Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
+  full daily loop with honesty gates, journey stats, PWA update/offline shell.
+- Deployment version: `2026.08.11.23`.
+- Gate: Rust (15 unit + 2 contract) + store/usage/block/ally/journey/shell +
+  35 CI policy assertions via `npm test`.
 
 ## Opportunity backlog
 
