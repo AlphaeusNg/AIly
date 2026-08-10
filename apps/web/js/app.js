@@ -800,6 +800,7 @@ function renderReview() {
       <p class="ally-line">${escapeHtml(weekReflection(week))}</p>
       ${streak > 0 ? `<p class="muted">Check-in streak: <strong>${streak}</strong> day${streak === 1 ? "" : "s"}.</p>` : ""}
       <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
+      <button type="button" data-action="copy-summary">Copy honesty summary</button>
     </div>
     <p class="muted">Today: ${done.length} done · ${pending.length} still open</p>
     ${
@@ -1132,6 +1133,7 @@ function friendlyAuditTool(tool) {
     "state.export": "Exported backup",
     "state.import": "Imported backup",
     "state.prune": "Pruned old commitments",
+    "state.copy_summary": "Copied honesty summary",
     "ally.propose": "Ally proposed plan",
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
@@ -2277,6 +2279,30 @@ document.addEventListener("click", (e) => {
   }
   if (action === "export-backup") {
     downloadBackup();
+  }
+  if (action === "copy-summary") {
+    const week = weekJourneyStats(state);
+    const lines = [
+      `AIly ${SITE_VERSION.id} · local summary ${todayISO()}`,
+      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : "Intention: (none)",
+      `Today planned: ${plannedMinutes()}m · usage samples: ${dayUsageMinutes()}m`,
+      `Week from ${week.start}: planned ${week.plannedMin}m · done ${week.doneMin}m · usage ${week.usageMin}m · glass ${week.glass}`,
+      weekReflection(week),
+      "Data stays on this device.",
+    ];
+    const text = lines.join("\n");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => {
+          appendAudit(state, "state.copy_summary", "ok");
+          persist();
+          showToast("Honesty summary copied.", "ok");
+        },
+        () => showToast("Could not copy.", "error")
+      );
+    } else {
+      showToast("Clipboard unavailable.", "error");
+    }
   }
   if (action === "dismiss-install") {
     state.ui.installBannerDismissed = true;
