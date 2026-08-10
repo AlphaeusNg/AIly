@@ -597,6 +597,16 @@ function renderToday() {
     </div>
     <ul class="list">
       ${today
+        .slice()
+        .sort((a, b) => {
+          // must-keep first, then lower priority number (more important), then longer blocks
+          const mk = (b.mustKeep ? 1 : 0) - (a.mustKeep ? 1 : 0);
+          if (mk) return mk;
+          const pa = Number.isFinite(a.priority) ? a.priority : 0;
+          const pb = Number.isFinite(b.priority) ? b.priority : 0;
+          if (pa !== pb) return pa - pb;
+          return (b.estimateMin || 0) - (a.estimateMin || 0);
+        })
         .map((c) => {
           const t = state.targets.find((x) => x.id === c.targetId);
           return `<li>
@@ -606,6 +616,7 @@ function renderToday() {
               c.status !== "done"
                 ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>
                    <button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
+                   <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
                    <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
                    <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>`
                 : ""
@@ -1010,6 +1021,7 @@ function friendlyAuditTool(tool) {
     "commitment.done": "Marked done",
     "commitment.edit": "Edited commitment",
     "commitment.priority": "Changed priority",
+    "commitment.must_keep": "Toggled must-keep",
     "target.create": "Created target",
     "target.pause": "Paused target",
     "target.complete": "Completed target",
@@ -1752,6 +1764,14 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "commitment.edit", c.id);
     persist();
     showToast("Commitment updated.", "ok");
+  }
+  if (action === "toggle-must-keep") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status === "done") return;
+    c.mustKeep = !c.mustKeep;
+    appendAudit(state, "commitment.must_keep", `${c.id}:${c.mustKeep}`);
+    persist();
+    showToast(c.mustKeep ? "Protected as must-keep." : "Must-keep cleared.", "ok");
   }
   if (action === "prio-up") {
     const c = state.commitments.find((x) => x.id === id);
