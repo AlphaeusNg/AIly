@@ -876,6 +876,7 @@ function renderUsage() {
 function renderBlocks() {
   const el = $("#panel-blocks");
   const ok = canArmBlocks(state);
+  const armedCount = (state.blockRules || []).filter((r) => r.armed).length;
   el.innerHTML = `
     <header class="panel-head">
       <h1>Blocks</h1>
@@ -883,8 +884,13 @@ function renderBlocks() {
     </header>
     ${
       ok
-        ? `<div class="banner ok">Admin + usage granted. You may arm rules.</div>`
+        ? `<div class="banner ok">Admin + usage granted. ${armedCount} rule${armedCount === 1 ? "" : "s"} armed.</div>`
         : `<div class="banner warn">Complete Attention map + Ally admin in Setup before arming blocks.</div>`
+    }
+    ${
+      focusRemainingMin() > 0
+        ? `<div class="banner focus-armed">Focus session active · ${focusRemainingMin()}m left. Armed rules protect this window.</div>`
+        : ""
     }
     <form id="block-form" class="row">
       <input name="app" placeholder="App key (e.g. firefox)" required />
