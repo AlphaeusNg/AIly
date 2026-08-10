@@ -133,6 +133,26 @@
       </div>
     </div>
 
+    <!-- Break-glass: delay + reason before disarming an armed rule -->
+    <div id="breakglass-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="breakglass-title">
+      <div class="modal">
+        <div class="modal-top">
+          <span class="muted">Break glass</span>
+          <button type="button" data-action="breakglass-cancel" aria-label="Cancel">✕</button>
+        </div>
+        <h2 id="breakglass-title">Unlock for a moment</h2>
+        <p id="breakglass-body" class="intention-body"></p>
+        <p class="breakglass-countdown" id="breakglass-countdown" aria-live="polite">—</p>
+        <label class="form-label">Why? <span class="muted">(logged locally — no shame)</span>
+          <input id="breakglass-reason" type="text" maxlength="200" placeholder="e.g. need one message from Slack" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="primary" id="breakglass-confirm" data-action="breakglass-confirm" disabled>Unlock</button>
+          <button type="button" data-action="breakglass-cancel">Stay focused</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>

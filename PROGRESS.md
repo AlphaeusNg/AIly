@@ -4,30 +4,26 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-10 (AIly Cycles 8–10)
+Last updated: 2026-08-11 (AIly Cycle 11)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell — boot splash, brand assets,
-  PWA install banner, offline pill, mobile bottom nav, intentional commitment
-  gate, time-consciousness card, local backup export/import, Capacitor Android
-  APK (`dist/AIly-0.1.0-debug.apk`).
-- AIly baseline after Cycle 10: 12 Rust unit tests, 2 Rust shared-contract
-  integration tests, expanded store/shell/backup assertions, 30 CI/Pages policy
-  assertions, recursive syntax checks, strict Clippy, and formatting all pass
-  through `npm test`. Android `assembleDebug` succeeds with local JDK 21.
-- `saveState` never throws; UI toasts on quota/privacy failures and verifies
-  round-trip storage.
-- Deployment version: `2026.08.10.4`.
+- Product phase: Phase 0 dogfood executable shell with in-app attention
+  tracking + simulated block enforcement (break-glass delay UI).
+- Cycle 11: `usage.js` session tracker (visibility/focus), sample merge,
+  day-by-app bars; `block.js` break-glass countdown/validation + try-open
+  simulation; suites `test-usage.mjs` / `test-block.mjs` in `npm test`.
+- Deployment version: `2026.08.11.1`.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: dogfood samples only today | Large / medium | Platform APIs + privacy docs | Next |
-| 2 | Real hard-block enforcement + break-glass delay | Product spine | High: rules are model-only | Large / medium | Admin consent already gated | Backlog |
+| 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
+| 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface | Medium / medium | SDK available locally; not yet in CI | Backlog |
 | 4 | Optional local AI propose-only planner | Product | Medium: ally brain without cloud | Large / medium | After usage/block honesty | Backlog |
+| — | In-app usage tracker + break-glass delay UI | Ally UX | High: honesty loop dogfood | Medium / low | Cycle 11 | Completed in Cycle 11 |
 | — | Boot splash, assets, install banner, offline/PWA shell | UX / packaging | High: feels like a real app | Medium / low | Cycles 8–10 | Completed in Cycle 8–10 |
 | — | Time-consciousness card + intentional commitment gate | Ally UX | High: owner personal goal | Small / low | Today + intention modal | Completed in Cycle 9 |
 | — | Safe localStorage persist + export/import backup | Reliability | High: no throw on quota; portable data | Small / low | store.js + Setup | Completed in Cycle 8–10 |
@@ -40,6 +36,25 @@ Last updated: 2026-08-10 (AIly Cycles 8–10)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 11 — Usage tracker + break-glass delay (2026-08-11)
+
+**Why this won:** Spine gaps were “samples only” and “instant unlock.” A real
+ally needs automatic attention logging when granted and a delay+reason glass.
+
+**Changes**
+
+- `apps/web/js/usage.js`: append/merge samples, day totals, app summary,
+  visibility/focus session tracker.
+- `apps/web/js/block.js`: policy helpers, countdown readiness, daily limit,
+  try-open match.
+- Usage panel bars; auto-track AIly time when permission on.
+- Break-glass modal with live countdown; try-open simulation form.
+- Tests wired into `npm test` (usage + block + policy assertions).
+
+**Verification:** full `npm test` green.
+
+**Next opportunity:** Daily intentional check-in; then real OS hooks.
 
 ### Cycle 10 — Executable packaging polish (2026-08-10)
 

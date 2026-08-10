@@ -17,16 +17,32 @@ import {
   dailySoftCapMinutes,
 } from "./capacity.js";
 import { CHAPTERS, canArmBlocks, isReady, chapterStatus } from "./tutorial.js";
+import {
+  appendUsageSample,
+  createSessionTracker,
+  summarizeDayByApp,
+  totalMinutesForDay,
+} from "./usage.js";
+import {
+  breakGlassPolicy,
+  breakGlassRemainingSec,
+  breakGlassUsesToday,
+  isAppBlocked,
+  validateBreakGlassComplete,
+} from "./block.js";
 
 let state = loadState();
 /** @type {{ ok: boolean, error?: string, message?: string } | null} */
 let lastSave = null;
 /** @type {null | { text: string, targetId: string, estimateMin: number, mustKeep: boolean }} */
 let pendingIntention = null;
+/** @type {null | { ruleId: string, startedAt: number, timer: number | null }} */
+let pendingBreakGlass = null;
 /** @type {BeforeInstallPromptEvent | null} */
 let deferredInstall = null;
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
+let usageTracker = null;
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -89,10 +105,110 @@ function todayCommitments() {
 }
 
 function dayUsageMinutes() {
-  const day = todayISO();
-  return (state.usageSamples || [])
-    .filter((u) => typeof u.ts === "string" && u.ts.startsWith(day))
-    .reduce((a, u) => a + (Number.isFinite(u.mins) ? u.mins : 0), 0);
+  return totalMinutesForDay(state.usageSamples || [], todayISO());
+}
+
+function flushUsageSample(entry) {
+  if (!state.tutorial.permissions.usage) return;
+  const result = appendUsageSample(state.usageSamples || [], entry);
+  if (!result.added) return;
+  state.usageSamples = result.samples;
+  appendAudit(
+    state,
+    result.merged ? "usage.merge" : "usage.session",
+    `${entry.app} +${entry.mins}m`
+  );
+  // Quiet persist without full toast noise — still re-render if on Usage.
+  lastSave = saveState(state);
+  if (state.ui.tab === "usage" || state.ui.tab === "today") render();
+  updateSaveStatus();
+}
+
+function syncUsageTracker() {
+  const granted = !!state.tutorial.permissions.usage;
+  if (granted && !usageTracker) {
+    usageTracker = createSessionTracker({
+      appName: "AIly",
+      minFlushMinutes: 1,
+      onFlush: flushUsageSample,
+    });
+    usageTracker.start();
+  } else if (!granted && usageTracker) {
+    usageTracker.stop();
+    usageTracker = null;
+  }
+}
+
+function startBreakGlass(ruleId) {
+  const rule = state.blockRules.find((r) => r.id === ruleId);
+  if (!rule?.armed) return;
+  if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
+  pendingBreakGlass = {
+    ruleId,
+    startedAt: Date.now(),
+    timer: window.setInterval(() => {
+      renderBreakGlassModal();
+    }, 250),
+  };
+  renderBreakGlassModal();
+}
+
+function cancelBreakGlass() {
+  if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
+  pendingBreakGlass = null;
+  renderBreakGlassModal();
+}
+
+function completeBreakGlass() {
+  if (!pendingBreakGlass) return;
+  const rule = state.blockRules.find((r) => r.id === pendingBreakGlass.ruleId);
+  if (!rule) {
+    cancelBreakGlass();
+    return;
+  }
+  const policy = breakGlassPolicy(rule);
+  const reason = $("#breakglass-reason")?.value || "";
+  const check = validateBreakGlassComplete({
+    startedAtMs: pendingBreakGlass.startedAt,
+    delaySec: policy.delaySec,
+    requireReason: policy.requireReason,
+    reason,
+    usesToday: breakGlassUsesToday(state.audit || [], todayISO()),
+    dailyLimit: policy.dailyLimit,
+  });
+  if (!check.ok) {
+    showToast(check.error, "error");
+    return;
+  }
+  rule.armed = false;
+  appendAudit(state, "block.break_glass", `${rule.appKeys.join(",")}: ${reason.trim()}`);
+  cancelBreakGlass();
+  persist();
+  showToast("Unlocked. Your journey stays honest — reason logged.", "ok", 4000);
+}
+
+function renderBreakGlassModal() {
+  const modal = $("#breakglass-modal");
+  if (!modal) return;
+  const show = !!pendingBreakGlass;
+  modal.classList.toggle("hidden", !show);
+  if (!show || !pendingBreakGlass) return;
+  const rule = state.blockRules.find((r) => r.id === pendingBreakGlass.ruleId);
+  if (!rule) {
+    cancelBreakGlass();
+    return;
+  }
+  const policy = breakGlassPolicy(rule);
+  const left = breakGlassRemainingSec(pendingBreakGlass.startedAt, policy.delaySec);
+  const ready = left === 0;
+  $("#breakglass-body").textContent = `You set ${rule.appKeys.join(", ")} off-limits (${rule.mode}). Wait the delay, then unlock with a reason.`;
+  const cd = $("#breakglass-countdown");
+  if (cd) {
+    cd.textContent = ready ? "Ready" : `${left}s`;
+    cd.classList.toggle("is-ready", ready);
+  }
+  const btn = $("#breakglass-confirm");
+  if (btn) btn.disabled = !ready;
 }
 
 function plannedMinutes() {
@@ -165,6 +281,8 @@ function render() {
   if (tab === "activity") renderActivity();
   renderTutorialModal();
   renderIntentionModal();
+  renderBreakGlassModal();
+  syncUsageTracker();
   updateSaveStatus();
 }
 
@@ -351,41 +469,63 @@ function renderUsage() {
   const el = $("#panel-usage");
   const granted = state.tutorial.permissions.usage;
   const usage = dayUsageMinutes();
+  const byApp = summarizeDayByApp(state.usageSamples || [], todayISO());
+  const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
   el.innerHTML = `
     <header class="panel-head">
       <h1>Usage</h1>
-      <p class="muted">App attention map — local only. Full OS tracking lands after platform hooks.</p>
+      <p class="muted">Attention map — local only. AIly auto-logs time in this app when permission is on; add other apps manually until OS hooks ship.</p>
     </header>
     ${
       granted
-        ? `<div class="banner ok">Usage permission granted (dogfood: log sample apps below).</div>
+        ? `<div class="banner ok">Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.</div>
            <div class="capacity-card">
              <h2>Today’s logged attention</h2>
-             <p class="ally-line"><strong>${usage|0}m</strong> across samples. Does that match how you meant to spend the day?</p>
+             <p class="ally-line"><strong>${usage|0}m</strong> total. Does that match how you meant to spend the day?</p>
+             ${
+               byApp.length
+                 ? `<div class="usage-bars">${byApp
+                     .map(
+                       (row) => `<div class="usage-bar-row" title="${escapeHtml(row.app)}">
+                         <div>
+                           <div>${escapeHtml(row.app)}</div>
+                           <div class="usage-bar-track"><div class="usage-bar-fill" style="width:${Math.round((row.mins / maxMins) * 100)}%"></div></div>
+                         </div>
+                         <div class="usage-bar-mins">${row.mins|0}m</div>
+                       </div>`
+                     )
+                     .join("")}</div>`
+                 : `<p class="muted">No samples yet — stay in AIly a minute, or log another app below.</p>`
+             }
            </div>
            <form id="usage-form" class="row">
-             <input name="app" placeholder="App name" required />
+             <input name="app" placeholder="App name (e.g. YouTube)" required />
              <input name="mins" type="number" min="1" value="15" style="width:5rem" />
              <button class="primary" type="submit">Log sample usage</button>
            </form>
            <ul class="list">${(state.usageSamples || [])
-             .map((u) => `<li>${escapeHtml(u.app)} · ${u.mins}m · ${u.ts.slice(0, 10)}</li>`)
+             .slice(0, 20)
+             .map((u) => `<li>${escapeHtml(u.app)} · ${u.mins}m · ${u.ts.slice(0, 16).replace("T", " ")}</li>`)
              .join("") || "<li class='muted'>No samples yet.</li>"}</ul>`
         : `<div class="banner warn">Grant usage in Setup / tutorial chapter “Attention map”.</div>
-           <button type="button" class="primary" data-action="grant-usage">Grant usage (dogfood)</button>`
+           <button type="button" class="primary" data-action="grant-usage">Grant usage tracking</button>`
     }
   `;
   $("#usage-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    state.usageSamples = state.usageSamples || [];
-    state.usageSamples.unshift({
+    const result = appendUsageSample(state.usageSamples || [], {
       app: String(fd.get("app")),
       mins: Number(fd.get("mins")),
-      ts: new Date().toISOString(),
     });
+    if (!result.added) {
+      showToast("Enter a valid app and minutes.", "error");
+      return;
+    }
+    state.usageSamples = result.samples;
     appendAudit(state, "usage.sample", String(fd.get("app")));
     persist();
+    showToast("Usage sample logged.", "ok");
   });
 }
 
@@ -407,19 +547,30 @@ function renderBlocks() {
       <select name="mode"><option value="soft">Soft delay</option><option value="hard">Hard block</option></select>
       <button class="primary" type="submit">Add rule</button>
     </form>
+    <form id="try-open-form" class="card form">
+      <h2>Try open (dogfood)</h2>
+      <p class="muted">Simulate opening an app. If an armed rule matches, AIly starts break-glass instead of letting it through.</p>
+      <div class="row">
+        <input name="app" placeholder="App key to open" required />
+        <button class="primary" type="submit">Try open</button>
+      </div>
+    </form>
     <ul class="list">
       ${(state.blockRules || [])
-        .map(
-          (r) => `<li>
+        .map((r) => {
+          const policy = breakGlassPolicy(r);
+          return `<li>
           <strong>${escapeHtml(r.appKeys.join(", "))}</strong>
           <span class="tag">${r.mode}</span>
           <span class="tag ${r.armed ? "armed" : ""}">${r.armed ? "armed" : "idle"}</span>
+          <span class="muted">${policy.delaySec}s glass</span>
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
-          <button type="button" data-action="break-glass" data-id="${r.id}">Break glass</button>
-        </li>`
-        )
+          <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
+        </li>`;
+        })
         .join("") || "<li class='muted'>No block rules yet.</li>"}
     </ul>
+    <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}</p>
   `;
   $("#block-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -430,10 +581,25 @@ function renderBlocks() {
       appKeys: [String(fd.get("app"))],
       mode: fd.get("mode") === "hard" ? "hard_block" : "soft_delay",
       armed: false,
-      breakGlass: { delaySec: 30, requireReason: true },
+      breakGlass: { delaySec: 30, requireReason: true, dailyLimit: 5 },
     });
     appendAudit(state, "block.rule_add", String(fd.get("app")));
     persist();
+  });
+  $("#try-open-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const app = String(fd.get("app") || "");
+    const hit = isAppBlocked(state.blockRules || [], app);
+    if (!hit) {
+      appendAudit(state, "block.try_open_allowed", app);
+      persist();
+      showToast(`${app || "App"} is not armed-blocked — allowed (simulation).`, "ok");
+      return;
+    }
+    appendAudit(state, "block.try_open_blocked", `${app} → ${hit.id}`);
+    startBreakGlass(hit.id);
+    showToast(`${app} is blocked. Complete break-glass to unlock.`, "error", 4000);
   });
 }
 
@@ -949,10 +1115,13 @@ document.addEventListener("click", (e) => {
   if (action === "break-glass") {
     const r = state.blockRules.find((x) => x.id === id);
     if (!r?.armed) return;
-    const reason = prompt("Break glass — why? (logged)") || "unspecified";
-    r.armed = false;
-    appendAudit(state, "block.break_glass", `${r.appKeys.join(",")}: ${reason}`);
-    persist();
+    startBreakGlass(r.id);
+  }
+  if (action === "breakglass-cancel") {
+    cancelBreakGlass();
+  }
+  if (action === "breakglass-confirm") {
+    completeBreakGlass();
   }
   if (action === "reset-demo") {
     if (confirm("Reset all local AIly demo data?")) {
@@ -1019,12 +1188,23 @@ if (!isReady(state)) state.ui.tutorialOpen = true;
 render();
 dismissBootSplash();
 initNativeShell();
+syncUsageTracker();
+
+document.addEventListener("visibilitychange", () => {
+  usageTracker?.onVisibilityOrFocus();
+  if (document.visibilityState === "hidden") usageTracker?.flush();
+});
+window.addEventListener("focus", () => usageTracker?.onVisibilityOrFocus());
+window.addEventListener("blur", () => usageTracker?.onVisibilityOrFocus());
+window.addEventListener("pagehide", () => usageTracker?.flush());
 
 // Refresh session clock on Today occasionally while tab is visible
 window.setInterval(() => {
   if (document.visibilityState === "visible" && state.ui.tab === "today" && !state.ui.tutorialOpen) {
     renderToday();
   }
+  // Periodic flush so multi-minute sessions land without waiting for hide
+  if (usageTracker?.isRunning()) usageTracker.flush();
 }, 60_000);
 
 // Light keyboard nav for desktop dogfood (ignore when typing).

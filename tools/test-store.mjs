@@ -182,7 +182,7 @@ assert.match(html, /id="install-banner"/, "index includes install banner");
 
 const sw = readFileSync(new URL("../apps/web/sw.js", import.meta.url), "utf8");
 assert.match(sw, /assets\/logo\.svg/, "service worker caches logo");
-assert.match(sw, /aily-2026\.08\.10/, "service worker cache id is bumped for this ship");
+assert.match(sw, /aily-2026\.08\.1[01]/, "service worker cache id is bumped for this ship");
 
 assert.equal(
   defaultState().ui.installBannerDismissed,

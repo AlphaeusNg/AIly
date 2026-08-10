@@ -318,6 +318,68 @@ body.app-ready .app-shell[hidden] {
   font-size: 0.85rem;
 }
 
+.breakglass-countdown {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 0.5rem 0 1rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.breakglass-countdown.is-ready {
+  color: var(--ok);
+}
+
+.form-label {
+  display: block;
+  margin: 0.5rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.form-label input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.usage-bars {
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.usage-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.usage-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #0d1117;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.usage-bar-mins {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .file-pick {
   cursor: pointer;
 }
