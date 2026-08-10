@@ -523,6 +523,19 @@ function renderNav() {
   if (badge) badge.classList.toggle("hidden", isReady(state));
 }
 
+function emptyTodayCta() {
+  const hasTargets = state.targets.some((t) => t.status === "active");
+  if (!hasTargets) {
+    return `<div class="empty-hero">
+      <img src="assets/logo.svg" width="56" height="56" alt="" />
+      <h2>No plan yet</h2>
+      <p class="muted">Create a target first — then AIly can help you protect time for it.</p>
+      <button type="button" class="primary" data-action="goto-targets">Create a target</button>
+    </div>`;
+  }
+  return `<li class='muted'>No commitments yet — add one above, clone yesterday, or ask AIly to propose.</li>`;
+}
+
 function renderToday() {
   const el = $("#panel-today");
   const cap = state.user.weeklyCapacityHours;
@@ -668,7 +681,7 @@ function renderToday() {
             <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
           </li>`;
         })
-        .join("") || "<li class='muted'>No commitments yet — add one above. AIly will ask if you mean it.</li>"}
+        .join("") || emptyTodayCta()}
     </ul>
   `;
 }
@@ -1783,6 +1796,10 @@ document.addEventListener("click", (e) => {
   }
   if (action === "goto-review") {
     state.ui.tab = "review";
+    persist();
+  }
+  if (action === "goto-targets") {
+    state.ui.tab = "targets";
     persist();
   }
   if (action === "ally-propose") {
