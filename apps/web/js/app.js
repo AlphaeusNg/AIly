@@ -969,6 +969,7 @@ function renderSetup() {
       <div class="row">
         <button type="button" data-action="revoke-usage" ${state.tutorial.permissions.usage ? "" : "disabled"}>Revoke usage</button>
         <button type="button" data-action="revoke-admin" ${state.tutorial.permissions.blockAdmin ? "" : "disabled"}>Revoke block admin</button>
+        <button type="button" data-action="notify-test" ${state.tutorial.permissions.notifications ? "" : "disabled"}>Test notification</button>
       </div>
     </div>
     <div class="card">
@@ -1026,6 +1027,7 @@ function friendlyAuditTool(tool) {
     "user.name": "Saved display name",
     "ui.display": "Saved display prefs",
     "audit.clear": "Cleared activity log",
+    "notify.test": "Test notification",
   };
   return map[tool] || tool;
 }
@@ -1345,15 +1347,40 @@ function onImportBackup(e) {
   reader.readAsText(file);
 }
 
-function downloadBackup() {
-  const blob = new Blob([exportState(state)], { type: "application/json" });
+async function downloadBackup() {
+  const name = `aily-backup-${todayISO()}.json`;
+  const text = exportState(state);
+  const blob = new Blob([text], { type: "application/json" });
+  // Prefer Web Share when available (Android PWA / mobile).
+  try {
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], name, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "AIly backup",
+          text: "Local AIly backup — keep private.",
+        });
+        appendAudit(state, "state.export", `share:${name}`);
+        persist();
+        showToast("Backup shared.", "ok");
+        return;
+      }
+    }
+  } catch (err) {
+    // User cancelled share — fall through to download unless AbortError only.
+    if (err && err.name === "AbortError") {
+      showToast("Share cancelled.", "ok");
+      return;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `aily-backup-${todayISO()}.json`;
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
-  appendAudit(state, "state.export", a.download);
+  appendAudit(state, "state.export", name);
   persist();
   showToast("Backup downloaded.", "ok");
 }
@@ -1520,9 +1547,42 @@ document.addEventListener("click", (e) => {
   }
   if (action === "end-focus") {
     state.ui.focusSessionEndsAt = 0;
-    appendAudit(state, "focus.end", "manual");
+    let disarmed = 0;
+    for (const r of state.blockRules || []) {
+      if (r.armed) {
+        r.armed = false;
+        disarmed += 1;
+      }
+    }
+    appendAudit(state, "focus.end", disarmed ? `manual+disarm:${disarmed}` : "manual");
     persist();
-    showToast("Focus session ended.", "ok");
+    showToast(
+      disarmed ? `Focus ended · disarmed ${disarmed} rule${disarmed === 1 ? "" : "s"}.` : "Focus session ended.",
+      "ok"
+    );
+  }
+  if (action === "notify-test") {
+    try {
+      if (typeof Notification === "undefined") {
+        showToast("Notifications not available here.", "error");
+        return;
+      }
+      if (Notification.permission !== "granted") {
+        showToast("Allow notifications in the tutorial / browser first.", "error");
+        return;
+      }
+      new Notification("AIly", {
+        body: state.ui.dailyIntention
+          ? `Intention: ${state.ui.dailyIntention.slice(0, 80)}`
+          : "Gentle check-in — is this what you want to be doing?",
+        icon: "icons/icon-192.png",
+        tag: "aily-checkin",
+      });
+      appendAudit(state, "notify.test", "ok");
+      persist();
+    } catch {
+      showToast("Could not show a notification.", "error");
+    }
   }
   if (action === "open-tutorial") {
     state.ui.tutorialOpen = true;

@@ -1,8 +1,9 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
-const CACHE = "aily-2026.08.11.12";
+const CACHE = "aily-2026.08.11.13";
 const ASSETS = [
   "./",
   "./index.html",
+  "./offline.html",
   "./css/app.css",
   "./js/app.js",
   "./js/store.js",
@@ -66,6 +67,8 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  const accept = req.headers.get("accept") || "";
+  const navigate = req.mode === "navigate" || accept.includes("text/html");
   event.respondWith(
     caches.match(req).then((hit) => {
       const net = fetch(req)
@@ -76,7 +79,11 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => hit);
+        .catch(() => {
+          if (hit) return hit;
+          if (navigate) return caches.match("./offline.html");
+          return hit;
+        });
       return hit || net;
     })
   );
