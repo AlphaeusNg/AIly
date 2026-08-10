@@ -933,6 +933,7 @@ function renderBlocks() {
           <span class="muted">${policy.delaySec}s glass</span>
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
           <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
+          <button type="button" data-action="set-delay" data-id="${r.id}">Delay</button>
           <button type="button" data-action="delete-rule" data-id="${r.id}">Delete</button>
         </li>`;
         })
@@ -1106,6 +1107,7 @@ function friendlyAuditTool(tool) {
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
     "block.disarm_all": "Disarmed all rules",
+    "block.delay": "Changed break-glass delay",
     "capacity.save": "Saved capacity",
     "permission.revoke": "Revoked permission",
     "user.name": "Saved display name",
@@ -2160,6 +2162,28 @@ document.addEventListener("click", (e) => {
   }
   if (action === "breakglass-confirm") {
     completeBreakGlass();
+  }
+  if (action === "set-delay") {
+    const r = state.blockRules.find((x) => x.id === id);
+    if (!r) return;
+    const policy = breakGlassPolicy(r);
+    const raw = prompt("Break-glass delay (seconds)", String(policy.delaySec));
+    if (raw == null) return;
+    let delaySec = Number(raw);
+    if (!Number.isFinite(delaySec) || delaySec < 0) {
+      showToast("Delay must be 0–600 seconds.", "error");
+      return;
+    }
+    delaySec = Math.min(600, Math.floor(delaySec));
+    r.breakGlass = {
+      ...(r.breakGlass || {}),
+      delaySec,
+      requireReason: policy.requireReason,
+      dailyLimit: policy.dailyLimit,
+    };
+    appendAudit(state, "block.delay", `${r.appKeys.join(",")}:${delaySec}`);
+    persist();
+    showToast(`Break-glass delay set to ${delaySec}s.`, "ok");
   }
   if (action === "reset-demo") {
     if (confirm("Reset all local AIly demo data?")) {
