@@ -9,6 +9,7 @@ import {
   discardInvalidCommitments,
   exportState,
   importState,
+  pruneOldCommitments,
 } from "./store.js";
 import {
   checkPlanAccept,
@@ -31,8 +32,20 @@ import {
   validateBreakGlassComplete,
 } from "./block.js";
 import { proposeDayPlan, returnNudge } from "./ally.js";
+import {
+  intentionStreak,
+  weekJourneyStats,
+  weekReflection,
+} from "./journey.js";
 
 let state = loadState();
+{
+  const pruned = pruneOldCommitments(state, 45, todayISO());
+  if (pruned > 0) {
+    appendAudit(state, "state.prune", `${pruned} old commitments`);
+    saveState(state);
+  }
+}
 /** @type {{ ok: boolean, error?: string, message?: string } | null} */
 let lastSave = null;
 /** @type {null | { text: string, targetId: string, estimateMin: number, mustKeep: boolean }} */
@@ -43,6 +56,9 @@ let pendingBreakGlass = null;
 let allyProposal = null;
 /** @type {BeforeInstallPromptEvent | null} */
 let deferredInstall = null;
+/** @type {ServiceWorkerRegistration | null} */
+let swRegistration = null;
+let updateBannerDismissed = false;
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
@@ -402,6 +418,44 @@ function renderInstallBanner() {
     window.navigator.standalone === true;
   const canPrompt = !!deferredInstall && !state.ui.installBannerDismissed && !standalone;
   banner.classList.toggle("hidden", !canPrompt);
+  const update = $("#update-banner");
+  if (update) {
+    const waiting = !!(swRegistration && swRegistration.waiting && !updateBannerDismissed);
+    update.classList.toggle("hidden", !waiting);
+  }
+}
+
+function watchServiceWorkerUpdates() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.getRegistration().then((reg) => {
+    if (!reg) return;
+    swRegistration = reg;
+    reg.addEventListener("updatefound", () => {
+      const worker = reg.installing;
+      if (!worker) return;
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          swRegistration = reg;
+          updateBannerDismissed = false;
+          renderInstallBanner();
+          showToast("Update ready — reload when you can.", "ok", 4000);
+        }
+      });
+    });
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      renderInstallBanner();
+    }
+    // Periodic check while the app is open
+    window.setInterval(() => {
+      reg.update().catch(() => {});
+    }, 30 * 60_000);
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // New SW took over after skipWaiting — soft reload if we asked for it.
+    if (watchServiceWorkerUpdates._reloading) {
+      window.location.reload();
+    }
+  });
 }
 
 function renderNav() {
@@ -528,8 +582,15 @@ function renderToday() {
           const t = state.targets.find((x) => x.id === c.targetId);
           return `<li>
             <strong>${escapeHtml(c.text)}</strong>
-            <span class="muted">${c.estimateMin}m · ${escapeHtml(t?.title || "?")}${c.mustKeep ? " · must-keep" : ""}${c.status === "done" ? " · done" : ""}</span>
-            ${c.status !== "done" ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>` : ""}
+            <span class="muted">${c.estimateMin}m · ${escapeHtml(t?.title || "?")}${c.mustKeep ? " · must-keep" : ""}${c.status === "done" ? " · done" : ""} · p${c.priority|0}</span>
+            ${
+              c.status !== "done"
+                ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>
+                   <button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
+                   <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
+                   <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>`
+                : ""
+            }
             <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
           </li>`;
         })
@@ -612,47 +673,14 @@ function pendingReviewCount() {
   ).length;
 }
 
-function weekStartISO(from = new Date()) {
-  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const day = d.getDay(); // 0 Sun
-  const diff = day === 0 ? -6 : 1 - day; // Monday start
-  d.setDate(d.getDate() + diff);
-  const z = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
-}
-
-function weekJourneyStats() {
-  const start = weekStartISO();
-  const commits = (state.commitments || []).filter(
-    (c) => c && typeof c.planDate === "string" && c.planDate >= start && c.status !== "dropped"
-  );
-  const done = commits.filter((c) => c.status === "done");
-  const plannedMin = commits.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
-  const doneMin = done.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
-  const usageMin = (state.usageSamples || [])
-    .filter((u) => u && typeof u.ts === "string" && u.ts.slice(0, 10) >= start)
-    .reduce((a, u) => a + (Number.isFinite(u.mins) ? u.mins : 0), 0);
-  const glass = (state.audit || []).filter(
-    (a) => a && a.tool === "block.break_glass" && typeof a.ts === "string" && a.ts.slice(0, 10) >= start
-  ).length;
-  return {
-    start,
-    plannedMin,
-    doneMin,
-    usageMin,
-    doneCount: done.length,
-    openCount: commits.length - done.length,
-    glass,
-  };
-}
-
 function renderReview() {
   const el = $("#panel-review");
   const d = todayISO();
   const list = state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
   const pending = list.filter((c) => c.status === "pending");
   const done = list.filter((c) => c.status === "done");
-  const week = weekJourneyStats();
+  const week = weekJourneyStats(state);
+  const streak = intentionStreak(state, d);
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
@@ -670,6 +698,8 @@ function renderReview() {
         (${week.doneCount} closed, ${week.openCount} still open) · logged attention <strong>${week.usageMin|0}m</strong>
         · break-glass <strong>${week.glass}</strong>.
       </p>
+      <p class="ally-line">${escapeHtml(weekReflection(week))}</p>
+      ${streak > 0 ? `<p class="muted">Check-in streak: <strong>${streak}</strong> day${streak === 1 ? "" : "s"}.</p>` : ""}
       <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
     </div>
     <p class="muted">Today: ${done.length} done · ${pending.length} still open</p>
@@ -930,6 +960,8 @@ function friendlyAuditTool(tool) {
   const map = {
     "commitment.add": "Added commitment",
     "commitment.done": "Marked done",
+    "commitment.edit": "Edited commitment",
+    "commitment.priority": "Changed priority",
     "target.create": "Created target",
     "checkin.save": "Daily intention",
     "checkin.skip": "Skipped check-in",
@@ -952,6 +984,7 @@ function friendlyAuditTool(tool) {
     "app.installed": "App installed",
     "state.export": "Exported backup",
     "state.import": "Imported backup",
+    "state.prune": "Pruned old commitments",
     "ally.propose": "Ally proposed plan",
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
@@ -1543,6 +1576,44 @@ document.addEventListener("click", (e) => {
     persist();
     showToast("Marked done. Review can still log metric impact.", "ok");
   }
+  if (action === "edit-commit") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status === "done") return;
+    const text = prompt("Commitment text", c.text);
+    if (text == null) return;
+    const trimmed = text.trim().slice(0, 500);
+    if (!trimmed) {
+      showToast("Text cannot be empty.", "error");
+      return;
+    }
+    const minsRaw = prompt("Estimate minutes", String(c.estimateMin));
+    if (minsRaw == null) return;
+    const mins = Number(minsRaw);
+    if (!Number.isFinite(mins) || mins < 15) {
+      showToast("Estimate must be at least 15 minutes.", "error");
+      return;
+    }
+    c.text = trimmed;
+    c.estimateMin = Math.round(mins);
+    appendAudit(state, "commitment.edit", c.id);
+    persist();
+    showToast("Commitment updated.", "ok");
+  }
+  if (action === "prio-up") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c) return;
+    // Higher priority number = sacrificed first in replan (lower importance).
+    c.priority = (Number.isFinite(c.priority) ? c.priority : 0) + 1;
+    appendAudit(state, "commitment.priority", `${c.id}→${c.priority}`);
+    persist();
+  }
+  if (action === "prio-down") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c) return;
+    c.priority = Math.max(0, (Number.isFinite(c.priority) ? c.priority : 0) - 1);
+    appendAudit(state, "commitment.priority", `${c.id}→${c.priority}`);
+    persist();
+  }
   if (action === "drop-commit") {
     const c = state.commitments.find((x) => x.id === id);
     if (c) c.status = "dropped";
@@ -1737,6 +1808,21 @@ document.addEventListener("click", (e) => {
     state.ui.installBannerDismissed = true;
     persist();
   }
+  if (action === "dismiss-update") {
+    updateBannerDismissed = true;
+    renderInstallBanner();
+  }
+  if (action === "apply-update") {
+    const waiting = swRegistration?.waiting;
+    if (!waiting) {
+      window.location.reload();
+      return;
+    }
+    watchServiceWorkerUpdates._reloading = true;
+    waiting.postMessage({ type: "SKIP_WAITING" });
+    // Fallback if controllerchange is slow
+    window.setTimeout(() => window.location.reload(), 800);
+  }
   if (action === "install-app") {
     if (!deferredInstall) {
       showToast("Install isn’t available in this browser right now.", "error");
@@ -1787,6 +1873,7 @@ render();
 dismissBootSplash();
 initNativeShell();
 syncUsageTracker();
+watchServiceWorkerUpdates();
 
 document.addEventListener("visibilitychange", () => {
   usageTracker?.onVisibilityOrFocus();

@@ -340,6 +340,31 @@ export function appendAudit(state, tool, detail) {
   state.audit = state.audit.slice(0, 200);
 }
 
+/** Drop dropped/done commitments older than `keepDays` (default 45). */
+export function pruneOldCommitments(state, keepDays = 45, today = "") {
+  if (!isRecord(state) || !Array.isArray(state.commitments)) return 0;
+  const day = typeof today === "string" && validYmd(today) ? today : null;
+  if (!day) return 0;
+  const cutoff = previousCalendarDay(day, keepDays);
+  const before = state.commitments.length;
+  state.commitments = state.commitments.filter((c) => {
+    if (!isRecord(c) || typeof c.planDate !== "string") return false;
+    if (c.planDate >= cutoff) return true;
+    // Keep open pending forever (user may still need them).
+    return c.status === "pending";
+  });
+  return before - state.commitments.length;
+}
+
+function previousCalendarDay(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return ymd;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  d.setUTCDate(d.getUTCDate() - Math.max(0, days));
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())}`;
+}
+
 /** Portable backup JSON for export / import (local-only). */
 export function exportState(state) {
   return JSON.stringify(

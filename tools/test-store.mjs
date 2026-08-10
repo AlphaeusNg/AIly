@@ -10,6 +10,7 @@ import {
   hydrateState,
   importState,
   loadState,
+  pruneOldCommitments,
   saveState,
 } from "../apps/web/js/store.js";
 
@@ -140,6 +141,42 @@ assert.match(appSource, /Time consciousness/, "Today surfaces time consciousness
 assert.match(appSource, /ally-propose|proposeDayPlan/, "Today exposes local ally propose");
 assert.match(appSource, /backButton/, "native shell handles Android back button");
 assert.match(appSource, /weekJourneyStats/, "Review includes weekly journey stats");
+assert.match(appSource, /apply-update|watchServiceWorkerUpdates/, "app can apply SW updates");
+
+const pruneState = hydrateState({
+  commitments: [
+    {
+      id: "old-done",
+      targetId: "t",
+      planDate: "2026-01-01",
+      text: "Ancient",
+      estimateMin: 30,
+      status: "done",
+    },
+    {
+      id: "old-pending",
+      targetId: "t",
+      planDate: "2026-01-01",
+      text: "Still open",
+      estimateMin: 30,
+      status: "pending",
+    },
+    {
+      id: "new",
+      targetId: "t",
+      planDate: "2026-08-11",
+      text: "Fresh",
+      estimateMin: 30,
+      status: "done",
+    },
+  ],
+});
+assert.equal(pruneOldCommitments(pruneState, 45, "2026-08-11"), 1, "prunes old closed commitments");
+assert.equal(pruneState.commitments.length, 2, "keeps pending and recent");
+assert.ok(
+  pruneState.commitments.some((c) => c.id === "old-pending"),
+  "never drops open pending work"
+);
 
 // saveState must never throw and must report ok/failure for the UI toast path.
 const memory = new Map();
@@ -182,6 +219,7 @@ assert.match(html, /id="boot-splash"/, "index includes boot splash");
 assert.match(html, /assets\/logo\.svg/, "index references logo asset");
 assert.match(html, /id="intention-modal"/, "index includes intention modal");
 assert.match(html, /id="install-banner"/, "index includes install banner");
+assert.match(html, /id="update-banner"/, "index includes update banner");
 assert.match(html, /id="checkin-modal"/, "index includes daily check-in modal");
 assert.match(html, /id="breakglass-modal"/, "index includes break-glass modal");
 assert.equal(defaultState().ui.lastCheckInDate, "", "default has no check-in day");

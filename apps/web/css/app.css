@@ -168,6 +168,11 @@ body.app-ready .app-shell[hidden] {
   background: linear-gradient(90deg, #152033, #12241f);
 }
 
+.update-banner {
+  background: linear-gradient(90deg, #1a2740, #152033);
+  border-bottom-color: #3d6df0;
+}
+
 .install-banner.hidden {
   display: none !important;
 }

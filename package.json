@@ -5,7 +5,7 @@
   "description": "AIly — Your AI Ally",
   "type": "module",
   "scripts": {
-    "test": "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test && node tools/test-capacity.mjs && node tools/test-capacity-contract.mjs && node tools/test-store.mjs && node tools/test-usage.mjs && node tools/test-block.mjs && node tools/test-ally.mjs && node tools/test-workflows.mjs && find apps/web/js -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check && find tools -type f -name '*.mjs' -print0 | sort -z | xargs -0 -n1 node --check && node --check apps/web/sw.js",
+    "test": "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test && node tools/test-capacity.mjs && node tools/test-capacity-contract.mjs && node tools/test-store.mjs && node tools/test-usage.mjs && node tools/test-block.mjs && node tools/test-ally.mjs && node tools/test-journey.mjs && node tools/test-workflows.mjs && find apps/web/js -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check && find tools -type f -name '*.mjs' -print0 | sort -z | xargs -0 -n1 node --check && node --check apps/web/sw.js",
     "web": "python3 -m http.server 8765 --directory apps/web",
     "cap:sync": "npx cap sync",
     "cap:android": "npx cap open android",
