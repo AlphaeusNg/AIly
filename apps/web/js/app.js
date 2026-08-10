@@ -1461,7 +1461,7 @@ function completeChapter(id) {
   appendAudit(state, "tutorial.complete", id);
 }
 
-async async function grantAndComplete(chapter) {
+async function grantAndComplete(chapter) {
   if (chapter.grant === "usage") state.tutorial.permissions.usage = true;
   if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
   if (chapter.grant === "notifications") {
