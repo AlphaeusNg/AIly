@@ -36,6 +36,8 @@ rejects anything that fails `checkPlanAccept`. The user must accept each item
 
 ## Next
 
+See `platform-hooks.md` for adapter plan.
+
 - Real OS usage tracking hooks
 - Real hard-block OS enforcement
 - Optional on-device model for richer propose (still propose-only)
