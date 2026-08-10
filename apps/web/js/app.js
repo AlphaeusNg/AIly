@@ -137,6 +137,13 @@ function softCapRemainingHours(targetId) {
   return Math.max(0, soft.hours - usedMin / 60);
 }
 
+/** Pending minutes on today for a target. */
+function todayPendingMinForTarget(targetId) {
+  return todayCommitments()
+    .filter((c) => c.targetId === targetId && c.status === "pending")
+    .reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+}
+
 function todayCommitments() {
   const d = todayISO();
   return state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
@@ -771,8 +778,12 @@ function renderTargets() {
               </div>
               <span class="muted">${pct}% of the journey</span>
               ${
-                t.status === "active" && t.softCapacityHours != null
-                  ? `<span class="muted">~${softCapRemainingHours(t.id)?.toFixed(1) ?? "?"}h soft remaining (all open work)</span>`
+                t.status === "active"
+                  ? `<span class="muted">Today pending: <strong>${todayPendingMinForTarget(t.id)|0}m</strong>${
+                      t.softCapacityHours != null
+                        ? ` · ~${softCapRemainingHours(t.id)?.toFixed(1) ?? "?"}h soft left`
+                        : ""
+                    }</span>`
                   : ""
               }
             </div>
