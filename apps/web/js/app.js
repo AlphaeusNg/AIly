@@ -956,6 +956,7 @@ function renderBlocks() {
     </ul>
     <div class="row">
       <button type="button" data-action="disarm-all" ${state.blockRules.some((r) => r.armed) ? "" : "disabled"}>Disarm all</button>
+      <button type="button" data-action="arm-all" ${ok && state.blockRules.some((r) => !r.armed) ? "" : "disabled"}>Arm all</button>
     </div>
     <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}</p>
   `;
@@ -1122,6 +1123,7 @@ function friendlyAuditTool(tool) {
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
     "block.disarm_all": "Disarmed all rules",
+    "block.arm_all": "Armed all rules",
     "block.delay": "Changed break-glass delay",
     "capacity.save": "Saved capacity",
     "permission.revoke": "Revoked permission",
@@ -2122,6 +2124,24 @@ document.addEventListener("click", (e) => {
       appendAudit(state, "block.disarm_all", `${n}`);
       persist();
       showToast(`Disarmed ${n} rule${n === 1 ? "" : "s"}.`, "ok");
+    }
+  }
+  if (action === "arm-all") {
+    if (!canArmBlocks(state)) {
+      showToast("Complete Attention map + Ally admin first.", "error");
+      return;
+    }
+    let n = 0;
+    for (const r of state.blockRules || []) {
+      if (!r.armed && (r.appKeys || []).length) {
+        r.armed = true;
+        n += 1;
+      }
+    }
+    if (n) {
+      appendAudit(state, "block.arm_all", `${n}`);
+      persist();
+      showToast(`Armed ${n} rule${n === 1 ? "" : "s"}.`, "ok");
     }
   }
   if (action === "save-name") {
