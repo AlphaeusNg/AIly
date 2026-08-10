@@ -815,15 +815,50 @@ function renderSetup() {
   $("#import-backup")?.addEventListener("change", onImportBackup);
 }
 
+function friendlyAuditTool(tool) {
+  const map = {
+    "commitment.add": "Added commitment",
+    "commitment.done": "Marked done",
+    "target.create": "Created target",
+    "checkin.save": "Daily intention",
+    "checkin.skip": "Skipped check-in",
+    "focus.start": "Focus started",
+    "focus.end": "Focus ended",
+    "block.arm": "Armed block",
+    "block.arm_focus": "Armed for focus",
+    "block.disarm": "Disarmed block",
+    "block.break_glass": "Break glass",
+    "block.try_open_blocked": "Blocked try-open",
+    "block.try_open_allowed": "Allowed try-open",
+    "usage.session": "Session attention",
+    "usage.merge": "Merged attention",
+    "usage.sample": "Logged usage",
+    "plan.replan": "Replanned day",
+    "tutorial.complete": "Tutorial step",
+    "permission.grant": "Granted permission",
+    "app.installed": "App installed",
+    "state.export": "Exported backup",
+    "state.import": "Imported backup",
+  };
+  return map[tool] || tool;
+}
+
 function renderActivity() {
   const el = $("#panel-activity");
   el.innerHTML = `
     <header class="panel-head"><h1>Activity</h1>
-    <p class="muted">What AIly recorded (local audit).</p></header>
+    <p class="muted">What AIly recorded (local audit — never leaves this device).</p></header>
     <ul class="list">
       ${(state.audit || [])
-        .map((a) => `<li><code>${escapeHtml(a.tool)}</code> ${escapeHtml(a.detail || "")} <span class="muted">${a.ts}</span></li>`)
-        .join("") || "<li class='muted'>No actions yet.</li>"}
+        .map((a) => {
+          const when = typeof a.ts === "string" ? a.ts.slice(0, 16).replace("T", " ") : "";
+          return `<li>
+            <strong>${escapeHtml(friendlyAuditTool(a.tool))}</strong>
+            <span class="muted">${escapeHtml(a.detail || "")}</span>
+            <span class="muted">${when}</span>
+          </li>`;
+        })
+        .join("") || "<li class='muted'>No actions yet. Use Today, Targets, or Blocks to begin.</li>"}
     </ul>
   `;
 }
@@ -947,7 +982,32 @@ function shouldAskIntention(estimateMin) {
   return estimateMin >= 30;
 }
 
+function capacityPreview(extraMin = 0) {
+  const today = todayCommitments().map((c) => ({
+    id: c.id,
+    targetId: c.targetId,
+    estimateMin: c.estimateMin,
+    mustKeep: c.mustKeep,
+  }));
+  if (extraMin > 0) {
+    today.push({
+      id: "__preview__",
+      targetId: state.targets[0]?.id || "preview",
+      estimateMin: extraMin,
+      mustKeep: false,
+    });
+  }
+  return checkPlanAccept({
+    weeklyCapacityHours: state.user.weeklyCapacityHours,
+    nightsPerWeek: state.user.nightsPerWeek,
+    softCaps: softCaps(),
+    weekOther: [],
+    today,
+  });
+}
+
 function queueCommitment(payload) {
+  const preview = capacityPreview(payload.estimateMin);
   state.commitments.push({
     id: uid(),
     targetId: payload.targetId,
@@ -961,7 +1021,15 @@ function queueCommitment(payload) {
   appendAudit(state, "commitment.add", payload.text);
   pendingIntention = null;
   persist();
-  showToast("Commitment added — protect that time.", "ok");
+  if (!preview.ok) {
+    showToast(
+      `Added — but this overfills capacity (${errorLabel(preview.error)}). Replan when ready.`,
+      "error",
+      5500
+    );
+  } else {
+    showToast("Commitment added — protect that time.", "ok");
+  }
 }
 
 function completeChapter(id) {

@@ -4,13 +4,12 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 14)
+Last updated: 2026-08-11 (AIly Cycle 15)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell — attention, blocks, daily
-  intention, focus sessions, evening review, target progress UI.
-- Deployment version: `2026.08.11.4`.
+- Product phase: Phase 0 dogfood executable shell — full daily ally loop.
+- Deployment version: `2026.08.11.5`.
 
 ## Opportunity backlog
 
@@ -35,6 +34,18 @@ Last updated: 2026-08-11 (AIly Cycle 14)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 15 — Capacity preflight + readable activity (2026-08-11)
+
+**Why this won:** Adding work past capacity should warn immediately; audit
+should read like an ally log, not raw tool IDs.
+
+**Changes**
+
+- Capacity preview on commitment add; toast when over budget.
+- Friendly activity labels for common tools.
+
+**Verification:** `npm test`.
 
 ### Cycle 14 — Target journey visuals (2026-08-11)
 
