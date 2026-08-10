@@ -2184,6 +2184,17 @@ document.addEventListener("click", (e) => {
         showToast("Install prompt failed.", "error");
       });
   }
+  if (action === "copy-version") {
+    const text = `AIly ${SITE_VERSION.id}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => showToast("Version copied.", "ok"),
+        () => showToast(text, "ok", 4000)
+      );
+    } else {
+      showToast(text, "ok", 4000);
+    }
+  }
 });
 
 window.addEventListener("online", () => {
