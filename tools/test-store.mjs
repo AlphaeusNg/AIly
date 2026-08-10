@@ -6,8 +6,11 @@ import { checkPlanAccept } from "../apps/web/js/capacity.js";
 import {
   defaultState,
   discardInvalidCommitments,
+  exportState,
   hydrateState,
+  importState,
   loadState,
+  saveState,
 } from "../apps/web/js/store.js";
 
 const partial = hydrateState({
@@ -131,5 +134,77 @@ const appSource = readFileSync(new URL("../apps/web/js/app.js", import.meta.url)
 assert.match(appSource, /data-action="discard-invalid-commitments"/, "Today exposes recovery");
 assert.match(appSource, /confirm\(/, "discard requires explicit confirmation");
 assert.match(appSource, /discardInvalidCommitments\(state\)/, "UI uses the tested discard action");
+assert.match(appSource, /dismissBootSplash/, "boot splash is dismissed after first render");
+assert.match(appSource, /shouldAskIntention|intention-confirm/, "intentional commitment gate exists");
+assert.match(appSource, /Time consciousness/, "Today surfaces time consciousness");
 
-console.log("test-store.mjs: 40 hydration and recovery assertions passed");
+// saveState must never throw and must report ok/failure for the UI toast path.
+const memory = new Map();
+globalThis.localStorage = {
+  getItem: (key) => (memory.has(key) ? memory.get(key) : null),
+  setItem: (key, value) => {
+    memory.set(key, String(value));
+  },
+  removeItem: (key) => {
+    memory.delete(key);
+  },
+};
+const saved = saveState(defaultState());
+assert.equal(saved.ok, true, "saveState succeeds with working storage");
+assert.equal(typeof saved.ok, "boolean", "saveState returns a boolean ok flag");
+
+globalThis.localStorage = {
+  getItem: () => null,
+  setItem: () => {
+    const err = new Error("QuotaExceededError");
+    err.name = "QuotaExceededError";
+    throw err;
+  },
+};
+const failed = saveState(defaultState());
+assert.equal(failed.ok, false, "saveState fails closed on quota errors");
+assert.equal(failed.error, "QuotaExceededError", "saveState surfaces the storage error name");
+assert.match(String(failed.message || ""), /./, "saveState includes a message for toasts");
+
+globalThis.localStorage = {
+  getItem: () => "stale",
+  setItem: () => {},
+};
+const verifyFail = saveState(defaultState());
+assert.equal(verifyFail.ok, false, "saveState fails when round-trip verification mismatches");
+assert.equal(verifyFail.error, "verify_failed", "round-trip failure is labeled");
+
+const html = readFileSync(new URL("../apps/web/index.html", import.meta.url), "utf8");
+assert.match(html, /id="boot-splash"/, "index includes boot splash");
+assert.match(html, /assets\/logo\.svg/, "index references logo asset");
+assert.match(html, /id="intention-modal"/, "index includes intention modal");
+assert.match(html, /id="install-banner"/, "index includes install banner");
+
+const sw = readFileSync(new URL("../apps/web/sw.js", import.meta.url), "utf8");
+assert.match(sw, /assets\/logo\.svg/, "service worker caches logo");
+assert.match(sw, /aily-2026\.08\.10/, "service worker cache id is bumped for this ship");
+
+assert.equal(
+  defaultState().ui.installBannerDismissed,
+  false,
+  "default UI tracks install banner dismissal"
+);
+
+const backupRaw = exportState(
+  hydrateState({
+    user: { weeklyCapacityHours: 12, displayName: "Alphaeus" },
+    targets: [{ id: "t1", title: "Ship", metrics: [] }],
+  })
+);
+assert.match(backupRaw, /aily\.backup\.v1/, "export uses stable backup format");
+const imported = importState(backupRaw);
+assert.equal(imported.ok, true, "import accepts a valid backup");
+assert.equal(imported.state.user.weeklyCapacityHours, 12, "import restores capacity");
+assert.equal(imported.state.user.displayName, "Alphaeus", "import restores display name");
+assert.equal(imported.state.targets[0].title, "Ship", "import restores targets");
+assert.equal(importState("{not-json").ok, false, "import rejects corrupt JSON");
+assert.equal(importState("{}").ok, true, "import hydrates an empty object to defaults");
+assert.match(appSource, /export-backup/, "Setup exposes export backup");
+assert.match(appSource, /importState/, "UI uses tested import helper");
+
+console.log("test-store.mjs: hydration, recovery, persist, backup, and shell assertions passed");

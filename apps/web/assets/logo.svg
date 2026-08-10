@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="AIly">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ea8fe"/>
+      <stop offset="100%" stop-color="#3dd6c6"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3dd6c6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#6ea8fe" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#0e1116"/>
+  <circle cx="64" cy="64" r="46" fill="none" stroke="url(#ring)" stroke-width="4"/>
+  <text x="64" y="78" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="42" font-weight="800" letter-spacing="-1.5">
+    <tspan fill="url(#g)">AI</tspan><tspan fill="#3dd6c6">ly</tspan>
+  </text>
+</svg>

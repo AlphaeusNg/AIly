@@ -7,6 +7,8 @@ import {
   appendAudit,
   defaultState,
   discardInvalidCommitments,
+  exportState,
+  importState,
 } from "./store.js";
 import {
   checkPlanAccept,
@@ -17,13 +19,61 @@ import {
 import { CHAPTERS, canArmBlocks, isReady, chapterStatus } from "./tutorial.js";
 
 let state = loadState();
+/** @type {{ ok: boolean, error?: string, message?: string } | null} */
+let lastSave = null;
+/** @type {null | { text: string, targetId: string, estimateMin: number, mustKeep: boolean }} */
+let pendingIntention = null;
+/** @type {BeforeInstallPromptEvent | null} */
+let deferredInstall = null;
+const sessionStartedAt = Date.now();
+let skipIntentionThisSession = false;
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
 function persist() {
-  saveState(state);
+  lastSave = saveState(state);
   render();
+  if (lastSave && !lastSave.ok) {
+    showToast(
+      `Could not save locally (${lastSave.error || "error"}). Your latest change may be lost on refresh.`,
+      "error",
+      6000
+    );
+  }
+  updateSaveStatus();
+  return lastSave;
+}
+
+function updateSaveStatus() {
+  const el = $("#save-status");
+  if (!el) return;
+  if (!lastSave) {
+    el.hidden = true;
+    return;
+  }
+  if (lastSave.ok) {
+    el.hidden = true;
+    el.textContent = "";
+    el.className = "save-status is-ok";
+    return;
+  }
+  el.hidden = false;
+  el.className = "save-status is-error";
+  el.textContent = "Save failed — storage full or blocked";
+}
+
+function showToast(message, kind = "ok", ms = 3200) {
+  const host = $("#toast-host");
+  if (!host) return;
+  const el = document.createElement("div");
+  el.className = `toast is-${kind}`;
+  el.textContent = message;
+  host.appendChild(el);
+  window.setTimeout(() => {
+    el.classList.add("is-leaving");
+    window.setTimeout(() => el.remove(), 280);
+  }, ms);
 }
 
 function softCaps() {
@@ -38,9 +88,71 @@ function todayCommitments() {
   return state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
 }
 
+function dayUsageMinutes() {
+  const day = todayISO();
+  return (state.usageSamples || [])
+    .filter((u) => typeof u.ts === "string" && u.ts.startsWith(day))
+    .reduce((a, u) => a + (Number.isFinite(u.mins) ? u.mins : 0), 0);
+}
+
+function plannedMinutes() {
+  return todayCommitments().reduce((a, c) => a + c.estimateMin, 0);
+}
+
+function sessionMinutes() {
+  return Math.max(0, Math.round((Date.now() - sessionStartedAt) / 60000));
+}
+
+function allyTimeMessage(dailyCap, planned, usage) {
+  const session = sessionMinutes();
+  const parts = [];
+  parts.push(
+    `You've planned <strong>${planned|0}m</strong> of about <strong>${dailyCap|0}m</strong> soft capacity today.`
+  );
+  if (usage > 0) {
+    parts.push(`Logged attention samples: <strong>${usage|0}m</strong>.`);
+  }
+  if (session >= 1) {
+    parts.push(`This AIly session: <strong>${session}m</strong>.`);
+  }
+  parts.push("Pause a second — is this how you want to spend the next stretch?");
+  return parts.join(" ");
+}
+
+function meterClass(ratio) {
+  if (ratio > 1) return "is-over";
+  if (ratio >= 0.85) return "is-warn";
+  return "";
+}
+
+function dismissBootSplash() {
+  const splash = $("#boot-splash");
+  const shell = $("#app-shell");
+  if (shell) {
+    shell.hidden = false;
+  }
+  document.body.classList.remove("is-booting");
+  document.body.classList.add("app-ready");
+  if (!splash) return;
+  // Minimum beat so the brand mark is felt, not a white flash.
+  const minMs = 550;
+  const started = performance.now();
+  const finish = () => {
+    const wait = Math.max(0, minMs - (performance.now() - started));
+    window.setTimeout(() => {
+      splash.classList.add("is-done");
+      window.setTimeout(() => splash.remove(), 500);
+    }, wait);
+  };
+  // Wait a frame so first paint of the app shell lands under the splash.
+  requestAnimationFrame(() => requestAnimationFrame(finish));
+}
+
 function render() {
   $("#brand-version").textContent = SITE_VERSION.id;
   $("#tray-status").textContent = trayLabel();
+  renderNetStatus();
+  renderInstallBanner();
   renderNav();
   const tab = state.ui.tab;
   $$(".panel").forEach((p) => p.classList.toggle("hidden", p.dataset.panel !== tab));
@@ -52,12 +164,37 @@ function render() {
   if (tab === "setup") renderSetup();
   if (tab === "activity") renderActivity();
   renderTutorialModal();
+  renderIntentionModal();
+  updateSaveStatus();
 }
 
 function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   if (state.blockRules.some((r) => r.armed)) return "AIly · Focus";
+  if (!navigator.onLine) return "AIly · Offline";
   return "AIly · Ready";
+}
+
+function renderNetStatus() {
+  const el = $("#net-status");
+  if (!el) return;
+  const online = navigator.onLine;
+  el.textContent = online ? "Online" : "Offline";
+  el.classList.toggle("is-offline", !online);
+  el.title = online
+    ? "Network available (data stays local)"
+    : "Offline — cached shell; your data is still local";
+}
+
+function renderInstallBanner() {
+  const banner = $("#install-banner");
+  if (!banner) return;
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // @ts-expect-error iOS Safari
+    window.navigator.standalone === true;
+  const canPrompt = !!deferredInstall && !state.ui.installBannerDismissed && !standalone;
+  banner.classList.toggle("hidden", !canPrompt);
 }
 
 function renderNav() {
@@ -74,7 +211,10 @@ function renderToday() {
   const daily = dailySoftCapMinutes(cap, state.user.nightsPerWeek);
   const today = todayCommitments();
   const invalidCommitments = state.recovery?.invalidCommitments || [];
-  const used = today.reduce((a, c) => a + c.estimateMin, 0);
+  const used = plannedMinutes();
+  const usage = dayUsageMinutes();
+  const ratio = daily > 0 ? used / daily : 0;
+  const fillPct = Math.min(100, Math.round(ratio * 100));
   const check = checkPlanAccept({
     weeklyCapacityHours: cap,
     nightsPerWeek: state.user.nightsPerWeek,
@@ -93,6 +233,18 @@ function renderToday() {
       <h1>Today</h1>
       <p class="muted">Journey for ${todayISO()} · ${used|0}m / ${daily|0}m day soft cap · ${cap}h week</p>
     </header>
+    <div class="capacity-card">
+      <h2>Time consciousness</h2>
+      <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${fillPct}" aria-label="Day plan fill">
+        <div class="capacity-meter-fill ${meterClass(ratio)}" style="width:${fillPct}%"></div>
+      </div>
+      <p class="ally-line">${allyTimeMessage(daily, used, usage)}</p>
+    </div>
+    ${
+      state.blockRules.some((r) => r.armed)
+        ? `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. <button type="button" data-action="goto-blocks">Manage blocks</button></div>`
+        : ""
+    }
     ${!isReady(state) ? `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>` : ""}
     ${invalidCommitments.length ? `<div class="banner warn">
       <strong>AIly quarantined ${invalidCommitments.length} invalid saved commitment${invalidCommitments.length === 1 ? "" : "s"}.</strong>
@@ -118,11 +270,12 @@ function renderToday() {
           const t = state.targets.find((x) => x.id === c.targetId);
           return `<li>
             <strong>${escapeHtml(c.text)}</strong>
-            <span class="muted">${c.estimateMin}m · ${escapeHtml(t?.title || "?")}${c.mustKeep ? " · must-keep" : ""}</span>
+            <span class="muted">${c.estimateMin}m · ${escapeHtml(t?.title || "?")}${c.mustKeep ? " · must-keep" : ""}${c.status === "done" ? " · done" : ""}</span>
+            ${c.status !== "done" ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>` : ""}
             <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
           </li>`;
         })
-        .join("") || "<li class='muted'>No commitments yet — add one above.</li>"}
+        .join("") || "<li class='muted'>No commitments yet — add one above. AIly will ask if you mean it.</li>"}
     </ul>
   `;
 }
@@ -197,6 +350,7 @@ function renderReview() {
 function renderUsage() {
   const el = $("#panel-usage");
   const granted = state.tutorial.permissions.usage;
+  const usage = dayUsageMinutes();
   el.innerHTML = `
     <header class="panel-head">
       <h1>Usage</h1>
@@ -205,6 +359,10 @@ function renderUsage() {
     ${
       granted
         ? `<div class="banner ok">Usage permission granted (dogfood: log sample apps below).</div>
+           <div class="capacity-card">
+             <h2>Today’s logged attention</h2>
+             <p class="ally-line"><strong>${usage|0}m</strong> across samples. Does that match how you meant to spend the day?</p>
+           </div>
            <form id="usage-form" class="row">
              <input name="app" placeholder="App name" required />
              <input name="mins" type="number" min="1" value="15" style="width:5rem" />
@@ -281,6 +439,10 @@ function renderBlocks() {
 
 function renderSetup() {
   const el = $("#panel-setup");
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // @ts-expect-error iOS
+    window.navigator.standalone === true;
   el.innerHTML = `
     <header class="panel-head">
       <h1>Setup</h1>
@@ -298,14 +460,41 @@ function renderSetup() {
       }).join("")}
     </ul>
     <div class="card">
+      <h2>App install</h2>
+      <p class="muted">${
+        standalone
+          ? "Running as an installed app."
+          : deferredInstall
+            ? "Install available — use the banner or button below."
+            : "Use your browser’s Install / Add to Home Screen when offered."
+      }</p>
+      ${
+        !standalone && deferredInstall
+          ? `<button type="button" class="primary" data-action="install-app">Install AIly</button>`
+          : ""
+      }
+    </div>
+    <div class="card">
       <h2>Permissions</h2>
       <p>Usage: <strong>${state.tutorial.permissions.usage ? "on" : "off"}</strong>
          · Notifications: <strong>${state.tutorial.permissions.notifications ? "on" : "off"}</strong>
          · Block admin: <strong>${state.tutorial.permissions.blockAdmin ? "on" : "off"}</strong></p>
       <p class="muted">Can arm blocks: <strong>${canArmBlocks(state) ? "yes" : "no"}</strong></p>
-      <button type="button" data-action="reset-demo">Reset demo data</button>
+    </div>
+    <div class="card">
+      <h2>Local backup</h2>
+      <p class="muted">Export stays on this device until you save the file. Import replaces current local state after confirmation.</p>
+      <div class="row">
+        <button type="button" class="primary" data-action="export-backup">Export backup</button>
+        <label class="chk file-pick">
+          <span class="file-pick-label">Import backup…</span>
+          <input type="file" id="import-backup" accept="application/json,.json" hidden />
+        </label>
+        <button type="button" data-action="reset-demo">Reset demo data</button>
+      </div>
     </div>
   `;
+  $("#import-backup")?.addEventListener("change", onImportBackup);
 }
 
 function renderActivity() {
@@ -323,6 +512,7 @@ function renderActivity() {
 
 function renderTutorialModal() {
   const modal = $("#tutorial-modal");
+  if (!modal) return;
   const show = state.ui.tutorialOpen;
   modal.classList.toggle("hidden", !show);
   if (!show) return;
@@ -407,11 +597,53 @@ function renderTutorialModal() {
   }
 }
 
-function allOptionalDone() {
-  return CHAPTERS.every((c) => {
-    const st = chapterStatus(state, c.id);
-    return st === "done" || st === "skipped" || !c.required;
+function renderIntentionModal() {
+  const modal = $("#intention-modal");
+  if (!modal) return;
+  const show = !!pendingIntention;
+  modal.classList.toggle("hidden", !show);
+  if (!show || !pendingIntention) return;
+
+  const daily = dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek);
+  const after = plannedMinutes() + pendingIntention.estimateMin;
+  const ratio = daily > 0 ? after / daily : 0;
+  const fillPct = Math.min(100, Math.round(ratio * 100));
+  const target = state.targets.find((t) => t.id === pendingIntention.targetId);
+
+  $("#intention-body").innerHTML = `You're about to put <strong>${pendingIntention.estimateMin}m</strong> toward
+    <strong>${escapeHtml(pendingIntention.text)}</strong>
+    ${target ? ` · target <strong>${escapeHtml(target.title)}</strong>` : ""}.`;
+  $("#intention-hint").textContent =
+    `That would make ~${after|0}m of ~${daily|0}m day soft capacity (${fillPct}%). Do you really want to spend this time this way?`;
+  const fill = $("#intention-meter-fill");
+  if (fill) {
+    fill.style.width = `${fillPct}%`;
+    fill.className = `capacity-meter-fill ${meterClass(ratio)}`;
+  }
+}
+
+function shouldAskIntention(estimateMin) {
+  if (skipIntentionThisSession) return false;
+  if (Date.now() < (state.ui.intentionSkipUntil || 0)) return false;
+  // Always ask for 30m+; short tasks stay friction-light.
+  return estimateMin >= 30;
+}
+
+function queueCommitment(payload) {
+  state.commitments.push({
+    id: uid(),
+    targetId: payload.targetId,
+    planDate: todayISO(),
+    text: payload.text,
+    estimateMin: payload.estimateMin,
+    mustKeep: !!payload.mustKeep,
+    priority: 0,
+    status: "pending",
   });
+  appendAudit(state, "commitment.add", payload.text);
+  pendingIntention = null;
+  persist();
+  showToast("Commitment added — protect that time.", "ok");
 }
 
 function completeChapter(id) {
@@ -428,13 +660,70 @@ function grantAndComplete(chapter) {
   persist();
 }
 
+function onImportBackup(e) {
+  const file = e.target?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = importState(String(reader.result || ""));
+    if (!result.ok) {
+      showToast(`Import failed: ${result.error}`, "error", 5000);
+      return;
+    }
+    if (!confirm("Replace all local AIly data with this backup?")) {
+      e.target.value = "";
+      return;
+    }
+    state = result.state;
+    pendingIntention = null;
+    lastSave = null;
+    appendAudit(state, "state.import", file.name || "backup");
+    persist();
+    showToast("Backup imported.", "ok");
+    e.target.value = "";
+  };
+  reader.onerror = () => showToast("Could not read backup file.", "error");
+  reader.readAsText(file);
+}
+
+function downloadBackup() {
+  const blob = new Blob([exportState(state)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aily-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  appendAudit(state, "state.export", a.download);
+  persist();
+  showToast("Backup downloaded.", "ok");
+}
+
+async function initNativeShell() {
+  try {
+    // Capacitor injects globals only inside the Android/iOS shell — no CDN.
+    const cap = window.Capacitor;
+    if (!cap?.isNativePlatform?.()) return;
+    const StatusBar = cap.Plugins?.StatusBar;
+    if (!StatusBar) return;
+    if (typeof StatusBar.setBackgroundColor === "function") {
+      await StatusBar.setBackgroundColor({ color: "#0e1116" });
+    }
+    if (typeof StatusBar.setStyle === "function") {
+      await StatusBar.setStyle({ style: "DARK" });
+    }
+  } catch {
+    // Web / missing plugin — ignore.
+  }
+}
+
 function onCreateTarget(e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const baseline = Number(fd.get("baseline"));
   const target = Number(fd.get("target"));
   if (baseline === target) {
-    alert("Baseline and target must differ.");
+    showToast("Baseline and target must differ.", "error");
     return;
   }
   const softRaw = fd.get("soft");
@@ -456,7 +745,6 @@ function onCreateTarget(e) {
     ],
   };
   state.targets.push(t);
-  // When ≥2 active targets, require soft caps that sum ≤ weekly (plan D14-style)
   const active = state.targets.filter((x) => x.status === "active");
   if (active.length >= 2) {
     const missing = active.filter((x) => x.softCapacityHours == null || x.softCapacityHours <= 0);
@@ -474,6 +762,7 @@ function onCreateTarget(e) {
   }
   appendAudit(state, "target.create", t.title);
   persist();
+  showToast("Target created.", "ok");
 }
 
 function escapeHtml(s) {
@@ -504,6 +793,10 @@ document.addEventListener("click", (e) => {
   const action = act.dataset.action;
   const id = act.dataset.id;
 
+  if (action === "goto-blocks") {
+    state.ui.tab = "blocks";
+    persist();
+  }
   if (action === "open-tutorial") {
     state.ui.tutorialOpen = true;
     persist();
@@ -517,19 +810,41 @@ document.addEventListener("click", (e) => {
     const targetId = $("#new-commit-target")?.value;
     const estimateMin = Number($("#new-commit-min")?.value) || 30;
     const mustKeep = $("#new-commit-keep")?.checked;
-    if (!text || !targetId) return;
-    state.commitments.push({
-      id: uid(),
-      targetId,
-      planDate: todayISO(),
-      text,
-      estimateMin,
-      mustKeep: !!mustKeep,
-      priority: 0,
-      status: "pending",
-    });
-    appendAudit(state, "commitment.add", text);
+    if (!text || !targetId) {
+      showToast("Add a commitment and pick a target.", "error");
+      return;
+    }
+    const payload = { text, targetId, estimateMin, mustKeep: !!mustKeep };
+    if (shouldAskIntention(estimateMin)) {
+      pendingIntention = payload;
+      renderIntentionModal();
+      return;
+    }
+    queueCommitment(payload);
+  }
+  if (action === "intention-confirm") {
+    if (pendingIntention) queueCommitment(pendingIntention);
+  }
+  if (action === "intention-cancel") {
+    pendingIntention = null;
+    renderIntentionModal();
+  }
+  if (action === "intention-skip-session") {
+    skipIntentionThisSession = true;
+    state.ui.intentionSkipUntil = Date.now() + 4 * 60 * 60 * 1000;
+    if (pendingIntention) queueCommitment(pendingIntention);
+    else {
+      persist();
+      showToast("Intention checks paused for a few hours.", "ok");
+    }
+  }
+  if (action === "done-commit") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c) return;
+    c.status = "done";
+    appendAudit(state, "commitment.done", c.text);
     persist();
+    showToast("Marked done. Review can still log metric impact.", "ok");
   }
   if (action === "drop-commit") {
     const c = state.commitments.find((x) => x.id === id);
@@ -570,7 +885,11 @@ document.addEventListener("click", (e) => {
       if (c) c.estimateMin = s.newEstimateMin;
     }
     appendAudit(state, "plan.replan", out.reasons.join("; "));
-    alert(`Replan applied.\nKept ${out.keep.length}, dropped ${out.drop.length}, shrunk ${out.shrink.length}.`);
+    showToast(
+      `Replan: kept ${out.keep.length}, dropped ${out.drop.length}, shrunk ${out.shrink.length}.`,
+      "ok",
+      4500
+    );
     persist();
   }
   if (action === "bump-metric") {
@@ -616,7 +935,7 @@ document.addEventListener("click", (e) => {
     if (!r) return;
     if (!r.armed) {
       if (!canArmBlocks(state)) {
-        alert("Complete Attention map + Ally admin first.");
+        showToast("Complete Attention map + Ally admin first.", "error");
         return;
       }
       r.armed = true;
@@ -638,12 +957,97 @@ document.addEventListener("click", (e) => {
   if (action === "reset-demo") {
     if (confirm("Reset all local AIly demo data?")) {
       state = defaultState();
+      lastSave = null;
+      pendingIntention = null;
       persist();
+      showToast("Demo data reset.", "ok");
     }
   }
+  if (action === "export-backup") {
+    downloadBackup();
+  }
+  if (action === "dismiss-install") {
+    state.ui.installBannerDismissed = true;
+    persist();
+  }
+  if (action === "install-app") {
+    if (!deferredInstall) {
+      showToast("Install isn’t available in this browser right now.", "error");
+      return;
+    }
+    deferredInstall
+      .prompt()
+      .then(() => deferredInstall.userChoice)
+      .then((choice) => {
+        appendAudit(state, "app.install_prompt", choice?.outcome || "unknown");
+        deferredInstall = null;
+        persist();
+      })
+      .catch(() => {
+        showToast("Install prompt failed.", "error");
+      });
+  }
+});
+
+window.addEventListener("online", () => {
+  renderNetStatus();
+  $("#tray-status").textContent = trayLabel();
+});
+window.addEventListener("offline", () => {
+  renderNetStatus();
+  $("#tray-status").textContent = trayLabel();
+  showToast("You’re offline. AIly still works from the local shell.", "ok");
+});
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  renderInstallBanner();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstall = null;
+  state.ui.installBannerDismissed = true;
+  appendAudit(state, "app.installed", SITE_VERSION.id);
+  persist();
+  showToast("AIly installed. Open it from your home screen.", "ok", 4500);
 });
 
 // First visit: open tutorial
 if (!isReady(state)) state.ui.tutorialOpen = true;
 
 render();
+dismissBootSplash();
+initNativeShell();
+
+// Refresh session clock on Today occasionally while tab is visible
+window.setInterval(() => {
+  if (document.visibilityState === "visible" && state.ui.tab === "today" && !state.ui.tutorialOpen) {
+    renderToday();
+  }
+}, 60_000);
+
+// Light keyboard nav for desktop dogfood (ignore when typing).
+document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
+    return;
+  }
+  const map = {
+    "1": "today",
+    "2": "targets",
+    "3": "review",
+    "4": "usage",
+    "5": "blocks",
+    "6": "setup",
+    "7": "activity",
+  };
+  if (map[e.key]) {
+    state.ui.tab = map[e.key];
+    persist();
+  }
+  if (e.key === "?" && !state.ui.tutorialOpen) {
+    showToast("Keys 1–7 switch tabs. Ally stays local.", "ok", 2800);
+  }
+});

@@ -2,57 +2,105 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>AIly — Your AI Ally</title>
     <meta name="description" content="AIly helps you achieve the targets you set. Local-first ally for your journey." />
     <meta name="theme-color" content="#0e1116" />
+    <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AIly" />
+    <meta name="application-name" content="AIly" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="preload" href="css/app.css" as="style" />
+    <link rel="preload" href="assets/splash-mark.svg" as="image" />
     <link rel="stylesheet" href="css/app.css" />
   </head>
-  <body>
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><span class="ai">AI</span><span class="ly">ly</span></div>
-        <span class="tagline">Your AI Ally</span>
+  <body class="is-booting">
+    <!-- Boot splash: visible before JS; dismissed once app renders -->
+    <div id="boot-splash" class="boot-splash" role="status" aria-live="polite" aria-label="Loading AIly">
+      <div class="boot-card">
+        <img class="boot-logo" src="assets/logo.svg" width="88" height="88" alt="" />
+        <img class="boot-wordmark" src="assets/splash-mark.svg" width="180" height="60" alt="AIly" />
+        <p class="boot-tagline">Your AI Ally</p>
+        <div class="boot-bar" aria-hidden="true"><div class="boot-bar-fill"></div></div>
+        <p class="boot-hint">Loading your local journey…</p>
       </div>
-      <div class="tray" id="tray-status">AIly · Ready</div>
-    </header>
-
-    <div class="layout">
-      <nav class="side" aria-label="Primary">
-        <button type="button" data-nav="today" class="active">Today</button>
-        <button type="button" data-nav="targets">Targets</button>
-        <button type="button" data-nav="review">Review</button>
-        <button type="button" data-nav="usage">Usage</button>
-        <button type="button" data-nav="blocks">Blocks</button>
-        <button type="button" data-nav="setup">
-          Setup <span id="setup-badge" class="badge">!</span>
-        </button>
-        <button type="button" data-nav="activity">Activity</button>
-      </nav>
-      <main>
-        <section class="panel" data-panel="today" id="panel-today"></section>
-        <section class="panel hidden" data-panel="targets" id="panel-targets"></section>
-        <section class="panel hidden" data-panel="review" id="panel-review"></section>
-        <section class="panel hidden" data-panel="usage" id="panel-usage"></section>
-        <section class="panel hidden" data-panel="blocks" id="panel-blocks"></section>
-        <section class="panel hidden" data-panel="setup" id="panel-setup"></section>
-        <section class="panel hidden" data-panel="activity" id="panel-activity"></section>
-      </main>
     </div>
 
-    <footer class="footer">
-      <span>AIly · local-first · MIT</span>
-      <span id="brand-version">—</span>
-    </footer>
+    <div id="app-shell" class="app-shell" hidden>
+      <div id="install-banner" class="install-banner hidden" role="region" aria-label="Install AIly">
+        <img src="assets/logo.svg" width="36" height="36" alt="" />
+        <div class="install-copy">
+          <strong>Install AIly</strong>
+          <span class="muted">Run as an app — faster open, offline shell, home-screen icon.</span>
+        </div>
+        <button type="button" class="primary" data-action="install-app">Install</button>
+        <button type="button" data-action="dismiss-install" aria-label="Dismiss">✕</button>
+      </div>
 
-    <div id="tutorial-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-logo" src="assets/logo.svg" width="32" height="32" alt="" />
+          <div class="brand-text">
+            <div class="brand-mark"><span class="ai">AI</span><span class="ly">ly</span></div>
+            <span class="tagline">Your AI Ally</span>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <span class="net-pill" id="net-status" title="Network">Online</span>
+          <div class="tray" id="tray-status">AIly · Ready</div>
+        </div>
+      </header>
+
+      <div class="layout">
+        <nav class="side" aria-label="Primary">
+          <button type="button" data-nav="today" class="active">
+            <span class="nav-ico" aria-hidden="true">◎</span> Today
+          </button>
+          <button type="button" data-nav="targets">
+            <span class="nav-ico" aria-hidden="true">◈</span> Targets
+          </button>
+          <button type="button" data-nav="review">
+            <span class="nav-ico" aria-hidden="true">✓</span> Review
+          </button>
+          <button type="button" data-nav="usage">
+            <span class="nav-ico" aria-hidden="true">◔</span> Usage
+          </button>
+          <button type="button" data-nav="blocks">
+            <span class="nav-ico" aria-hidden="true">▣</span> Blocks
+          </button>
+          <button type="button" data-nav="setup">
+            <span class="nav-ico" aria-hidden="true">⚙</span> Setup
+            <span id="setup-badge" class="badge">!</span>
+          </button>
+          <button type="button" data-nav="activity">
+            <span class="nav-ico" aria-hidden="true">≡</span> Activity
+          </button>
+        </nav>
+        <main>
+          <section class="panel" data-panel="today" id="panel-today"></section>
+          <section class="panel hidden" data-panel="targets" id="panel-targets"></section>
+          <section class="panel hidden" data-panel="review" id="panel-review"></section>
+          <section class="panel hidden" data-panel="usage" id="panel-usage"></section>
+          <section class="panel hidden" data-panel="blocks" id="panel-blocks"></section>
+          <section class="panel hidden" data-panel="setup" id="panel-setup"></section>
+          <section class="panel hidden" data-panel="activity" id="panel-activity"></section>
+        </main>
+      </div>
+
+      <footer class="footer">
+        <span>AIly · local-first · MIT</span>
+        <span id="save-status" class="save-status" hidden></span>
+        <span id="brand-version">—</span>
+      </footer>
+    </div>
+
+    <div id="tutorial-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
       <div class="modal">
         <div class="modal-top">
           <span class="muted" id="tutorial-progress">0/8</span>
@@ -63,6 +111,29 @@
         <div class="modal-actions" id="tutorial-actions"></div>
       </div>
     </div>
+
+    <!-- Intentional choice gate: time consciousness before committing attention -->
+    <div id="intention-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="intention-title">
+      <div class="modal intention-modal">
+        <div class="modal-top">
+          <span class="muted">Intentional check</span>
+          <button type="button" data-action="intention-cancel" aria-label="Cancel">✕</button>
+        </div>
+        <h2 id="intention-title">Is this what you want?</h2>
+        <p id="intention-body" class="intention-body"></p>
+        <div class="capacity-meter" id="intention-meter" aria-hidden="true">
+          <div class="capacity-meter-fill" id="intention-meter-fill"></div>
+        </div>
+        <p class="muted intention-hint" id="intention-hint"></p>
+        <div class="modal-actions">
+          <button type="button" class="primary" data-action="intention-confirm">Yes — protect this time</button>
+          <button type="button" data-action="intention-cancel">Not now</button>
+          <button type="button" class="ghost" data-action="intention-skip-session">Skip checks this session</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>
     <script>

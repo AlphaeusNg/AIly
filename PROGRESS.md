@@ -4,31 +4,33 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-10 (Cycle 87 across the projects workspace; AIly Cycle 7)
+Last updated: 2026-08-10 (AIly Cycles 8–10)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood (tutorial, targets, capacity/replan, local
-  block-rule model, PWA, and Android shell).
-- Baseline on 2026-08-09: all documented automated checks across the projects
-  workspace passed when run from their respective repository roots.
-- AIly baseline after Cycle 7: 12 Rust unit tests, 2 Rust shared-contract
-  integration tests, 4 JavaScript suites (including 40 persistence/recovery
-  assertions), 30 CI/Pages policy assertions, recursive syntax checks, strict
-  Clippy, and Rust formatting all pass through one canonical local/CI gate.
-- Invalid persisted commitments are quarantined with safe summaries and cannot
-  enter capacity checks; Today offers a confirmed, audited discard path.
-- CI uses read-only permissions, bounded/cancelable Node 24 jobs, and current
-  checkout/setup-node majors; Pages uses current Node 24 action majors with only
-  its required deploy permissions.
-- Deployment version: `2026.08.10.1`.
+- Product phase: Phase 0 dogfood executable shell — boot splash, brand assets,
+  PWA install banner, offline pill, mobile bottom nav, intentional commitment
+  gate, time-consciousness card, local backup export/import, Capacitor Android
+  APK (`dist/AIly-0.1.0-debug.apk`).
+- AIly baseline after Cycle 10: 12 Rust unit tests, 2 Rust shared-contract
+  integration tests, expanded store/shell/backup assertions, 30 CI/Pages policy
+  assertions, recursive syntax checks, strict Clippy, and formatting all pass
+  through `npm test`. Android `assembleDebug` succeeds with local JDK 21.
+- `saveState` never throws; UI toasts on quota/privacy failures and verifies
+  round-trip storage.
+- Deployment version: `2026.08.10.4`.
 
 ## Opportunity backlog
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Handle localStorage write failures without breaking recovery or input actions | Reliability / UX | Medium: privacy/quota failures can still throw through `persist()` | Small / low | Follow the boolean save/status pattern proven in sibling local-first apps | Next |
-| 2 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface rather than generated samples | Medium / medium | Requires Android SDK in CI or a focused JVM test path | Backlog |
+| 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: dogfood samples only today | Large / medium | Platform APIs + privacy docs | Next |
+| 2 | Real hard-block enforcement + break-glass delay | Product spine | High: rules are model-only | Large / medium | Admin consent already gated | Backlog |
+| 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface | Medium / medium | SDK available locally; not yet in CI | Backlog |
+| 4 | Optional local AI propose-only planner | Product | Medium: ally brain without cloud | Large / medium | After usage/block honesty | Backlog |
+| — | Boot splash, assets, install banner, offline/PWA shell | UX / packaging | High: feels like a real app | Medium / low | Cycles 8–10 | Completed in Cycle 8–10 |
+| — | Time-consciousness card + intentional commitment gate | Ally UX | High: owner personal goal | Small / low | Today + intention modal | Completed in Cycle 9 |
+| — | Safe localStorage persist + export/import backup | Reliability | High: no throw on quota; portable data | Small / low | store.js + Setup | Completed in Cycle 8–10 |
 | — | Enforce strict Clippy and modern workflow policy | Test / maintainability / security | High compounding value across all checks and deployments | Small-medium / low | 30 executable CI/Pages policy assertions | Completed in Cycle 7 |
 | — | Give users a recovery path for invalid persisted commitments | Reliability / UX | Medium: malformed entries previously left capacity fail-closed with no reliable repair | Small / low | Quarantine plus explicit confirmed discard | Completed in Cycle 6 |
 | — | Bring all Rust sources under `cargo fmt --check` in CI | Process / maintainability | Medium: makes formatting mechanically verifiable | Small / low | Three files had pre-existing drift | Completed in Cycle 5 |
@@ -38,6 +40,55 @@ Last updated: 2026-08-10 (Cycle 87 across the projects workspace; AIly Cycle 7)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 10 — Executable packaging polish (2026-08-10)
+
+**Why this won:** Users need a shippable binary + portable backup, not only a
+static page. Capacitor splash/status-bar config, APK rebuild, export/import,
+mobile bottom nav, and keyboard tab shortcuts make dogfood feel like an app.
+
+**Changes**
+
+- Capacitor SplashScreen + StatusBar config; `npx cap sync android`; debug APK
+  at `dist/AIly-0.1.0-debug.apk`.
+- Setup: export/import JSON backup (`aily.backup.v1`).
+- Mobile sticky bottom nav; keys `1`–`7` for tabs; toasts replace several alerts.
+- Version `2026.08.10.4`; SW cache bumped.
+
+**Verification:** `npm test` green; `./gradlew assembleDebug` with
+`JAVA_HOME=$HOME/.local/jdk-21` green.
+
+**Next opportunity:** Real OS usage tracking and hard-block enforcement.
+
+### Cycle 9 — Time consciousness + intentional choice (2026-08-10)
+
+**Why this won:** Owner goal is conscious time and “do I really want this?” —
+the ally differentiator vs a plain to-do list.
+
+**Changes**
+
+- Today “Time consciousness” capacity meter + ally line (plan vs soft cap,
+  usage samples, session minutes).
+- Intention modal before adding ≥30m commitments; session skip option.
+- Tutorial meet copy names the pause/intention job.
+- Usage panel summarizes today’s logged attention.
+
+**Verification:** store/shell assertions for intention + time copy; full gate.
+
+### Cycle 8 — Boot splash, assets, safe persist, PWA install (2026-08-10)
+
+**Why this won:** First paint and storage failure handling define whether the
+product feels like an app or a fragile demo.
+
+**Changes**
+
+- Boot splash with logo/wordmark assets; preload; minimum display time.
+- `saveState` returns `{ok}` without throwing; round-trip verify; toast on fail.
+- Install banner + `beforeinstallprompt`; online/offline pill.
+- SW caches assets/icons; partial cache install resilience.
+
+**Verification:** expanded `test-store.mjs` (persist fail paths, shell HTML/SW);
+full `npm test`.
 
 ### Cycle 1 — Preserve priority during forced replans (2026-08-09)
 

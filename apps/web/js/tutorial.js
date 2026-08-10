@@ -9,7 +9,9 @@ export const CHAPTERS = [
 
 I help you hit the **targets you set**. I'll walk you through setup on this computer — no terminal, no tech maze.
 
-I'll plan with you, notice where time goes (if you allow), and only block apps **you** put off-limits.`,
+I'll plan with you, notice where time goes (if you allow), and only block apps **you** put off-limits.
+
+My job is also to help you **pause** — so you stay conscious of the time you spend, and choose whether you really want to be doing this.`,
   },
   {
     id: "first_target",

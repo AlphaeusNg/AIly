@@ -2,7 +2,9 @@
 
 **Brand:** **AIly** (stylized capital **I**) — *Your AI Ally*  
 **Plan:** `/home/alph/projects/plans/aily-heavy-plan.md`  
-**Workflow:** `~/.grok/workflows/aily.rhai`
+**Workflows:**  
+- Multi-mode (research/architecture/implement/…): `~/.grok/workflows/aily.rhai`  
+- Continuous improve cycles: `~/.grok/workflows/aily-improve.rhai` (also `AIly/.grok/workflows/aily-improve.rhai`)
 
 ## Product spine
 
@@ -40,3 +42,15 @@ npm test
 python3 -m http.server 8765 --directory apps/web
 # open http://127.0.0.1:8765/
 ```
+
+## Continuous improve workflow
+
+```text
+/workflow aily-improve
+/workflow aily-improve {"cycles": 2}
+/workflow aily-improve {"dry_run": true}
+/workflow aily-improve {"focus": "time consciousness intentional pause"}
+```
+
+Each cycle: orient → parallel discover (5 lenses) → select one fix → implement → `npm test` + claim check → update `PROGRESS.md`.  
+North star baked in: seamless local ally; conscious of time; help the user ask whether they really want to be doing this.

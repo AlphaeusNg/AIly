@@ -149,7 +149,12 @@ export function defaultState() {
     usageSamples: [],
     audit: [],
     recovery: { invalidCommitments: [] },
-    ui: { tab: "today", tutorialOpen: true },
+    ui: {
+      tab: "today",
+      tutorialOpen: true,
+      installBannerDismissed: false,
+      intentionSkipUntil: 0,
+    },
   };
 }
 
@@ -241,6 +246,13 @@ export function hydrateState(saved) {
         typeof savedUi.tutorialOpen === "boolean"
           ? savedUi.tutorialOpen
           : defaults.ui.tutorialOpen,
+      installBannerDismissed:
+        typeof savedUi.installBannerDismissed === "boolean"
+          ? savedUi.installBannerDismissed
+          : defaults.ui.installBannerDismissed,
+      intentionSkipUntil: Number.isFinite(savedUi.intentionSkipUntil)
+        ? savedUi.intentionSkipUntil
+        : defaults.ui.intentionSkipUntil,
     },
   };
 }
@@ -264,8 +276,32 @@ export function loadState() {
   }
 }
 
+/**
+ * Persist state. Never throws — quota / privacy mode / disabled storage
+ * return { ok: false } so the UI can keep working and surface a toast.
+ */
 export function saveState(state) {
-  localStorage.setItem(KEY, JSON.stringify(state));
+  try {
+    const payload = JSON.stringify(state);
+    localStorage.setItem(KEY, payload);
+    // Round-trip check catches some private-mode shims that swallow setItem.
+    const roundTrip = localStorage.getItem(KEY);
+    if (roundTrip !== payload) {
+      return {
+        ok: false,
+        error: "verify_failed",
+        message: "Saved data could not be verified in local storage",
+      };
+    }
+    return { ok: true };
+  } catch (err) {
+    const name = err && typeof err === "object" && "name" in err ? String(err.name) : "SaveError";
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String(err.message)
+        : "Could not save to local storage";
+    return { ok: false, error: name || "SaveError", message: message || "Could not save" };
+  }
 }
 
 export function uid() {
@@ -286,4 +322,43 @@ export function appendAudit(state, tool, detail) {
     ts: new Date().toISOString(),
   });
   state.audit = state.audit.slice(0, 200);
+}
+
+/** Portable backup JSON for export / import (local-only). */
+export function exportState(state) {
+  return JSON.stringify(
+    {
+      format: "aily.backup.v1",
+      exportedAt: new Date().toISOString(),
+      state,
+    },
+    null,
+    2
+  );
+}
+
+/**
+ * Parse and hydrate a backup payload. Returns { ok, state } or { ok: false, error }.
+ */
+export function importState(raw) {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!isRecord(parsed)) {
+      return { ok: false, error: "Backup must be a JSON object" };
+    }
+    const body = isRecord(parsed.state) ? parsed.state : parsed;
+    if (parsed.format && parsed.format !== "aily.backup.v1" && !isRecord(parsed.state)) {
+      // Allow raw state dumps without format wrapper for power users.
+      if (!("version" in parsed) && !("targets" in parsed) && !("user" in parsed)) {
+        return { ok: false, error: "Unrecognized backup format" };
+      }
+    }
+    return { ok: true, state: hydrateState(body) };
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String(err.message)
+        : "Invalid JSON backup";
+    return { ok: false, error: message };
+  }
 }
