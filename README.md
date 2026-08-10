@@ -69,18 +69,20 @@ and recursive web, tool, and service-worker syntax.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.11.15`):
+**Phase 0 dogfood executable shell** (`2026.08.11.22`):
 
-- Boot splash + brand assets, PWA install banner, offline indicator  
+- Boot splash + brand assets, PWA install/update banners, offline page  
 - Time-consciousness meter + intentional check before ≥30m commitments  
-- Daily intention check-in + optional focus sessions (soft-arm rules)  
-- **Local propose-only ally planner** (no cloud) — Ask AIly to propose a plan  
-- In-app attention tracker + day-by-app bars; honesty prompt for off-limits apps  
-- Break-glass delay UI + try-open block simulation  
-- Weekly journey stats on Review; Setup capacity + revoke permissions  
-- Safe local persist (no throw on quota), export/import backup  
-- Android: `npx cap sync android && npm run android:build` · unit tests `npm run android:test`  
-- Local web: `npm run web`
+- Daily intention check-in + focus sessions (soft-arm / auto-disarm)  
+- **Local propose-only ally planner** (JS + Rust) — Ask AIly to propose a plan  
+- Clone yesterday, must-keep / priority controls, target pause/complete  
+- In-app attention tracker + honesty prompt for off-limits app samples  
+- Break-glass countdown + configurable delay; try-open simulation  
+- Weekly journey stats + reflection; evening review badges  
+- Display density / reduce-motion; keyboard help (`?`, `Esc`, `1–7`)  
+- Safe local persist, prune, export/import/share backup  
+- Android: `npx cap sync android && npm run android:build` · `npm run android:test`  
+- Local web: `npm run web` · gate: `npm test`
 
 **Later:** real OS usage tracking + hard app blocking; sealed DB; optional local AI.
 

@@ -2192,11 +2192,31 @@ window.setInterval(() => {
   if (ended) {
     persist();
     showToast("Focus session complete. How did you spend it?", "ok", 4000);
+    try {
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
+        state.tutorial.permissions.notifications
+      ) {
+        new Notification("AIly · Focus complete", {
+          body: state.ui.dailyIntention
+            ? `Intention was: ${state.ui.dailyIntention.slice(0, 90)}`
+            : "Pause — does the next hour still match what you want?",
+          icon: "icons/icon-192.png",
+          tag: "aily-focus-end",
+        });
+      }
+    } catch {
+      /* ignore notification failures */
+    }
     return;
   }
   if (document.visibilityState === "visible" && state.ui.tab === "today" && !state.ui.tutorialOpen) {
     renderToday();
     $("#tray-status").textContent = trayLabel();
+  } else if (document.visibilityState === "visible") {
+    $("#tray-status").textContent = trayLabel();
+    renderNav();
   }
   // Periodic flush so multi-minute sessions land without waiting for hide
   if (usageTracker?.isRunning()) usageTracker.flush();
