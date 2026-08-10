@@ -612,12 +612,47 @@ function pendingReviewCount() {
   ).length;
 }
 
+function weekStartISO(from = new Date()) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const day = d.getDay(); // 0 Sun
+  const diff = day === 0 ? -6 : 1 - day; // Monday start
+  d.setDate(d.getDate() + diff);
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+function weekJourneyStats() {
+  const start = weekStartISO();
+  const commits = (state.commitments || []).filter(
+    (c) => c && typeof c.planDate === "string" && c.planDate >= start && c.status !== "dropped"
+  );
+  const done = commits.filter((c) => c.status === "done");
+  const plannedMin = commits.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  const doneMin = done.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  const usageMin = (state.usageSamples || [])
+    .filter((u) => u && typeof u.ts === "string" && u.ts.slice(0, 10) >= start)
+    .reduce((a, u) => a + (Number.isFinite(u.mins) ? u.mins : 0), 0);
+  const glass = (state.audit || []).filter(
+    (a) => a && a.tool === "block.break_glass" && typeof a.ts === "string" && a.ts.slice(0, 10) >= start
+  ).length;
+  return {
+    start,
+    plannedMin,
+    doneMin,
+    usageMin,
+    doneCount: done.length,
+    openCount: commits.length - done.length,
+    glass,
+  };
+}
+
 function renderReview() {
   const el = $("#panel-review");
   const d = todayISO();
   const list = state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
   const pending = list.filter((c) => c.status === "pending");
   const done = list.filter((c) => c.status === "done");
+  const week = weekJourneyStats();
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
@@ -628,7 +663,16 @@ function renderReview() {
         ? `<div class="capacity-card"><p class="ally-line">You intended: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>. Did your time match?</p></div>`
         : ""
     }
-    <p class="muted">${done.length} done · ${pending.length} still open</p>
+    <div class="capacity-card">
+      <h2>This week (from ${week.start})</h2>
+      <p class="ally-line">
+        Planned <strong>${week.plannedMin|0}m</strong> · done <strong>${week.doneMin|0}m</strong>
+        (${week.doneCount} closed, ${week.openCount} still open) · logged attention <strong>${week.usageMin|0}m</strong>
+        · break-glass <strong>${week.glass}</strong>.
+      </p>
+      <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
+    </div>
+    <p class="muted">Today: ${done.length} done · ${pending.length} still open</p>
     <ul class="list">
       ${list
         .map(
@@ -751,10 +795,14 @@ function renderBlocks() {
           <span class="muted">${policy.delaySec}s glass</span>
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
           <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
+          <button type="button" data-action="delete-rule" data-id="${r.id}">Delete</button>
         </li>`;
         })
         .join("") || "<li class='muted'>No block rules yet.</li>"}
     </ul>
+    <div class="row">
+      <button type="button" data-action="disarm-all" ${state.blockRules.some((r) => r.armed) ? "" : "disabled"}>Disarm all</button>
+    </div>
     <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}</p>
   `;
   $("#block-form")?.addEventListener("submit", (e) => {
@@ -825,12 +873,26 @@ function renderSetup() {
           : ""
       }
     </div>
+    <div class="card form">
+      <h2>Capacity</h2>
+      <p class="muted">How much time you can honestly protect each week.</p>
+      <div class="row">
+        <label>Weekly hours <input id="setup-hours" type="number" min="1" max="80" step="0.5" value="${state.user.weeklyCapacityHours}" /></label>
+        <label>Nights/week <input id="setup-nights" type="number" min="1" max="7" value="${state.user.nightsPerWeek}" /></label>
+        <button type="button" class="primary" data-action="save-capacity">Save capacity</button>
+      </div>
+      <p class="muted">Day soft cap ≈ ${dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek)|0}m</p>
+    </div>
     <div class="card">
       <h2>Permissions</h2>
       <p>Usage: <strong>${state.tutorial.permissions.usage ? "on" : "off"}</strong>
          · Notifications: <strong>${state.tutorial.permissions.notifications ? "on" : "off"}</strong>
          · Block admin: <strong>${state.tutorial.permissions.blockAdmin ? "on" : "off"}</strong></p>
       <p class="muted">Can arm blocks: <strong>${canArmBlocks(state) ? "yes" : "no"}</strong></p>
+      <div class="row">
+        <button type="button" data-action="revoke-usage" ${state.tutorial.permissions.usage ? "" : "disabled"}>Revoke usage</button>
+        <button type="button" data-action="revoke-admin" ${state.tutorial.permissions.blockAdmin ? "" : "disabled"}>Revoke block admin</button>
+      </div>
     </div>
     <div class="card">
       <h2>Local backup</h2>
@@ -874,6 +936,10 @@ function friendlyAuditTool(tool) {
     "state.import": "Imported backup",
     "ally.propose": "Ally proposed plan",
     "ally.accept_all": "Accepted ally plan",
+    "block.rule_delete": "Deleted block rule",
+    "block.disarm_all": "Disarmed all rules",
+    "capacity.save": "Saved capacity",
+    "permission.revoke": "Revoked permission",
   };
   return map[tool] || tool;
 }
@@ -1212,12 +1278,64 @@ async function initNativeShell() {
     const cap = window.Capacitor;
     if (!cap?.isNativePlatform?.()) return;
     const StatusBar = cap.Plugins?.StatusBar;
-    if (!StatusBar) return;
-    if (typeof StatusBar.setBackgroundColor === "function") {
-      await StatusBar.setBackgroundColor({ color: "#0e1116" });
+    if (StatusBar) {
+      if (typeof StatusBar.setBackgroundColor === "function") {
+        await StatusBar.setBackgroundColor({ color: "#0e1116" });
+      }
+      if (typeof StatusBar.setStyle === "function") {
+        await StatusBar.setStyle({ style: "DARK" });
+      }
     }
-    if (typeof StatusBar.setStyle === "function") {
-      await StatusBar.setStyle({ style: "DARK" });
+    const App = cap.Plugins?.App;
+    if (App?.addListener) {
+      // Hardware back: close modals first, then navigate toward Today, then minimize.
+      await App.addListener("backButton", ({ canGoBack }) => {
+        if (pendingBreakGlass) {
+          cancelBreakGlass();
+          return;
+        }
+        if (pendingIntention) {
+          pendingIntention = null;
+          renderIntentionModal();
+          return;
+        }
+        if (state.ui.checkInOpen) {
+          skipCheckIn();
+          return;
+        }
+        if (state.ui.tutorialOpen) {
+          state.ui.tutorialOpen = false;
+          persist();
+          return;
+        }
+        if (state.ui.tab !== "today") {
+          state.ui.tab = "today";
+          persist();
+          return;
+        }
+        if (canGoBack && cap.Plugins?.App?.minimizeApp) {
+          cap.Plugins.App.minimizeApp();
+        } else if (cap.Plugins?.App?.exitApp) {
+          // Last resort on some devices — prefer minimize when available.
+          cap.Plugins.App.minimizeApp?.() || cap.Plugins.App.exitApp();
+        }
+      });
+      await App.addListener("appStateChange", ({ isActive }) => {
+        if (!isActive) {
+          lastHiddenAt = Date.now();
+          usageTracker?.flush();
+        } else if (lastHiddenAt) {
+          const awayMin = (Date.now() - lastHiddenAt) / 60000;
+          lastHiddenAt = 0;
+          const msg = returnNudge({
+            awayMin,
+            intention: state.ui.dailyIntention || "",
+            focusActive: focusRemainingMin() > 0,
+          });
+          if (msg) showToast(msg, "ok", 5500);
+          usageTracker?.onVisibilityOrFocus();
+        }
+      });
     }
   } catch {
     // Web / missing plugin — ignore.
@@ -1511,6 +1629,64 @@ document.addEventListener("click", (e) => {
     const r = state.blockRules.find((x) => x.id === id);
     if (!r?.armed) return;
     startBreakGlass(r.id);
+  }
+  if (action === "delete-rule") {
+    const before = (state.blockRules || []).length;
+    state.blockRules = (state.blockRules || []).filter((r) => r.id !== id);
+    if (state.blockRules.length < before) {
+      appendAudit(state, "block.rule_delete", id);
+      if (pendingBreakGlass?.ruleId === id) cancelBreakGlass();
+      persist();
+      showToast("Rule deleted.", "ok");
+    }
+  }
+  if (action === "disarm-all") {
+    let n = 0;
+    for (const r of state.blockRules || []) {
+      if (r.armed) {
+        r.armed = false;
+        n += 1;
+      }
+    }
+    if (n) {
+      appendAudit(state, "block.disarm_all", `${n}`);
+      persist();
+      showToast(`Disarmed ${n} rule${n === 1 ? "" : "s"}.`, "ok");
+    }
+  }
+  if (action === "save-capacity") {
+    const hours = Number($("#setup-hours")?.value);
+    const nights = Number($("#setup-nights")?.value);
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 168) {
+      showToast("Weekly hours must be between 1 and 168.", "error");
+      return;
+    }
+    if (!Number.isFinite(nights) || nights < 1 || nights > 7) {
+      showToast("Nights/week must be 1–7.", "error");
+      return;
+    }
+    state.user.weeklyCapacityHours = hours;
+    state.user.nightsPerWeek = nights;
+    appendAudit(state, "capacity.save", `${hours}h / ${nights} nights`);
+    persist();
+    showToast("Capacity updated.", "ok");
+  }
+  if (action === "revoke-usage") {
+    if (!confirm("Revoke usage tracking? Session auto-log stops; samples stay until you clear them.")) return;
+    state.tutorial.permissions.usage = false;
+    usageTracker?.stop();
+    usageTracker = null;
+    appendAudit(state, "permission.revoke", "usage");
+    persist();
+    showToast("Usage permission revoked.", "ok");
+  }
+  if (action === "revoke-admin") {
+    if (!confirm("Revoke block admin? Armed rules will disarm.")) return;
+    state.tutorial.permissions.blockAdmin = false;
+    for (const r of state.blockRules || []) r.armed = false;
+    appendAudit(state, "permission.revoke", "blockAdmin");
+    persist();
+    showToast("Block admin revoked; rules disarmed.", "ok");
   }
   if (action === "breakglass-cancel") {
     cancelBreakGlass();

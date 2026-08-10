@@ -4,12 +4,12 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 17)
+Last updated: 2026-08-11 (AIly Cycle 18)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell with local propose-only ally.
-- Deployment version: `2026.08.11.7`.
+- Deployment version: `2026.08.11.8`.
 
 ## Opportunity backlog
 
@@ -35,6 +35,34 @@ Last updated: 2026-08-11 (AIly Cycle 17)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 18 — Native back, weekly review, setup controls (2026-08-11)
+
+**Why this won:** Android must feel like an app (back closes overlays), and
+Review should show a week-level honesty mirror; Setup needs revoke/capacity.
+
+**Changes**
+
+- Capacitor backButton + appStateChange listeners.
+- Review weekly journey stats (planned/done/usage/glass).
+- Setup capacity editor; revoke usage/admin; block delete + disarm-all.
+- `npm run android:test` script.
+
+**Verification:** `npm test`; `npm run android:test`.
+
+### Cycle 17 — Local propose-only ally planner (2026-08-11)
+
+**Why this won:** “Your AI Ally” needs a plan voice without cloud exfil or a
+multi‑GB model. Deterministic local proposals close that loop for dogfood.
+
+**Changes**
+
+- `apps/web/js/ally.js`: `proposeDayPlan` + `returnNudge`.
+- Today: Ask AIly to propose / accept one / accept all / clear.
+- Return-from-away toast after ≥5m hidden (intention / focus aware).
+- `tools/test-ally.mjs` in the npm gate; architecture doc updated.
+
+**Verification:** full `npm test` green.
 
 ### Cycle 16 — Intention capacity warning + docs honesty (2026-08-11)
 

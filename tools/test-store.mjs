@@ -137,6 +137,9 @@ assert.match(appSource, /discardInvalidCommitments\(state\)/, "UI uses the teste
 assert.match(appSource, /dismissBootSplash/, "boot splash is dismissed after first render");
 assert.match(appSource, /shouldAskIntention|intention-confirm/, "intentional commitment gate exists");
 assert.match(appSource, /Time consciousness/, "Today surfaces time consciousness");
+assert.match(appSource, /ally-propose|proposeDayPlan/, "Today exposes local ally propose");
+assert.match(appSource, /backButton/, "native shell handles Android back button");
+assert.match(appSource, /weekJourneyStats/, "Review includes weekly journey stats");
 
 // saveState must never throw and must report ok/failure for the UI toast path.
 const memory = new Map();
