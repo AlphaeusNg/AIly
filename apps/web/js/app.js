@@ -2234,12 +2234,23 @@ document.addEventListener("click", (e) => {
   if (action === "bump-metric") {
     const t = state.targets.find((x) => x.id === id);
     if (!t?.metrics?.[0]) return;
+    if (t.status !== "active") {
+      showToast("Reactivate the target before logging progress.", "error");
+      return;
+    }
     const m = t.metrics[0];
     const step = m.minMeaningfulDelta || 1;
+    const before = m.current;
     if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
     else m.current = Math.max(m.target, m.current - step);
+    if (m.current === before) {
+      showToast("Already at target — consider marking complete.", "ok");
+      return;
+    }
     appendAudit(state, "metric.bump", t.title);
     persist();
+    const pct = targetProgressPct(m);
+    showToast(`Progress logged · ~${pct}% of journey.`, "ok");
   }
   if (action === "pause-target") {
     const t = state.targets.find((x) => x.id === id);
