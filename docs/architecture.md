@@ -20,6 +20,20 @@ slot toward today’s intention when titles match, snaps estimates to 15m, and
 rejects anything that fails `checkPlanAccept`. The user must accept each item
 (or “add all”); AIly never silently mutates the day plan.
 
+## Web modules (`apps/web/js`)
+
+| Module | Role |
+|---|---|
+| `app.js` | UI shell, events, native/PWA wiring |
+| `store.js` | localStorage hydrate/save/export/import/prune |
+| `capacity.js` | plan accept + replan (ports aily-core) |
+| `tutorial.js` | chapters + arm gates |
+| `usage.js` | samples + visibility session tracker |
+| `block.js` | break-glass helpers + try-open match |
+| `ally.js` | local propose-only day plan |
+| `journey.js` | week stats, streak, reflection |
+| `version.js` | deploy stamp |
+
 ## Next
 
 - Real OS usage tracking hooks
