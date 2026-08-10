@@ -421,6 +421,8 @@ function trayLabel() {
   if (focusLeft > 0) return `AIly · Focus ${focusLeft}m`;
   if (state.blockRules.some((r) => r.armed)) return "AIly · Focus";
   if (!navigator.onLine) return "AIly · Offline";
+  const pending = pendingReviewCount();
+  if (isEveningLocal() && pending > 0) return `AIly · Review ${pending}`;
   return "AIly · Ready";
 }
 
@@ -487,6 +489,21 @@ function watchServiceWorkerUpdates() {
 function renderNav() {
   $$("[data-nav]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.nav === state.ui.tab);
+    if (btn.dataset.nav === "review") {
+      const n = pendingReviewCount();
+      let pill = btn.querySelector(".nav-count");
+      if (n > 0 && isEveningLocal()) {
+        if (!pill) {
+          pill = document.createElement("span");
+          pill.className = "nav-count";
+          btn.appendChild(pill);
+        }
+        pill.textContent = String(n);
+        pill.hidden = false;
+      } else if (pill) {
+        pill.hidden = true;
+      }
+    }
   });
   const badge = $("#setup-badge");
   if (badge) badge.classList.toggle("hidden", isReady(state));
