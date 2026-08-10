@@ -552,6 +552,7 @@ function renderToday() {
     }
     <div class="row">
       <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
+      <button type="button" data-action="clone-yesterday">Clone yesterday</button>
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
     </div>
     ${
@@ -721,6 +722,13 @@ function renderReview() {
       <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
     </div>
     <p class="muted">Today: ${done.length} done · ${pending.length} still open</p>
+    ${
+      pending.length
+        ? `<div class="row">
+             <button type="button" data-action="review-all-noimpact">Mark all remaining no-impact</button>
+           </div>`
+        : ""
+    }
     <ul class="list">
       ${list
         .map(
@@ -1028,6 +1036,8 @@ function friendlyAuditTool(tool) {
     "ui.display": "Saved display prefs",
     "audit.clear": "Cleared activity log",
     "notify.test": "Test notification",
+    "plan.clone_yesterday": "Cloned yesterday’s plan",
+    "review.bulk_no_impact": "Bulk no-impact close",
   };
   return map[tool] || tool;
 }
@@ -1173,6 +1183,42 @@ function shouldAskIntention(estimateMin) {
   if (Date.now() < (state.ui.intentionSkipUntil || 0)) return false;
   // Always ask for 30m+; short tasks stay friction-light.
   return estimateMin >= 30;
+}
+
+function previousDayLocalISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+function cloneYesterday() {
+  const y = previousDayLocalISO();
+  const today = todayISO();
+  const yItems = (state.commitments || []).filter(
+    (c) => c.planDate === y && c.status !== "dropped"
+  );
+  if (!yItems.length) {
+    showToast("Nothing on yesterday’s plan to clone.", "error");
+    return;
+  }
+  let n = 0;
+  for (const c of yItems) {
+    state.commitments.push({
+      id: uid(),
+      targetId: c.targetId,
+      planDate: today,
+      text: c.text,
+      estimateMin: c.estimateMin,
+      mustKeep: !!c.mustKeep,
+      priority: Number.isFinite(c.priority) ? c.priority : 0,
+      status: "pending",
+    });
+    n += 1;
+  }
+  appendAudit(state, "plan.clone_yesterday", `${n} from ${y}`);
+  persist();
+  showToast(`Cloned ${n} item${n === 1 ? "" : "s"} from yesterday. Replan if over capacity.`, "ok", 4500);
 }
 
 function runAllyPropose() {
@@ -1599,6 +1645,9 @@ document.addEventListener("click", (e) => {
   if (action === "ally-propose") {
     runAllyPropose();
   }
+  if (action === "clone-yesterday") {
+    cloneYesterday();
+  }
   if (action === "ally-clear") {
     allyProposal = null;
     render();
@@ -1787,6 +1836,21 @@ document.addEventListener("click", (e) => {
     c.noImpactReason = "priority_shift";
     appendAudit(state, "review.no_impact", c.text);
     persist();
+  }
+  if (action === "review-all-noimpact") {
+    const d = todayISO();
+    const open = (state.commitments || []).filter((c) => c.planDate === d && c.status === "pending");
+    if (!open.length) return;
+    if (!confirm(`Close ${open.length} remaining item${open.length === 1 ? "" : "s"} as no-impact?`)) {
+      return;
+    }
+    for (const c of open) {
+      c.status = "done";
+      c.noImpactReason = "bulk_close";
+    }
+    appendAudit(state, "review.bulk_no_impact", `${open.length}`);
+    persist();
+    showToast(`Closed ${open.length} as no-impact.`, "ok");
   }
   if (action === "grant-usage") {
     state.tutorial.permissions.usage = true;
