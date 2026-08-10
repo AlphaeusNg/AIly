@@ -1856,6 +1856,16 @@ document.addEventListener("click", (e) => {
         showToast("Notifications not available here.", "error");
         return;
       }
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((result) => {
+          if (result === "granted") {
+            showToast("Notifications allowed — try again.", "ok");
+          } else {
+            showToast("Still blocked — AIly keeps using in-app toasts.", "ok", 4000);
+          }
+        });
+        return;
+      }
       if (Notification.permission !== "granted") {
         showToast("Allow notifications in the tutorial / browser first.", "error");
         return;
