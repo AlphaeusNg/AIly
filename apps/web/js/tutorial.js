@@ -64,9 +64,11 @@ You can always **break glass** (unlock with a short delay + reason). AIly logs i
     id: "smarter",
     title: "Smarter AIly (optional)",
     required: false,
-    body: `Optional: download a local AI model for smarter planning. Skip anytime — the planner works without it.
+    body: `Optional later: download a local AI model for richer suggestions. Skip anytime.
 
-*(Model bootstrap lands in a later build; skip is always fine.)*`,
+**Today you already have a local ally:** on Today, use **Ask AIly to propose a plan**. It stays on-device, respects capacity, and never adds work without your accept.
+
+*(Model bootstrap lands in a later build; the heuristic planner works either way.)*`,
   },
 ];
 

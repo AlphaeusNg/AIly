@@ -242,6 +242,10 @@ function sessionMinutes() {
 function allyTimeMessage(dailyCap, planned, usage) {
   const session = sessionMinutes();
   const parts = [];
+  const name = (state.user.displayName || "").trim();
+  if (name) {
+    parts.push(`Hi <strong>${escapeHtml(name)}</strong>.`);
+  }
   parts.push(
     `You've planned <strong>${planned|0}m</strong> of about <strong>${dailyCap|0}m</strong> soft capacity today.`
   );
@@ -385,7 +389,15 @@ function endFocusSessionIfNeeded() {
   if (!state.ui.focusSessionEndsAt) return false;
   if (state.ui.focusSessionEndsAt > Date.now()) return false;
   state.ui.focusSessionEndsAt = 0;
-  appendAudit(state, "focus.end", "timer");
+  // Soft policy: disarm rules when the timed focus session ends.
+  let disarmed = 0;
+  for (const r of state.blockRules || []) {
+    if (r.armed) {
+      r.armed = false;
+      disarmed += 1;
+    }
+  }
+  appendAudit(state, "focus.end", disarmed ? `timer+disarm:${disarmed}` : "timer");
   return true;
 }
 
@@ -920,6 +932,11 @@ function renderSetup() {
       }
     </div>
     <div class="card form">
+      <h2>You</h2>
+      <label>Display name <input id="setup-name" type="text" maxlength="80" value="${escapeHtml(state.user.displayName || "")}" placeholder="Optional — how AIly greets you" /></label>
+      <button type="button" data-action="save-name">Save name</button>
+    </div>
+    <div class="card form">
       <h2>Capacity</h2>
       <p class="muted">How much time you can honestly protect each week.</p>
       <div class="row">
@@ -991,6 +1008,7 @@ function friendlyAuditTool(tool) {
     "block.disarm_all": "Disarmed all rules",
     "capacity.save": "Saved capacity",
     "permission.revoke": "Revoked permission",
+    "user.name": "Saved display name",
   };
   return map[tool] || tool;
 }
@@ -1751,6 +1769,12 @@ document.addEventListener("click", (e) => {
       persist();
       showToast(`Disarmed ${n} rule${n === 1 ? "" : "s"}.`, "ok");
     }
+  }
+  if (action === "save-name") {
+    state.user.displayName = ($("#setup-name")?.value || "").trim().slice(0, 80);
+    appendAudit(state, "user.name", state.user.displayName || "(cleared)");
+    persist();
+    showToast(state.user.displayName ? `Hi, ${state.user.displayName}.` : "Name cleared.", "ok");
   }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
