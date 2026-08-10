@@ -4,15 +4,15 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 12)
+Last updated: 2026-08-11 (AIly Cycle 13)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell with attention tracking,
-  break-glass delay, daily intention check-in, and optional focus sessions.
-- Cycle 12: first-ready daily check-in modal; intention chip on Today;
-  focus session timer that can soft-arm rules; tray shows remaining focus.
-- Deployment version: `2026.08.11.2`.
+- Product phase: Phase 0 dogfood executable shell — attention, blocks, daily
+  intention, focus sessions, evening review nudge, quick commit chips.
+- Cycle 13: evening review banner, Review intention prompt, quick templates,
+  Notification API request on grant, AIly Android unit/instrumented tests.
+- Deployment version: `2026.08.11.3`.
 
 ## Opportunity backlog
 
@@ -20,8 +20,10 @@ Last updated: 2026-08-11 (AIly Cycle 12)
 |---|---|---|---|---|---|---|
 | 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
-| 3 | Replace placeholder Android example tests with AIly shell checks | Test / DX | Medium: verifies the packaged surface | Medium / medium | SDK available locally; not yet in CI | Backlog |
-| 4 | Optional local AI propose-only planner | Product | Medium: ally brain without cloud | Large / medium | After usage/block honesty | Backlog |
+| 3 | Optional local AI propose-only planner | Product | Medium: ally brain without cloud | Large / medium | After usage/block honesty | Backlog |
+| 4 | Wire Android unit tests into CI when runner has JDK | Test / DX | Medium | Small / low | Local `:app:testDebugUnitTest` green | Backlog |
+| — | AIly Android shell unit + instrumented tests | Test / DX | Medium | Small / low | Replaces Capacitor samples | Completed in Cycle 13 |
+| — | Daily check-in + focus sessions | Ally UX | High | Small / low | Cycle 12 | Completed in Cycle 12 |
 | — | In-app usage tracker + break-glass delay UI | Ally UX | High: honesty loop dogfood | Medium / low | Cycle 11 | Completed in Cycle 11 |
 | — | Boot splash, assets, install banner, offline/PWA shell | UX / packaging | High: feels like a real app | Medium / low | Cycles 8–10 | Completed in Cycle 8–10 |
 | — | Time-consciousness card + intentional commitment gate | Ally UX | High: owner personal goal | Small / low | Today + intention modal | Completed in Cycle 9 |
@@ -35,6 +37,20 @@ Last updated: 2026-08-11 (AIly Cycle 12)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 13 — Review honesty + Android shell tests (2026-08-11)
+
+**Why this won:** Closing the day loop and proving the packaged app identity.
+
+**Changes**
+
+- Evening banner → Review; Review shows daily intention + open/done counts.
+- Quick commitment chips (deep work / admin / break) with intention gate.
+- Notification permission request on tutorial grant.
+- Replaced Capacitor example tests with `com.alphaeusng.aily` unit +
+  instrumented tests; local unit tests pass.
+
+**Verification:** `npm test`; `:app:testDebugUnitTest`.
 
 ### Cycle 12 — Daily intention + focus session (2026-08-11)
 

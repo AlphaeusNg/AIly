@@ -469,6 +469,16 @@ function renderToday() {
       <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
     </div>` : ""}
     ${!check.ok ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>` : `<div class="banner ok">Plan fits capacity.</div>`}
+    ${
+      isEveningLocal() && pendingReviewCount() > 0
+        ? `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
+        : ""
+    }
+    <div class="row quick-chips" aria-label="Quick commitment templates">
+      <button type="button" class="chip" data-action="quick-commit" data-text="Deep work block" data-min="50">Deep work 50m</button>
+      <button type="button" class="chip" data-action="quick-commit" data-text="Admin / email batch" data-min="25">Admin 25m</button>
+      <button type="button" class="chip" data-action="quick-commit" data-text="Move body / break" data-min="15">Break 15m</button>
+    </div>
     <div class="row">
       <input id="new-commit-text" placeholder="Next commitment…" />
       <select id="new-commit-target">${state.targets
@@ -536,28 +546,52 @@ function renderTargets() {
   $("#target-form")?.addEventListener("submit", onCreateTarget);
 }
 
+function isEveningLocal() {
+  const h = new Date().getHours();
+  return h >= 17 || h < 5;
+}
+
+function pendingReviewCount() {
+  const d = todayISO();
+  return state.commitments.filter(
+    (c) => c.planDate === d && c.status === "pending"
+  ).length;
+}
+
 function renderReview() {
   const el = $("#panel-review");
   const d = todayISO();
   const list = state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
+  const pending = list.filter((c) => c.status === "pending");
+  const done = list.filter((c) => c.status === "done");
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
       <p class="muted">Evening honesty — evidence toward targets, or structured no-impact.</p>
     </header>
+    ${
+      state.ui.dailyIntention
+        ? `<div class="capacity-card"><p class="ally-line">You intended: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>. Did your time match?</p></div>`
+        : ""
+    }
+    <p class="muted">${done.length} done · ${pending.length} still open</p>
     <ul class="list">
       ${list
         .map(
           (c) => `<li class="review-item" data-id="${c.id}">
           <strong>${escapeHtml(c.text)}</strong>
           <div class="row">
-            <button type="button" data-action="review-done" data-id="${c.id}">Done + metric</button>
-            <button type="button" data-action="review-noimpact" data-id="${c.id}">No impact</button>
+            ${
+              c.status === "pending"
+                ? `<button type="button" data-action="review-done" data-id="${c.id}">Done + metric</button>
+                   <button type="button" data-action="review-noimpact" data-id="${c.id}">No impact</button>`
+                : `<span class="tag">closed</span>`
+            }
             <span class="muted">${c.status}</span>
           </div>
         </li>`
         )
-        .join("") || "<li class='muted'>Nothing to review for today.</li>"}
+        .join("") || "<li class='muted'>Nothing to review for today. Plan something on Today first.</li>"}
     </ul>
   `;
 }
@@ -914,10 +948,19 @@ function completeChapter(id) {
   appendAudit(state, "tutorial.complete", id);
 }
 
-function grantAndComplete(chapter) {
+async function grantAndComplete(chapter) {
   if (chapter.grant === "usage") state.tutorial.permissions.usage = true;
   if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
-  if (chapter.grant === "notifications") state.tutorial.permissions.notifications = true;
+  if (chapter.grant === "notifications") {
+    state.tutorial.permissions.notifications = true;
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+    } catch {
+      // Browser denied or unavailable — permission flag still records user intent.
+    }
+  }
   completeChapter(chapter.id);
   appendAudit(state, "permission.grant", chapter.grant);
   persist();
@@ -1083,6 +1126,30 @@ document.addEventListener("click", (e) => {
   if (action === "close-tutorial") {
     state.ui.tutorialOpen = false;
     persist();
+  }
+  if (action === "goto-review") {
+    state.ui.tab = "review";
+    persist();
+  }
+  if (action === "quick-commit") {
+    const text = act.dataset.text || "";
+    const estimateMin = Number(act.dataset.min) || 30;
+    const targetId = $("#new-commit-target")?.value || state.targets.find((t) => t.status === "active")?.id;
+    if (!targetId) {
+      showToast("Create a target first.", "error");
+      state.ui.tab = "targets";
+      persist();
+      return;
+    }
+    if ($("#new-commit-text")) $("#new-commit-text").value = text;
+    if ($("#new-commit-min")) $("#new-commit-min").value = String(estimateMin);
+    const payload = { text, targetId, estimateMin, mustKeep: false };
+    if (shouldAskIntention(estimateMin)) {
+      pendingIntention = payload;
+      renderIntentionModal();
+      return;
+    }
+    queueCommitment(payload);
   }
   if (action === "add-commit") {
     const text = $("#new-commit-text")?.value?.trim();

@@ -596,6 +596,19 @@ main {
   margin: 0.75rem 0;
 }
 
+.quick-chips {
+  gap: 0.4rem;
+}
+
+button.chip {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: #1a2330;
+  color: var(--accent);
+  border-color: #2d3b4f;
+}
+
 input,
 select,
 button,
