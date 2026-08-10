@@ -313,6 +313,46 @@ body.app-ready .app-shell[hidden] {
   border-top: 1px solid var(--border);
 }
 
+.empty-hero {
+  text-align: center;
+  padding: 1.5rem 1rem 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-hero img {
+  border-radius: 16px;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.empty-hero h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+}
+
+.target-card {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.target-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .intention-modal .intention-body {
   margin: 0.25rem 0 0.75rem;
   line-height: 1.5;

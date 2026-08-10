@@ -69,14 +69,17 @@ and recursive web, tool, and service-worker syntax.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.10.4`):
+**Phase 0 dogfood executable shell** (`2026.08.11.4`):
 
 - Boot splash + brand assets, PWA install banner, offline indicator  
 - Time-consciousness meter + intentional check before ≥30m commitments  
+- Daily intention check-in + optional focus sessions (soft-arm rules)  
+- In-app attention tracker (when usage granted) + day-by-app bars  
+- Break-glass delay UI + try-open block simulation  
 - Safe local persist (no throw on quota), export/import backup  
-- Tutorial, targets, capacity/replan, block *rules* + break-glass  
-- Android debug APK: `dist/AIly-0.1.0-debug.apk`  
-- Web PWA zip: `dist/AIly-0.1.0-web-pwa.zip`
+- Tutorial, targets, capacity/replan, evening review nudge  
+- Android debug APK: build with `npx cap sync android && cd android && ./gradlew assembleDebug`  
+- Local web: `npm run web`
 
 **Later:** real OS usage tracking + hard app blocking; sealed DB; optional local AI.
 

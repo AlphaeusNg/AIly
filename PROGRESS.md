@@ -4,15 +4,13 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycle 13)
+Last updated: 2026-08-11 (AIly Cycle 14)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell — attention, blocks, daily
-  intention, focus sessions, evening review nudge, quick commit chips.
-- Cycle 13: evening review banner, Review intention prompt, quick templates,
-  Notification API request on grant, AIly Android unit/instrumented tests.
-- Deployment version: `2026.08.11.3`.
+  intention, focus sessions, evening review, target progress UI.
+- Deployment version: `2026.08.11.4`.
 
 ## Opportunity backlog
 
@@ -37,6 +35,19 @@ Last updated: 2026-08-11 (AIly Cycle 13)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 14 — Target journey visuals (2026-08-11)
+
+**Why this won:** Targets without visible journey progress feel like a form,
+not an ally.
+
+**Changes**
+
+- Empty-hero first-target CTA with logo.
+- Per-target progress meter + % journey copy.
+- Skip link for accessibility; version/README refresh.
+
+**Verification:** `npm test`.
 
 ### Cycle 13 — Review honesty + Android shell tests (2026-08-11)
 

@@ -505,15 +505,32 @@ function renderToday() {
   `;
 }
 
+function targetProgressPct(metric) {
+  if (!metric) return 0;
+  const span = Math.abs(metric.target - metric.baseline) || 1;
+  const moved = Math.abs(metric.current - metric.baseline);
+  return Math.min(100, Math.max(0, Math.round((moved / span) * 100)));
+}
+
 function renderTargets() {
   const el = $("#panel-targets");
+  const active = state.targets.filter((t) => t.status === "active");
   el.innerHTML = `
     <header class="panel-head">
       <h1>Targets</h1>
       <p class="muted">What you're journeying toward — with real metrics.</p>
     </header>
+    ${
+      !active.length
+        ? `<div class="empty-hero">
+             <img src="assets/logo.svg" width="64" height="64" alt="" />
+             <h2>Start with one real target</h2>
+             <p class="muted">AIly protects time for something measurable — not a vague wish. Name it, set a metric, then plan Today.</p>
+           </div>`
+        : ""
+    }
     <form id="target-form" class="card form">
-      <h2>New target</h2>
+      <h2>${active.length ? "New target" : "Your first target"}</h2>
       <label>Title <input name="title" required placeholder="Ship side project v1" /></label>
       <label>Metric name <input name="metric" required placeholder="shippable increments" /></label>
       <label>Unit <input name="unit" required placeholder="items" value="items" /></label>
@@ -528,19 +545,23 @@ function renderTargets() {
       ${state.targets
         .map((t) => {
           const m = t.metrics[0];
-          const pct = m
-            ? Math.round(
-                (Math.abs(m.current - m.baseline) / Math.abs(m.target - m.baseline || 1)) * 100
-              )
-            : 0;
-          return `<li>
-            <strong>${escapeHtml(t.title)}</strong>
-            <span class="muted">${escapeHtml(m?.name || "")}: ${m?.current ?? "—"} / ${m?.target ?? "—"} ${escapeHtml(m?.unit || "")} (~${pct}%)</span>
-            ${t.softCapacityHours != null ? `<span class="tag">${t.softCapacityHours}h soft</span>` : ""}
-            <button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+          const pct = targetProgressPct(m);
+          return `<li class="target-card">
+            <div class="target-card-main">
+              <strong>${escapeHtml(t.title)}</strong>
+              <span class="muted">${escapeHtml(m?.name || "")}: ${m?.current ?? "—"} / ${m?.target ?? "—"} ${escapeHtml(m?.unit || "")}</span>
+              <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Target progress">
+                <div class="capacity-meter-fill" style="width:${pct}%"></div>
+              </div>
+              <span class="muted">${pct}% of the journey</span>
+            </div>
+            <div class="row">
+              ${t.softCapacityHours != null ? `<span class="tag">${t.softCapacityHours}h soft</span>` : ""}
+              <button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+            </div>
           </li>`;
         })
-        .join("") || "<li class='muted'>No targets yet.</li>"}
+        .join("") || ""}
     </ul>
   `;
   $("#target-form")?.addEventListener("submit", onCreateTarget);
