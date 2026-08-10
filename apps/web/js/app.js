@@ -2187,9 +2187,14 @@ document.addEventListener("click", (e) => {
   }
   if (action === "reset-demo") {
     if (confirm("Reset all local AIly demo data?")) {
+      usageTracker?.stop();
+      usageTracker = null;
       state = defaultState();
       lastSave = null;
       pendingIntention = null;
+      allyProposal = null;
+      pendingBreakGlass = null;
+      helpOpen = false;
       persist();
       showToast("Demo data reset.", "ok");
     }
