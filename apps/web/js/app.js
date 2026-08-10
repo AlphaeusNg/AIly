@@ -625,7 +625,11 @@ function renderToday() {
       <input id="new-commit-text" placeholder="Next commitment…" />
       <select id="new-commit-target">${state.targets
         .filter((t) => t.status === "active")
-        .map((t) => `<option value="${t.id}">${escapeHtml(t.title)}</option>`)
+        .map((t) => {
+          const rem = softCapRemainingHours(t.id);
+          const remLabel = rem == null ? "" : ` · ~${rem.toFixed(1)}h left`;
+          return `<option value="${t.id}">${escapeHtml(t.title)}${remLabel}</option>`;
+        })
         .join("")}</select>
       <input id="new-commit-min" type="number" min="15" step="15" value="30" style="width:5rem" />
       <label class="chk"><input type="checkbox" id="new-commit-keep" /> must-keep</label>
