@@ -883,6 +883,7 @@ function renderUsage() {
              <button class="primary" type="submit">Log sample usage</button>
            </form>
            <div class="row">
+             <button type="button" data-action="flush-usage" ${usageTracker?.isRunning?.() ? "" : "disabled"}>Flush live buffer now</button>
              <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all samples</button>
            </div>
            <ul class="list">${(state.usageSamples || [])
@@ -2131,6 +2132,16 @@ document.addEventListener("click", (e) => {
     persist();
     syncUsageTracker();
     showToast("Usage tracking on — AIly will log this tab’s attention.", "ok");
+  }
+  if (action === "flush-usage") {
+    if (!usageTracker?.isRunning?.()) {
+      showToast("Usage tracker is not running.", "error");
+      return;
+    }
+    const mins = usageTracker.flush();
+    if (mins > 0) showToast(`Flushed ${mins}m of AIly attention.`, "ok");
+    else showToast("Less than a minute buffered — nothing to flush yet.", "ok");
+    if (state.ui.tab === "usage") renderUsage();
   }
   if (action === "clear-usage") {
     const n = (state.usageSamples || []).length;
