@@ -578,6 +578,7 @@ function renderToday() {
     <div class="row">
       <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
       <button type="button" data-action="clone-yesterday">Clone yesterday</button>
+      ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
     </div>
     ${
@@ -1097,6 +1098,7 @@ function friendlyAuditTool(tool) {
     "audit.clear": "Cleared activity log",
     "notify.test": "Test notification",
     "plan.clone_yesterday": "Cloned yesterday’s plan",
+    "plan.hide_done": "Hid completed items",
     "review.bulk_no_impact": "Bulk no-impact close",
   };
   return map[tool] || tool;
@@ -1730,6 +1732,22 @@ document.addEventListener("click", (e) => {
   }
   if (action === "clone-yesterday") {
     cloneYesterday();
+  }
+  if (action === "hide-done-today") {
+    const d = todayISO();
+    const done = (state.commitments || []).filter((c) => c.planDate === d && c.status === "done");
+    if (!done.length) return;
+    if (
+      !confirm(
+        `Remove ${done.length} completed item${done.length === 1 ? "" : "s"} from today’s list? History still has audit entries.`
+      )
+    ) {
+      return;
+    }
+    for (const c of done) c.status = "dropped";
+    appendAudit(state, "plan.hide_done", `${done.length}`);
+    persist();
+    showToast("Completed items removed from Today.", "ok");
   }
   if (action === "ally-clear") {
     allyProposal = null;
