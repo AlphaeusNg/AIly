@@ -554,6 +554,100 @@ function renderNav() {
   if (badge) badge.classList.toggle("hidden", isReady(state));
 }
 
+function seedDemoJourney() {
+  usageTracker?.stop();
+  usageTracker = null;
+  if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
+  pendingBreakGlass = null;
+  pendingIntention = null;
+  allyProposal = null;
+  const t1 = uid();
+  const t2 = uid();
+  state = defaultState();
+  state.user.displayName = state.user.displayName || "Friend";
+  state.user.weeklyCapacityHours = 12;
+  state.user.nightsPerWeek = 5;
+  state.tutorial.chapters = Object.fromEntries(
+    CHAPTERS.map((c) => [c.id, c.required ? "done" : "skipped"])
+  );
+  state.tutorial.permissions = { usage: true, notifications: false, blockAdmin: true };
+  state.ui.tutorialOpen = false;
+  state.ui.lastCheckInDate = todayISO();
+  state.ui.dailyIntention = "Protect deep work before noon";
+  state.targets = [
+    {
+      id: t1,
+      title: "Ship side project",
+      status: "active",
+      softCapacityHours: 7,
+      metrics: [
+        {
+          name: "shippable pieces",
+          unit: "items",
+          baseline: 0,
+          target: 8,
+          current: 2,
+          minMeaningfulDelta: 0.4,
+        },
+      ],
+    },
+    {
+      id: t2,
+      title: "Health & rest",
+      status: "active",
+      softCapacityHours: 5,
+      metrics: [
+        {
+          name: "sessions",
+          unit: "n",
+          baseline: 0,
+          target: 5,
+          current: 1,
+          minMeaningfulDelta: 0.25,
+        },
+      ],
+    },
+  ];
+  state.commitments = [
+    {
+      id: uid(),
+      targetId: t1,
+      planDate: todayISO(),
+      text: "Deep work on hard part",
+      estimateMin: 50,
+      mustKeep: true,
+      priority: 0,
+      status: "pending",
+    },
+    {
+      id: uid(),
+      targetId: t2,
+      planDate: todayISO(),
+      text: "Move body / break",
+      estimateMin: 15,
+      mustKeep: false,
+      priority: 2,
+      status: "pending",
+    },
+  ];
+  state.blockRules = [
+    {
+      id: uid(),
+      appKeys: ["youtube"],
+      mode: "soft_delay",
+      armed: false,
+      breakGlass: { delaySec: 20, requireReason: true, dailyLimit: 5 },
+    },
+  ];
+  state.usageSamples = [
+    { app: "AIly", mins: 12, ts: new Date().toISOString() },
+  ];
+  appendAudit(state, "demo.seed", "sample journey");
+  persist();
+  syncUsageTracker();
+  showToast("Sample journey loaded. Explore Today, propose, and blocks.", "ok", 4500);
+}
+
 function emptyTodayCta() {
   const hasTargets = state.targets.some((t) => t.status === "active");
   if (!hasTargets) {
@@ -1160,6 +1254,7 @@ function renderSetup() {
           <input type="file" id="import-backup" accept="application/json,.json" hidden />
         </label>
         <button type="button" data-action="clear-audit">Clear activity log</button>
+        <button type="button" data-action="seed-demo">Load sample journey</button>
         <button type="button" data-action="reset-demo">Reset demo data</button>
         <button type="button" data-action="open-help">Keyboard help</button>
       </div>
@@ -1204,6 +1299,7 @@ function friendlyAuditTool(tool) {
     "state.import": "Imported backup",
     "state.prune": "Pruned old commitments",
     "state.copy_summary": "Copied honesty summary",
+    "demo.seed": "Loaded sample journey",
     "ally.propose": "Ally proposed plan",
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
@@ -2385,15 +2481,26 @@ document.addEventListener("click", (e) => {
     if (confirm("Reset all local AIly demo data?")) {
       usageTracker?.stop();
       usageTracker = null;
+      if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
       state = defaultState();
       lastSave = null;
       pendingIntention = null;
       allyProposal = null;
       pendingBreakGlass = null;
       helpOpen = false;
+      updateBannerDismissed = false;
       persist();
       showToast("Demo data reset.", "ok");
     }
+  }
+  if (action === "seed-demo") {
+    const hasData =
+      (state.targets || []).length > 0 ||
+      (state.commitments || []).length > 0 ||
+      (state.blockRules || []).length > 0;
+    if (hasData && !confirm("You already have data. Replace with a sample journey?")) return;
+    if (!hasData && !confirm("Load a sample journey so you can explore AIly quickly?")) return;
+    seedDemoJourney();
   }
   if (action === "export-backup") {
     downloadBackup();
