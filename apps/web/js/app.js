@@ -1107,6 +1107,7 @@ function friendlyAuditTool(tool) {
     "commitment.edit": "Edited commitment",
     "commitment.priority": "Changed priority",
     "commitment.must_keep": "Toggled must-keep",
+    "commitment.drop": "Dropped commitment",
     "target.create": "Created target",
     "target.pause": "Paused target",
     "target.complete": "Completed target",
@@ -1976,7 +1977,10 @@ document.addEventListener("click", (e) => {
   }
   if (action === "drop-commit") {
     const c = state.commitments.find((x) => x.id === id);
-    if (c) c.status = "dropped";
+    if (!c) return;
+    if (c.mustKeep && !confirm(`“${c.text}” is must-keep. Drop it anyway?`)) return;
+    c.status = "dropped";
+    appendAudit(state, "commitment.drop", c.text);
     persist();
   }
   if (action === "discard-invalid-commitments") {
