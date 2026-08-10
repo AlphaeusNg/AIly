@@ -192,6 +192,25 @@
       </div>
     </div>
 
+    <div id="help-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="modal">
+        <div class="modal-top">
+          <span class="muted">Keyboard</span>
+          <button type="button" data-action="close-help" aria-label="Close">✕</button>
+        </div>
+        <h2 id="help-title">Shortcuts</h2>
+        <ul class="list">
+          <li><strong>1–7</strong> <span class="muted">Switch tabs (Today → Activity)</span></li>
+          <li><strong>?</strong> <span class="muted">Open this help</span></li>
+          <li><strong>Esc</strong> <span class="muted">Close modals / clear proposal</span></li>
+        </ul>
+        <p class="muted">AIly is local-first. Shortcuts are ignored while typing in fields.</p>
+        <div class="modal-actions">
+          <button type="button" class="primary" data-action="close-help">Got it</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>

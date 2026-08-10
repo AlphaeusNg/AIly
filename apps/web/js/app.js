@@ -59,6 +59,7 @@ let deferredInstall = null;
 /** @type {ServiceWorkerRegistration | null} */
 let swRegistration = null;
 let updateBannerDismissed = false;
+let helpOpen = false;
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
@@ -313,9 +314,16 @@ function render() {
   renderIntentionModal();
   renderBreakGlassModal();
   renderCheckInModal();
+  renderHelpModal();
   syncUsageTracker();
   maybeOfferCheckIn();
   updateSaveStatus();
+}
+
+function renderHelpModal() {
+  const modal = $("#help-modal");
+  if (!modal) return;
+  modal.classList.toggle("hidden", !helpOpen);
 }
 
 function maybeOfferCheckIn() {
@@ -1014,7 +1022,9 @@ function renderSetup() {
         </label>
         <button type="button" data-action="clear-audit">Clear activity log</button>
         <button type="button" data-action="reset-demo">Reset demo data</button>
+        <button type="button" data-action="open-help">Keyboard help</button>
       </div>
+      <p class="muted">Version ${SITE_VERSION.id} · ${SITE_VERSION.tagline}</p>
     </div>
   `;
   $("#import-backup")?.addEventListener("change", onImportBackup);
@@ -1665,6 +1675,14 @@ document.addEventListener("click", (e) => {
     state.ui.tutorialOpen = false;
     persist();
   }
+  if (action === "close-help") {
+    helpOpen = false;
+    renderHelpModal();
+  }
+  if (action === "open-help") {
+    helpOpen = true;
+    renderHelpModal();
+  }
   if (action === "goto-review") {
     state.ui.tab = "review";
     persist();
@@ -2157,6 +2175,38 @@ document.addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
+    if (e.key === "Escape") e.target.blur();
+    return;
+  }
+  if (e.key === "Escape") {
+    if (pendingBreakGlass) {
+      cancelBreakGlass();
+      return;
+    }
+    if (pendingIntention) {
+      pendingIntention = null;
+      renderIntentionModal();
+      return;
+    }
+    if (state.ui.checkInOpen) {
+      skipCheckIn();
+      return;
+    }
+    if (state.ui.tutorialOpen) {
+      state.ui.tutorialOpen = false;
+      persist();
+      return;
+    }
+    if (helpOpen) {
+      helpOpen = false;
+      renderHelpModal();
+      return;
+    }
+    if (allyProposal) {
+      allyProposal = null;
+      render();
+      return;
+    }
     return;
   }
   const map = {
@@ -2173,6 +2223,7 @@ document.addEventListener("keydown", (e) => {
     persist();
   }
   if (e.key === "?" && !state.ui.tutorialOpen) {
-    showToast("Keys 1–7 switch tabs. Ally stays local.", "ok", 2800);
+    helpOpen = true;
+    renderHelpModal();
   }
 });
