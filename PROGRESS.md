@@ -4,13 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (AIly Cycles 20–23 continuous)
+Last updated: 2026-08-11 (continuous improve loop)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell with local propose-only ally
-  (JS + Rust), journey helpers, SW updates, display prefs, offline page.
-- Deployment version: `2026.08.11.13`.
+  (JS + Rust), journey helpers, SW updates, display prefs, offline page,
+  target lifecycle, clone-yesterday, configurable break-glass delay.
+- Deployment version: `2026.08.11.17`.
 
 ## Opportunity backlog
 

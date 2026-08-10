@@ -864,6 +864,7 @@ function renderBlocks() {
     <form id="block-form" class="row">
       <input name="app" placeholder="App key (e.g. firefox)" required />
       <select name="mode"><option value="soft">Soft delay</option><option value="hard">Hard block</option></select>
+      <input name="delay" type="number" min="0" max="600" value="30" title="Break-glass delay seconds" style="width:5rem" />
       <button class="primary" type="submit">Add rule</button>
     </form>
     <form id="try-open-form" class="card form">
@@ -898,16 +899,20 @@ function renderBlocks() {
   $("#block-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    let delaySec = Number(fd.get("delay"));
+    if (!Number.isFinite(delaySec) || delaySec < 0) delaySec = 30;
+    delaySec = Math.min(600, Math.floor(delaySec));
     state.blockRules = state.blockRules || [];
     state.blockRules.push({
       id: uid(),
       appKeys: [String(fd.get("app"))],
       mode: fd.get("mode") === "hard" ? "hard_block" : "soft_delay",
       armed: false,
-      breakGlass: { delaySec: 30, requireReason: true, dailyLimit: 5 },
+      breakGlass: { delaySec, requireReason: true, dailyLimit: 5 },
     });
-    appendAudit(state, "block.rule_add", String(fd.get("app")));
+    appendAudit(state, "block.rule_add", `${fd.get("app")}@${delaySec}s`);
     persist();
+    showToast(`Rule added (${delaySec}s break-glass).`, "ok");
   });
   $("#try-open-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
