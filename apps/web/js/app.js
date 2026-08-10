@@ -1471,7 +1471,13 @@ function acceptAllAllyProposals() {
   const list = allyProposal.proposals.slice();
   allyProposal = null;
   let n = 0;
+  let skipped = 0;
   for (const p of list) {
+    const active = state.targets.some((t) => t.id === p.targetId && t.status === "active");
+    if (!active) {
+      skipped += 1;
+      continue;
+    }
     // Skip intention gate for bulk accept — user already reviewed the list.
     state.commitments.push({
       id: uid(),
@@ -1485,9 +1491,18 @@ function acceptAllAllyProposals() {
     });
     n += 1;
   }
-  appendAudit(state, "ally.accept_all", `${n} commitments`);
+  appendAudit(state, "ally.accept_all", `${n} commitments${skipped ? ` skip:${skipped}` : ""}`);
   persist();
-  showToast(`Added ${n} proposed commitment${n === 1 ? "" : "s"}.`, "ok");
+  if (!n) {
+    showToast("No proposals could be added (targets inactive?).", "error");
+    return;
+  }
+  showToast(
+    skipped
+      ? `Added ${n}; skipped ${skipped} for inactive targets.`
+      : `Added ${n} proposed commitment${n === 1 ? "" : "s"}.`,
+    "ok"
+  );
 }
 
 function capacityPreview(extraMin = 0) {
