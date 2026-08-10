@@ -1560,21 +1560,36 @@ function onCreateTarget(e) {
   const fd = new FormData(e.target);
   const baseline = Number(fd.get("baseline"));
   const target = Number(fd.get("target"));
+  if (!Number.isFinite(baseline) || !Number.isFinite(target)) {
+    showToast("Baseline and target must be numbers.", "error");
+    return;
+  }
   if (baseline === target) {
     showToast("Baseline and target must differ.", "error");
     return;
   }
   const softRaw = fd.get("soft");
-  const soft = softRaw === "" || softRaw == null ? null : Number(softRaw);
+  let soft = softRaw === "" || softRaw == null ? null : Number(softRaw);
+  if (soft != null && (!Number.isFinite(soft) || soft < 0)) {
+    showToast("Soft hours must be empty or a non-negative number.", "error");
+    return;
+  }
+  const title = String(fd.get("title") || "").trim();
+  const metricName = String(fd.get("metric") || "").trim();
+  const unit = String(fd.get("unit") || "").trim();
+  if (!title || !metricName || !unit) {
+    showToast("Title, metric, and unit are required.", "error");
+    return;
+  }
   const t = {
     id: uid(),
-    title: String(fd.get("title")),
+    title,
     status: "active",
     softCapacityHours: soft,
     metrics: [
       {
-        name: String(fd.get("metric")),
-        unit: String(fd.get("unit")),
+        name: metricName,
+        unit,
         baseline,
         target,
         current: baseline,
