@@ -28,7 +28,9 @@ import {
   breakGlassPolicy,
   breakGlassRemainingSec,
   breakGlassUsesToday,
+  formatFocusRemaining,
   isAppBlocked,
+  upsertBlockRule,
   validateBreakGlassComplete,
 } from "./block.js";
 import { proposeDayPlan, returnNudge } from "./ally.js";
@@ -413,6 +415,10 @@ function focusRemainingMin() {
   return Math.ceil((ends - Date.now()) / 60000);
 }
 
+function focusRemainingLabel() {
+  return formatFocusRemaining(state.ui.focusSessionEndsAt || 0) || "";
+}
+
 function endFocusSessionIfNeeded() {
   if (!state.ui.focusSessionEndsAt) return false;
   if (state.ui.focusSessionEndsAt > Date.now()) return false;
@@ -431,8 +437,8 @@ function endFocusSessionIfNeeded() {
 
 function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
-  const focusLeft = focusRemainingMin();
-  if (focusLeft > 0) return `AIly · Focus ${focusLeft}m`;
+  const focusLabel = focusRemainingLabel();
+  if (focusLabel) return `AIly · Focus ${focusLabel}`;
   if (state.blockRules.some((r) => r.armed)) return "AIly · Focus";
   if (!navigator.onLine) return "AIly · Offline";
   const pending = pendingReviewCount();
@@ -577,8 +583,8 @@ function renderToday() {
           : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
-        focusRemainingMin() > 0
-          ? `<p class="ally-line">Focus session: <strong>${focusRemainingMin()}m</strong> left.
+        focusRemainingLabel()
+          ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
              <button type="button" data-action="end-focus">End early</button></p>`
           : ""
       }
@@ -933,8 +939,8 @@ function renderBlocks() {
         : `<div class="banner warn">Complete Attention map + Ally admin in Setup before arming blocks.</div>`
     }
     ${
-      focusRemainingMin() > 0
-        ? `<div class="banner focus-armed">Focus session active · ${focusRemainingMin()}m left. Armed rules protect this window.</div>`
+      focusRemainingLabel()
+        ? `<div class="banner focus-armed">Focus session active · ${focusRemainingLabel()} left. Armed rules protect this window.</div>`
         : ""
     }
     <form id="block-form" class="row">
@@ -980,17 +986,30 @@ function renderBlocks() {
     let delaySec = Number(fd.get("delay"));
     if (!Number.isFinite(delaySec) || delaySec < 0) delaySec = 30;
     delaySec = Math.min(600, Math.floor(delaySec));
-    state.blockRules = state.blockRules || [];
-    state.blockRules.push({
+    const app = String(fd.get("app") || "").trim();
+    if (!app) {
+      showToast("Enter an app key.", "error");
+      return;
+    }
+    const result = upsertBlockRule(state.blockRules || [], {
       id: uid(),
-      appKeys: [String(fd.get("app"))],
+      appKeys: [app],
       mode: fd.get("mode") === "hard" ? "hard_block" : "soft_delay",
-      armed: false,
-      breakGlass: { delaySec, requireReason: true, dailyLimit: 5 },
+      delaySec,
     });
-    appendAudit(state, "block.rule_add", `${fd.get("app")}@${delaySec}s`);
+    state.blockRules = result.rules;
+    appendAudit(
+      state,
+      result.merged ? "block.rule_merge" : "block.rule_add",
+      `${app}@${delaySec}s`
+    );
     persist();
-    showToast(`Rule added (${delaySec}s break-glass).`, "ok");
+    showToast(
+      result.merged
+        ? `Updated existing rule for ${app} (${delaySec}s glass).`
+        : `Rule added (${delaySec}s break-glass).`,
+      "ok"
+    );
   });
   $("#try-open-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -1138,6 +1157,7 @@ function friendlyAuditTool(tool) {
     "ally.propose": "Ally proposed plan",
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
+    "block.rule_merge": "Merged block rule",
     "block.disarm_all": "Disarmed all rules",
     "block.arm_all": "Armed all rules",
     "block.delay": "Changed break-glass delay",
@@ -1927,11 +1947,12 @@ document.addEventListener("click", (e) => {
     }
     const minsRaw = prompt("Estimate minutes", String(c.estimateMin));
     if (minsRaw == null) return;
-    const mins = Number(minsRaw);
+    let mins = Number(minsRaw);
     if (!Number.isFinite(mins) || mins < 15) {
       showToast("Estimate must be at least 15 minutes.", "error");
       return;
     }
+    mins = Math.max(15, Math.round(mins / 15) * 15);
     const activeTargets = state.targets.filter((t) => t.status === "active");
     if (activeTargets.length) {
       const labels = activeTargets.map((t, i) => `${i + 1}. ${t.title}`).join("\n");

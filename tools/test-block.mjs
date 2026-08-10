@@ -5,7 +5,10 @@ import {
   breakGlassReady,
   breakGlassRemainingSec,
   breakGlassUsesToday,
+  findRuleForApp,
+  formatFocusRemaining,
   isAppBlocked,
+  upsertBlockRule,
   validateBreakGlassComplete,
 } from "../apps/web/js/block.js";
 
@@ -85,5 +88,25 @@ const rules = [
 assert.equal(isAppBlocked(rules, "firefox")?.id, "1");
 assert.equal(isAppBlocked(rules, "slack"), null);
 assert.equal(isAppBlocked(rules, "Notion"), null);
+
+assert.equal(findRuleForApp(rules, "Slack")?.id, "2");
+const upserted = upsertBlockRule(rules, {
+  appKeys: ["Firefox"],
+  mode: "hard",
+  delaySec: 45,
+});
+assert.equal(upserted.merged, true);
+assert.equal(upserted.rule.mode, "hard_block");
+assert.equal(upserted.rule.breakGlass.delaySec, 45);
+assert.equal(upserted.rules.length, 2, "does not duplicate Firefox rule");
+
+const added = upsertBlockRule(upserted.rules, { app: "YouTube", delaySec: 10 });
+assert.equal(added.merged, false);
+assert.equal(added.rules.length, 3);
+
+const now = 1_000_000;
+assert.equal(formatFocusRemaining(now + 10 * 60_000, now), "10m");
+assert.equal(formatFocusRemaining(now + 90_000, now), "1:30");
+assert.equal(formatFocusRemaining(now - 1000, now), null);
 
 console.log("test-block.mjs: break-glass and block match helpers passed");
