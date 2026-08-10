@@ -1271,6 +1271,13 @@ function renderTutorialModal() {
       state.ui.tutorialOpen = false;
       state.ui.tab = "today";
       persist();
+      showToast(
+        state.user.displayName
+          ? `Welcome, ${state.user.displayName}. Protect the time that matters.`
+          : "You're ready. Set an intention and protect the time that matters.",
+        "ok",
+        4500
+      );
     };
     actions.appendChild(d);
   }
