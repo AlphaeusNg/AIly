@@ -1610,12 +1610,28 @@ function renderIntentionModal() {
   const ratio = daily > 0 ? after / daily : 0;
   const fillPct = Math.min(100, Math.round(ratio * 100));
   const target = state.targets.find((t) => t.id === pendingIntention.targetId);
+  const intention = (state.ui.dailyIntention || "").trim();
 
   const preview = capacityPreview(pendingIntention.estimateMin);
   $("#intention-body").innerHTML = `You're about to put <strong>${pendingIntention.estimateMin}m</strong> toward
     <strong>${escapeHtml(pendingIntention.text)}</strong>
     ${target ? ` · target <strong>${escapeHtml(target.title)}</strong>` : ""}.`;
   let hint = `That would make ~${after|0}m of ~${daily|0}m day soft capacity (${fillPct}%). Do you really want to spend this time this way?`;
+  if (intention) {
+    const aligned =
+      intention
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 3)
+        .some(
+          (w) =>
+            pendingIntention.text.toLowerCase().includes(w) ||
+            (target?.title || "").toLowerCase().includes(w)
+        );
+    hint += aligned
+      ? ` Aligns with today’s intention (“${intention.slice(0, 60)}”).`
+      : ` Today’s intention is “${intention.slice(0, 60)}” — does this serve it?`;
+  }
   if (!preview.ok) {
     hint += ` Warning: ${errorLabel(preview.error)}.`;
   }
