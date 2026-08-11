@@ -1506,6 +1506,7 @@ function friendlyAuditTool(tool) {
     "audit.clear": "Cleared activity log",
     "audit.export": "Exported audit TSV",
     "intention.resume": "Resumed intention checks",
+    "intention.snooze": "Snoozed intention checks",
     "notify.test": "Test notification",
     "plan.clone_yesterday": "Cloned yesterday’s plan",
     "plan.hide_done": "Hid completed items",
@@ -2916,6 +2917,17 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "focus.extend", "10m");
     persist();
     showToast("Focus extended +10m.", "ok");
+  }
+  if (action === "snooze-intention-1h") {
+    skipIntentionThisSession = true;
+    state.ui.intentionSkipUntil = Date.now() + 60 * 60 * 1000;
+    appendAudit(state, "intention.snooze", "1h");
+    if (pendingIntention) {
+      queueCommitment(pendingIntention);
+    } else {
+      persist();
+      showToast("Intention checks snoozed for 1 hour.", "ok");
+    }
   }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
