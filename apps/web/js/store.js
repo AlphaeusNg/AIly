@@ -167,6 +167,7 @@ export function defaultState() {
       activityFilter: "",
       lastExportAt: "",
       highContrast: false,
+      hideCompletedTargets: true,
     },
   };
 }
@@ -292,6 +293,10 @@ export function hydrateState(saved) {
       lastExportAt:
         typeof savedUi.lastExportAt === "string" ? savedUi.lastExportAt.slice(0, 40) : "",
       highContrast: savedUi.highContrast === true,
+      hideCompletedTargets:
+        typeof savedUi.hideCompletedTargets === "boolean"
+          ? savedUi.hideCompletedTargets
+          : defaults.ui.hideCompletedTargets,
     },
   };
 }

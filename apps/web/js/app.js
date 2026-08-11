@@ -1022,7 +1022,12 @@ function renderToday() {
                    <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
                    <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
                    <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
-                   ${c.status === "pending" ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>` : ""}`
+                   ${
+                     c.status === "pending"
+                       ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>
+                          <button type="button" data-action="copy-one-tomorrow" data-id="${c.id}" title="Copy to tomorrow">+tmr</button>`
+                       : ""
+                   }`
                 : ""
             }
             <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
@@ -1043,13 +1048,18 @@ function renderTargets() {
   const el = $("#panel-targets");
   const active = state.targets.filter((t) => t.status === "active");
   const softCheck = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
-  const sortedTargets = state.targets.slice().sort((a, b) => {
-    const order = { active: 0, paused: 1, completed: 2 };
-    const sa = order[a.status] ?? 9;
-    const sb = order[b.status] ?? 9;
-    if (sa !== sb) return sa - sb;
-    return metricProgressPct(a.metrics?.[0]) - metricProgressPct(b.metrics?.[0]);
-  });
+  const hideCompleted = state.ui.hideCompletedTargets !== false;
+  const sortedTargets = state.targets
+    .filter((t) => !hideCompleted || t.status !== "completed")
+    .slice()
+    .sort((a, b) => {
+      const order = { active: 0, paused: 1, completed: 2 };
+      const sa = order[a.status] ?? 9;
+      const sb = order[b.status] ?? 9;
+      if (sa !== sb) return sa - sb;
+      return metricProgressPct(a.metrics?.[0]) - metricProgressPct(b.metrics?.[0]);
+    });
+  const completedCount = state.targets.filter((t) => t.status === "completed").length;
   el.innerHTML = `
     <header class="panel-head">
       <h1>Targets</h1>
@@ -1060,8 +1070,19 @@ function renderTargets() {
         ? `<div class="banner warn">Soft caps sum to <strong>${softCheck.sum.toFixed(1)}h</strong> over weekly <strong>${softCheck.weekly}h</strong>. Capacity checks will fail until you lower soft hours.
              <button type="button" class="primary" data-action="scale-soft-caps">Scale to fit weekly</button></div>`
         : softCheck.sum > 0
-          ? `<p class="muted">Soft caps: ${softCheck.sum.toFixed(1)}h of ${softCheck.weekly}h weekly.</p>`
-          : ""
+          ? `<p class="muted">Soft caps: ${softCheck.sum.toFixed(1)}h of ${softCheck.weekly}h weekly.
+               <button type="button" data-action="share-soft-evenly">Share evenly</button></p>`
+          : active.length >= 2
+            ? `<p class="muted"><button type="button" data-action="share-soft-evenly">Share weekly soft hours evenly</button></p>`
+            : ""
+    }
+    ${
+      completedCount
+        ? `<p class="muted">${completedCount} completed hidden=${hideCompleted ? "yes" : "no"}.
+             <button type="button" data-action="toggle-hide-completed">${
+               hideCompleted ? "Show completed" : "Hide completed"
+             }</button></p>`
+        : ""
     }
     ${
       !active.length
@@ -1602,7 +1623,9 @@ function friendlyAuditTool(tool) {
     "metric.snap_goal": "Snapped metric to goal",
     "metric.set": "Set metric value",
     "target.soft_scale": "Scaled soft caps",
+    "target.soft_share": "Shared soft hours evenly",
     "plan.defer_tomorrow": "Deferred open items",
+    "plan.copy_one_tomorrow": "Copied item to tomorrow",
     "undo.defer_tomorrow": "Undid defer-to-tomorrow",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
@@ -2847,6 +2870,68 @@ document.addEventListener("click", (e) => {
       "ok",
       4500
     );
+  }
+  if (action === "share-soft-evenly") {
+    const active = state.targets.filter((t) => t.status === "active");
+    if (active.length < 1) {
+      showToast("No active targets to share soft hours across.", "error");
+      return;
+    }
+    const weekly = state.user.weeklyCapacityHours;
+    if (!Number.isFinite(weekly) || weekly <= 0) {
+      showToast("Set a positive weekly capacity first.", "error");
+      return;
+    }
+    const share = Math.round((weekly / active.length) * 10) / 10;
+    if (
+      !confirm(
+        `Set each of ${active.length} active target${active.length === 1 ? "" : "s"} to ~${share}h soft/week (even split of ${weekly}h)?`
+      )
+    ) {
+      return;
+    }
+    for (const t of active) t.softCapacityHours = share;
+    const after = checkSoftCapSum(softCaps(), weekly);
+    if (!after.ok) {
+      const scaled = scaleSoftCapsToFit(softCaps(), weekly);
+      const byId = new Map(scaled.softCaps.map((s) => [s.targetId, s.hours]));
+      for (const t of active) {
+        if (byId.has(t.id)) t.softCapacityHours = byId.get(t.id);
+      }
+    }
+    appendAudit(state, "target.soft_share", `${active.length}@${share}`);
+    persist();
+    showToast(`Soft hours shared evenly (~${share}h each).`, "ok", 4000);
+  }
+  if (action === "toggle-hide-completed") {
+    state.ui.hideCompletedTargets = !(state.ui.hideCompletedTargets !== false);
+    persist();
+  }
+  if (action === "copy-one-tomorrow") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status !== "pending") return;
+    const tomorrow = nextDayISO(todayISO());
+    const dup = findSameDayDuplicate(state.commitments || [], {
+      planDate: tomorrow,
+      text: c.text,
+    });
+    if (dup.duplicate) {
+      showToast("Already on tomorrow’s plan.", "ok");
+      return;
+    }
+    state.commitments.push({
+      id: uid(),
+      targetId: c.targetId,
+      planDate: tomorrow,
+      text: c.text,
+      estimateMin: c.estimateMin,
+      mustKeep: !!c.mustKeep,
+      priority: Number.isFinite(c.priority) ? c.priority : 0,
+      status: "pending",
+    });
+    appendAudit(state, "plan.copy_one_tomorrow", `${c.text.slice(0, 40)}→${tomorrow}`);
+    persist();
+    showToast(`Copied to ${tomorrow}.`, "ok");
   }
   if (action === "defer-pending-tomorrow") {
     const d = todayISO();
