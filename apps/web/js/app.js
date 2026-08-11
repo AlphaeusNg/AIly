@@ -3,6 +3,7 @@ import {
   checkSoftCapSum,
   metricProgressPct,
   scaleSoftCapsToFit,
+  snapMetricToTarget,
   stepMetricAwayFromTarget,
   stepMetricTowardTarget,
 } from "./target.js";
@@ -1106,6 +1107,7 @@ function renderTargets() {
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
                      <button type="button" data-action="nudge-metric-back" data-id="${t.id}">− progress</button>
+                     <button type="button" data-action="snap-metric-goal" data-id="${t.id}">Snap to goal</button>
                      <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
@@ -1193,7 +1195,8 @@ function renderReview() {
               c.status === "pending"
                 ? `<button type="button" data-action="review-done" data-id="${c.id}">Done + metric</button>
                    <button type="button" data-action="review-noimpact" data-id="${c.id}">No impact</button>`
-                : `<span class="tag">closed</span>`
+                : `<span class="tag">closed</span>
+                   <button type="button" data-action="reopen-commit" data-id="${c.id}">Reopen</button>`
             }
             <span class="muted">${c.status}</span>
           </div>
@@ -1534,6 +1537,7 @@ function friendlyAuditTool(tool) {
     "commitment.priority": "Changed priority",
     "commitment.must_keep": "Toggled must-keep",
     "commitment.drop": "Dropped commitment",
+    "commitment.reopen": "Reopened commitment",
     "target.create": "Created target",
     "target.pause": "Paused target",
     "target.complete": "Completed target",
@@ -1552,7 +1556,12 @@ function friendlyAuditTool(tool) {
     "focus.pause": "Focus paused",
     "focus.resume": "Focus resumed",
     "metric.bump": "Logged progress",
+    "metric.nudge_back": "Reversed progress",
+    "metric.snap_goal": "Snapped metric to goal",
     "metric.set": "Set metric value",
+    "target.soft_scale": "Scaled soft caps",
+    "plan.defer_tomorrow": "Deferred open items",
+    "undo.defer_tomorrow": "Undid defer-to-tomorrow",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
     "block.disarm": "Disarmed block",
@@ -2189,11 +2198,7 @@ async function initNativeShell() {
         } else if (lastHiddenAt) {
           const awayMin = (Date.now() - lastHiddenAt) / 60000;
           lastHiddenAt = 0;
-          const msg = returnNudge({
-            awayMin,
-            intention: state.ui.dailyIntention || "",
-            focusActive: focusRemainingMin() > 0,
-          });
+          const msg = returnNudge(buildReturnNudgeCtx(awayMin));
           if (msg) showToast(msg, "ok", 5500);
           usageTracker?.onVisibilityOrFocus();
         }
@@ -2202,6 +2207,19 @@ async function initNativeShell() {
   } catch {
     // Web / missing plugin — ignore.
   }
+}
+
+function buildReturnNudgeCtx(awayMin) {
+  const open = (state.commitments || []).filter(
+    (c) => c.planDate === todayISO() && c.status === "pending"
+  );
+  return {
+    awayMin,
+    intention: state.ui.dailyIntention || "",
+    focusActive: focusRemainingMin() > 0,
+    openPending: open.length,
+    plannedMin: open.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0),
+  };
 }
 
 function onCreateTarget(e) {
@@ -2708,6 +2726,54 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "metric.nudge_back", t.title);
     persist();
     showToast(`Progress reversed · ~${metricProgressPct(m)}% of journey.`, "ok");
+  }
+  if (action === "snap-metric-goal") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t?.metrics?.[0] || t.status !== "active") return;
+    const m = t.metrics[0];
+    const snapped = snapMetricToTarget(m);
+    if (!snapped.moved) {
+      showToast("Already at goal — consider marking the target complete.", "ok");
+      return;
+    }
+    if (
+      !confirm(
+        `Set ${m.name} from ${m.current} to goal ${m.target} ${m.unit || ""}? Use when evidence already landed.`
+      )
+    ) {
+      return;
+    }
+    m.current = snapped.next;
+    appendAudit(state, "metric.snap_goal", `${t.title}:${m.current}`);
+    persist();
+    showToast(`Snapped to goal · ~${metricProgressPct(m)}%.`, "ok");
+  }
+  if (action === "reopen-commit") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status === "pending") return;
+    const prev = c.status;
+    c.status = "pending";
+    const today = todayCommitments().map((x) => ({
+      id: x.id,
+      targetId: x.targetId,
+      estimateMin: x.estimateMin,
+      mustKeep: !!x.mustKeep,
+    }));
+    const check = checkPlanAccept({
+      weeklyCapacityHours: state.user.weeklyCapacityHours,
+      nightsPerWeek: state.user.nightsPerWeek,
+      softCaps: softCaps(),
+      weekOther: [],
+      today,
+    });
+    if (!check.ok) {
+      c.status = prev;
+      showToast(`Cannot reopen — ${errorLabel(check.error)}`, "error", 5000);
+      return;
+    }
+    appendAudit(state, "commitment.reopen", c.text);
+    persist();
+    showToast("Reopened as pending.", "ok");
   }
   if (action === "scale-soft-caps") {
     const caps = softCaps();
@@ -3496,11 +3562,7 @@ document.addEventListener("visibilitychange", () => {
   } else if (document.visibilityState === "visible" && lastHiddenAt) {
     const awayMin = (Date.now() - lastHiddenAt) / 60000;
     lastHiddenAt = 0;
-    const msg = returnNudge({
-      awayMin,
-      intention: state.ui.dailyIntention || "",
-      focusActive: focusRemainingMin() > 0,
-    });
+    const msg = returnNudge(buildReturnNudgeCtx(awayMin));
     if (msg) showToast(msg, "ok", 5500);
   }
 });

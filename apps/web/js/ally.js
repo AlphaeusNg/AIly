@@ -269,17 +269,32 @@ export function proposeDayPlan(input) {
 
 /**
  * Lightweight return-from-away check-in copy.
- * @param {{ awayMin: number, intention?: string, focusActive?: boolean }} ctx
+ * @param {{
+ *   awayMin: number,
+ *   intention?: string,
+ *   focusActive?: boolean,
+ *   openPending?: number,
+ *   plannedMin?: number,
+ * }} ctx
  */
 export function returnNudge(ctx) {
   const away = Number.isFinite(ctx?.awayMin) ? ctx.awayMin : 0;
   if (away < 5) return null;
   const intention = typeof ctx?.intention === "string" ? ctx.intention.trim() : "";
+  const open = Number.isFinite(ctx?.openPending) ? Math.max(0, Math.floor(ctx.openPending)) : 0;
+  const planned = Number.isFinite(ctx?.plannedMin) ? Math.max(0, Math.round(ctx.plannedMin)) : 0;
+  const planHint =
+    open > 0
+      ? ` You still have ${open} open item${open === 1 ? "" : "s"}${planned > 0 ? ` (~${planned}m planned)` : ""}.`
+      : "";
   if (ctx?.focusActive) {
-    return `Welcome back (${Math.round(away)}m away). Focus is still on — is this still what you want?`;
+    return `Welcome back (${Math.round(away)}m away). Focus is still on — is this still what you want?${planHint}`;
   }
   if (intention) {
-    return `Welcome back (${Math.round(away)}m away). Your intention was “${intention.slice(0, 80)}”. Still true?`;
+    return `Welcome back (${Math.round(away)}m away). Your intention was “${intention.slice(0, 80)}”. Still true?${planHint}`;
+  }
+  if (open > 0) {
+    return `Welcome back (${Math.round(away)}m away).${planHint} Pause — re-choose the next stretch intentionally.`;
   }
   return `Welcome back (${Math.round(away)}m away). Pause — what do you want the next stretch to be for?`;
 }

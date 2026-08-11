@@ -111,6 +111,11 @@ assert.ok(
 assert.equal(returnNudge({ awayMin: 2 }), null);
 assert.match(returnNudge({ awayMin: 20, intention: "Deep work" }), /intention/i);
 assert.match(returnNudge({ awayMin: 20, focusActive: true }), /Focus/i);
+assert.match(
+  returnNudge({ awayMin: 15, openPending: 2, plannedMin: 40 }),
+  /2 open/,
+  "return nudge mentions open plan load"
+);
 
 // Determinism
 const p1 = proposeDayPlan({

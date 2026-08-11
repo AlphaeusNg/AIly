@@ -65,6 +65,18 @@ export function stepMetricAwayFromTarget(metric) {
 }
 
 /**
+ * Snap current to the goal value (100% journey when finite).
+ * @returns {{ next: number, moved: boolean, complete: boolean }}
+ */
+export function snapMetricToTarget(metric) {
+  if (!metric || ![metric.baseline, metric.target, metric.current].every(Number.isFinite)) {
+    return { next: metric?.current, moved: false, complete: false };
+  }
+  const next = metric.target;
+  return { next, moved: next !== metric.current, complete: true };
+}
+
+/**
  * Soft-cap sum check when ≥2 caps present (mirrors capacity soft_sum_over).
  * @returns {{ ok: boolean, sum: number, weekly: number, error?: string }}
  */

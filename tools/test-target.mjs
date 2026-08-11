@@ -5,6 +5,7 @@ import {
   metricProgressPct,
   metricProgressRatio,
   scaleSoftCapsToFit,
+  snapMetricToTarget,
   stepMetricAwayFromTarget,
   stepMetricTowardTarget,
 } from "../apps/web/js/target.js";
@@ -132,5 +133,18 @@ const alreadyFit = scaleSoftCapsToFit(
 );
 assert.equal(alreadyFit.scaled, false);
 assert.equal(alreadyFit.ok, true);
+
+const snap = snapMetricToTarget({
+  baseline: 0,
+  target: 10,
+  current: 7,
+});
+assert.equal(snap.next, 10);
+assert.equal(snap.moved, true);
+assert.equal(snap.complete, true);
+assert.equal(
+  snapMetricToTarget({ baseline: 0, target: 10, current: 10 }).moved,
+  false
+);
 
 console.log("test-target.mjs: direction-aware metric progress + soft caps passed");
