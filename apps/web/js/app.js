@@ -184,6 +184,16 @@ function softCapRemainingHours(targetId) {
   return Math.max(0, soft.hours - usedMin / 60);
 }
 
+function softCapOverTargets() {
+  return softCaps()
+    .map((s) => {
+      const rem = softCapRemainingHours(s.targetId);
+      const t = state.targets.find((x) => x.id === s.targetId);
+      return { targetId: s.targetId, title: t?.title || s.targetId, remaining: rem, hours: s.hours };
+    })
+    .filter((x) => x.remaining != null && x.remaining <= 0);
+}
+
 /** Pending minutes on today for a target. */
 function todayPendingMinForTarget(targetId) {
   return todayCommitments()
@@ -826,6 +836,15 @@ function renderToday() {
       <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
     </div>` : ""}
     ${!check.ok ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>` : `<div class="banner ok">Plan fits capacity.</div>`}
+    ${
+      (() => {
+        const overs = softCapOverTargets();
+        if (!overs.length || !check.ok) return "";
+        return `<div class="banner warn">Soft-cap pressure: ${overs
+          .map((o) => escapeHtml(o.title))
+          .join(", ")} at/over weekly soft hours. Consider replan or drop optional work.</div>`;
+      })()
+    }
     ${
       isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()
         ? `<div class="banner warn">Morning pause — set today’s intention before the day runs you. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
