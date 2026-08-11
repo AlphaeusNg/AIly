@@ -872,6 +872,13 @@ function targetProgressPct(metric) {
 function renderTargets() {
   const el = $("#panel-targets");
   const active = state.targets.filter((t) => t.status === "active");
+  const sortedTargets = state.targets.slice().sort((a, b) => {
+    const order = { active: 0, paused: 1, completed: 2 };
+    const sa = order[a.status] ?? 9;
+    const sb = order[b.status] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return targetProgressPct(a.metrics?.[0]) - targetProgressPct(b.metrics?.[0]);
+  });
   el.innerHTML = `
     <header class="panel-head">
       <h1>Targets</h1>
@@ -899,7 +906,7 @@ function renderTargets() {
       <button class="primary" type="submit">Create target</button>
     </form>
     <ul class="list">
-      ${state.targets
+      ${sortedTargets
         .map((t) => {
           const m = t.metrics[0];
           const pct = targetProgressPct(m);
