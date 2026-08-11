@@ -477,6 +477,33 @@ function focusRemainingLabel() {
   return formatFocusRemaining(state.ui.focusSessionEndsAt || 0) || "";
 }
 
+function startFocusMinutes(mins) {
+  const m = Number(mins);
+  if (!Number.isFinite(m) || m < 1) return;
+  state.ui.focusSessionEndsAt = Date.now() + m * 60_000;
+  let armed = 0;
+  if (canArmBlocks(state)) {
+    for (const r of state.blockRules || []) {
+      if (!r.armed && (r.appKeys || []).length) {
+        r.armed = true;
+        armed += 1;
+        appendAudit(state, "block.arm_focus", r.appKeys.join(","));
+      }
+    }
+  }
+  appendAudit(state, "focus.start", `${m}m`);
+  persist();
+  showToast(
+    armed
+      ? `Focus ${m}m · armed ${armed} rule${armed === 1 ? "" : "s"}.`
+      : canArmBlocks(state)
+        ? `Focus ${m}m started.`
+        : `Focus ${m}m started (grants needed to auto-arm blocks).`,
+    "ok",
+    4000
+  );
+}
+
 function endFocusSessionIfNeeded() {
   if (!state.ui.focusSessionEndsAt) return false;
   if (state.ui.focusSessionEndsAt > Date.now()) return false;
@@ -772,7 +799,10 @@ function renderToday() {
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
              <button type="button" data-action="end-focus">End early</button></p>`
-          : ""
+          : `<p class="ally-line row">
+               <button type="button" data-action="start-focus-25">Focus 25m</button>
+               <button type="button" class="primary" data-action="start-focus-50">Focus 50m</button>
+             </p>`
       }
     </div>
     ${
@@ -2570,6 +2600,12 @@ document.addEventListener("click", (e) => {
     persist();
     showToast("Audit TSV downloaded (local only).", "ok");
   }
+  if (action === "start-focus-25") {
+    startFocusMinutes(25);
+  }
+  if (action === "start-focus-50") {
+    startFocusMinutes(50);
+  }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
     const nights = Number($("#setup-nights")?.value);
@@ -2655,7 +2691,7 @@ document.addEventListener("click", (e) => {
       (state.blockRules || []).length > 0;
     if (hasData && !confirm("You already have data. Replace with a sample journey?")) return;
     if (!hasData && !confirm("Load a sample journey so you can explore AIly quickly?")) return;
-    seedDemoJourney();
+    seedDemoJourney({ keepName: true });
   }
   if (action === "export-backup") {
     downloadBackup();
