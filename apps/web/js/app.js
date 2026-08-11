@@ -10,6 +10,7 @@ import {
   exportState,
   importState,
   pruneOldCommitments,
+  pruneOldUsageSamples,
 } from "./store.js";
 import {
   checkPlanAccept,
@@ -47,8 +48,13 @@ import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 let state = loadState();
 {
   const pruned = pruneOldCommitments(state, 45, todayISO());
-  if (pruned > 0) {
-    appendAudit(state, "state.prune", `${pruned} old commitments`);
+  const prunedUsage = pruneOldUsageSamples(state, 45, todayISO());
+  if (pruned > 0 || prunedUsage > 0) {
+    appendAudit(
+      state,
+      "state.prune",
+      `commitments:${pruned} usage:${prunedUsage}`
+    );
     saveState(state);
   }
 }

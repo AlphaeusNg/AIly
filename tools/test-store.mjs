@@ -11,6 +11,7 @@ import {
   importState,
   loadState,
   pruneOldCommitments,
+  pruneOldUsageSamples,
   saveState,
   uid,
 } from "../apps/web/js/store.js";
@@ -178,6 +179,16 @@ assert.ok(
   pruneState.commitments.some((c) => c.id === "old-pending"),
   "never drops open pending work"
 );
+
+const usagePrune = hydrateState({
+  usageSamples: [
+    { app: "Old", mins: 10, ts: "2026-01-01T00:00:00.000Z" },
+    { app: "New", mins: 5, ts: "2026-08-11T00:00:00.000Z" },
+  ],
+});
+assert.equal(pruneOldUsageSamples(usagePrune, 45, "2026-08-11"), 1);
+assert.equal(usagePrune.usageSamples.length, 1);
+assert.equal(usagePrune.usageSamples[0].app, "New");
 
 // saveState must never throw and must report ok/failure for the UI toast path.
 const memory = new Map();

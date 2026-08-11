@@ -372,6 +372,20 @@ export function pruneOldCommitments(state, keepDays = 45, today = "") {
   return before - state.commitments.length;
 }
 
+/** Prune old usage samples by calendar day (keeps last keepDays). */
+export function pruneOldUsageSamples(state, keepDays = 45, today = "") {
+  if (!isRecord(state) || !Array.isArray(state.usageSamples)) return 0;
+  const day = typeof today === "string" && validYmd(today) ? today : null;
+  if (!day) return 0;
+  const cutoff = previousCalendarDay(day, keepDays);
+  const before = state.usageSamples.length;
+  state.usageSamples = state.usageSamples.filter((u) => {
+    if (!isRecord(u) || typeof u.ts !== "string") return false;
+    return u.ts.slice(0, 10) >= cutoff;
+  });
+  return before - state.usageSamples.length;
+}
+
 function previousCalendarDay(ymd, days) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
   if (!m) return ymd;
