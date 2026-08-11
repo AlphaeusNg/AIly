@@ -2213,6 +2213,21 @@ function onCreateTarget(e) {
     showToast("Title, metric, and unit are required.", "error");
     return;
   }
+  if (soft != null && soft > 0) {
+    const prospective = [
+      ...softCaps(),
+      { targetId: "new", hours: soft },
+    ];
+    const softCheck = checkSoftCapSum(prospective, state.user.weeklyCapacityHours);
+    if (!softCheck.ok) {
+      showToast(
+        `Soft hours ${soft}h would push caps to ${softCheck.sum.toFixed(1)}h over weekly ${softCheck.weekly}h.`,
+        "error",
+        5500
+      );
+      return;
+    }
+  }
   const t = {
     id: uid(),
     title,
@@ -2239,6 +2254,17 @@ function onCreateTarget(e) {
         if (x.softCapacityHours == null || x.softCapacityHours <= 0) {
           x.softCapacityHours = Math.round(share * 10) / 10;
         }
+      }
+      const after = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
+      if (!after.ok) {
+        // Auto-share oversubscribed — scale down proportionally
+        const scale = after.weekly / after.sum;
+        for (const x of active) {
+          if (x.softCapacityHours != null && x.softCapacityHours > 0) {
+            x.softCapacityHours = Math.round(x.softCapacityHours * scale * 10) / 10;
+          }
+        }
+        showToast("Soft hours auto-scaled to fit weekly capacity.", "ok", 4000);
       }
     }
   }
