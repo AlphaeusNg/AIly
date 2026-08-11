@@ -1647,7 +1647,12 @@ function shouldAskIntention(estimateMin) {
   if (skipIntentionThisSession) return false;
   if (Date.now() < (state.ui.intentionSkipUntil || 0)) return false;
   // Always ask for 30m+; short tasks stay friction-light.
-  return estimateMin >= 30;
+  // Also ask once when day is already near capacity even for shorter adds.
+  if (estimateMin >= 30) return true;
+  const daily = dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek);
+  const used = plannedMinutes();
+  if (daily > 0 && used / daily >= 0.85 && estimateMin >= 15) return true;
+  return false;
 }
 
 function previousDayLocalISO() {
