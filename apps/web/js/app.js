@@ -870,6 +870,7 @@ function renderToday() {
     <div class="row">
       <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
       <button type="button" data-action="clone-yesterday">Clone yesterday</button>
+      ${today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : ""}
       ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
     </div>
@@ -902,6 +903,8 @@ function renderToday() {
       <button type="button" class="chip" data-action="quick-commit" data-text="Deep work block" data-min="50">Deep work 50m</button>
       <button type="button" class="chip" data-action="quick-commit" data-text="Admin / email batch" data-min="25">Admin 25m</button>
       <button type="button" class="chip" data-action="quick-commit" data-text="Move body / break" data-min="15">Break 15m</button>
+      <button type="button" class="chip" data-action="quick-commit" data-text="Review + close loops" data-min="30">Review 30m</button>
+      <button type="button" class="chip" data-action="quick-commit" data-text="Learn / read with intention" data-min="30">Learn 30m</button>
     </div>
     <div class="row">
       <input id="new-commit-text" placeholder="Next commitment…" />
@@ -1506,6 +1509,7 @@ function friendlyAuditTool(tool) {
     "notify.test": "Test notification",
     "plan.clone_yesterday": "Cloned yesterday’s plan",
     "plan.hide_done": "Hid completed items",
+    "plan.export_today": "Exported today plan",
     "review.bulk_no_impact": "Bulk no-impact close",
     "review.bulk_metric": "Bulk done + metric",
   };
@@ -2325,7 +2329,8 @@ document.addEventListener("click", (e) => {
   }
   if (action === "quick-commit") {
     const text = act.dataset.text || "";
-    const estimateMin = Number(act.dataset.min) || 30;
+    let estimateMin = Number(act.dataset.min) || 30;
+    estimateMin = snapEstimateMin(estimateMin);
     const targetId = $("#new-commit-target")?.value || state.targets.find((t) => t.status === "active")?.id;
     if (!targetId) {
       showToast("Create a target first.", "error");
