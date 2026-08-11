@@ -927,6 +927,7 @@ function renderToday() {
       <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
       <button type="button" data-action="clone-yesterday">Clone yesterday</button>
       ${today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : ""}
+      ${today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : ""}
       ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
     </div>
@@ -1577,6 +1578,7 @@ function friendlyAuditTool(tool) {
     "plan.clone_yesterday": "Cloned yesterday’s plan",
     "plan.hide_done": "Hid completed items",
     "plan.export_today": "Exported today plan",
+    "plan.copy_today": "Copied today plan",
     "review.bulk_no_impact": "Bulk no-impact close",
     "review.bulk_metric": "Bulk done + metric",
   };
@@ -3053,6 +3055,37 @@ document.addEventListener("click", (e) => {
     persist();
     showToast("Today plan exported (local file).", "ok");
   }
+  if (action === "copy-today-plan") {
+    const list = todayCommitments();
+    if (!list.length) {
+      showToast("No commitments today.", "ok");
+      return;
+    }
+    const lines = [
+      `AIly plan ${todayISO()}`,
+      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : null,
+      "",
+      ...list.map((c) => {
+        const t = state.targets.find((x) => x.id === c.targetId);
+        return `- ${c.estimateMin}m ${c.text} (${t?.title || "?"}) [${c.status}]`;
+      }),
+      "",
+      `Total: ${plannedMinutes()}m`,
+    ].filter((x) => x != null);
+    const text = lines.join("\n");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => {
+          appendAudit(state, "plan.copy_today", `${list.length}`);
+          persist();
+          showToast("Today plan copied.", "ok");
+        },
+        () => showToast("Could not copy.", "error")
+      );
+    } else {
+      showToast("Clipboard unavailable.", "error");
+    }
+  }
   if (action === "start-focus-25") {
     startFocusMinutes(25);
   }
@@ -3092,11 +3125,23 @@ document.addEventListener("click", (e) => {
       showToast("Nights/week must be 1–7.", "error");
       return;
     }
+    const softCheck = checkSoftCapSum(softCaps(), hours);
+    if (!softCheck.ok) {
+      showToast(
+        `Weekly ${hours}h is below soft-cap sum ${softCheck.sum.toFixed(1)}h. Lower soft hours on targets first.`,
+        "error",
+        5500
+      );
+      return;
+    }
     state.user.weeklyCapacityHours = hours;
     state.user.nightsPerWeek = nights;
     appendAudit(state, "capacity.save", `${hours}h / ${nights} nights`);
     persist();
-    showToast("Capacity updated.", "ok");
+    showToast(
+      `Capacity updated · day soft cap ≈ ${dailySoftCapMinutes(hours, nights)|0}m.`,
+      "ok"
+    );
   }
   if (action === "revoke-usage") {
     if (!confirm("Revoke usage tracking? Session auto-log stops; samples stay until you clear them.")) return;
