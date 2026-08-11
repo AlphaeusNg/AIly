@@ -1058,6 +1058,8 @@ function renderReview() {
   const done = list.filter((c) => c.status === "done");
   const week = weekJourneyStats(state);
   const streak = intentionStreak(state, d);
+  const plannedToday = list.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  const doneToday = done.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
@@ -1065,9 +1067,15 @@ function renderReview() {
     </header>
     ${
       state.ui.dailyIntention
-        ? `<div class="capacity-card"><p class="ally-line">You intended: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>. Did your time match?</p></div>`
+        ? `<div class="capacity-card"><p class="ally-line">You intended: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>. Did your time match?</p>
+           ${state.ui.dailyNote ? `<p class="muted">Note: ${escapeHtml(state.ui.dailyNote)}</p>` : ""}
+           </div>`
         : ""
     }
+    <div class="capacity-card">
+      <h2>Today close-out</h2>
+      <p class="ally-line">Planned <strong>${plannedToday|0}m</strong> · closed <strong>${doneToday|0}m</strong> · open <strong>${pending.length}</strong> · attention samples <strong>${dayUsageMinutes()|0}m</strong>.</p>
+    </div>
     <div class="capacity-card">
       <h2>This week (from ${week.start})</h2>
       <p class="ally-line">
