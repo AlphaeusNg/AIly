@@ -50,8 +50,10 @@ import {
   attentionMismatchNote,
   findSameDayDuplicate,
   formatDayPlanText,
+  formatWeekHonestyText,
   intentionStreak,
   nextDayISO,
+  pruneAuditEntries,
   stalePendingCommitments,
   weekDayBreakdown,
   weekJourneyStats,
@@ -726,6 +728,10 @@ function renderNav() {
     if (btn.dataset.nav === "blocks") {
       const n = (state.blockRules || []).filter((r) => r.armed).length;
       setNavCount(btn, n, n > 0);
+    }
+    if (btn.dataset.nav === "targets") {
+      const n = (state.targets || []).filter((t) => t.status === "active").length;
+      setNavCount(btn, n, n > 0 && isReady(state));
     }
   });
   const badge = $("#setup-badge");
@@ -1695,6 +1701,7 @@ function friendlyAuditTool(tool) {
     "ui.display": "Saved display prefs",
     "audit.clear": "Cleared activity log",
     "audit.export": "Exported audit TSV",
+    "audit.prune": "Pruned old activity",
     "intention.resume": "Resumed intention checks",
     "intention.snooze": "Snoozed intention checks",
     "notify.test": "Test notification",
@@ -1725,8 +1732,9 @@ function renderActivity() {
       <input id="activity-filter" type="search" placeholder="Filter log…" value="${escapeHtml(state.ui.activityFilter || "")}" />
       <button type="button" data-action="apply-activity-filter">Filter</button>
       ${filter ? `<button type="button" data-action="clear-activity-filter">Clear</button>` : ""}
+      <button type="button" data-action="prune-audit" ${(state.audit || []).length ? "" : "disabled"}>Prune &gt;45d</button>
     </div>
-    <p class="muted">${rows.length} shown${filter ? ` · filter “${escapeHtml(filter)}”` : ""}</p>
+    <p class="muted">${rows.length} shown${filter ? ` · filter “${escapeHtml(filter)}”` : ""} · ${(state.audit || []).length} total</p>
     <ul class="list">
       ${rows
         .map((a) => {
@@ -3334,25 +3342,18 @@ document.addEventListener("click", (e) => {
   if (action === "export-week-summary") {
     const week = weekJourneyStats(state);
     const days = weekDayBreakdown(state);
-    const d = todayISO();
-    const lines = [
-      `AIly week honesty · from ${week.start}`,
-      `Exported ${d}`,
-      "",
-      `Week: planned ${week.plannedMin|0}m · done ${week.doneMin|0}m · open ${week.openCount} · usage ${week.usageMin|0}m · break-glass ${week.glass}`,
-      weekReflection(week),
-      "",
-      "By day:",
-      ...days.days.map(
-        (day) =>
-          `${day.date}${day.date === d ? " (today)" : ""}: plan ${day.plannedMin|0}m · done ${day.doneMin|0}m · open ${day.openCount}`
-      ),
-      "",
-      state.ui.dailyIntention ? `Today intention: ${state.ui.dailyIntention}` : "Today intention: (none)",
-      "",
-      "Local only — numbers stay on this device.",
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const text = formatWeekHonestyText({
+      dayISO: todayISO(),
+      version: SITE_VERSION.id,
+      intention: state.ui.dailyIntention,
+      note: state.ui.dailyNote,
+      todayPlannedMin: plannedMinutes(),
+      todayUsageMin: dayUsageMinutes(),
+      week,
+      days: days.days,
+      reflection: weekReflection(week),
+    });
+    const blob = new Blob([text + "\n"], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `aily-week-${week.start}.txt`;
@@ -3816,18 +3817,35 @@ document.addEventListener("click", (e) => {
   if (action === "export-backup") {
     downloadBackup();
   }
+  if (action === "prune-audit") {
+    const before = (state.audit || []).length;
+    if (!before) return;
+    if (!confirm("Remove activity log entries older than 45 days?")) return;
+    const result = pruneAuditEntries(state.audit || [], 45, todayISO());
+    state.audit = result.audit;
+    appendAudit(state, "audit.prune", `${result.removed}`);
+    persist();
+    showToast(
+      result.removed
+        ? `Pruned ${result.removed} old log entr${result.removed === 1 ? "y" : "ies"}.`
+        : "Nothing older than 45 days.",
+      "ok"
+    );
+  }
   if (action === "copy-summary") {
     const week = weekJourneyStats(state);
-    const lines = [
-      `AIly ${SITE_VERSION.id} · local summary ${todayISO()}`,
-      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : "Intention: (none)",
-      state.ui.dailyNote ? `Note: ${state.ui.dailyNote}` : null,
-      `Today planned: ${plannedMinutes()}m · usage samples: ${dayUsageMinutes()}m`,
-      `Week from ${week.start}: planned ${week.plannedMin}m · done ${week.doneMin}m · usage ${week.usageMin}m · glass ${week.glass}`,
-      weekReflection(week),
-      "Data stays on this device.",
-    ].filter(Boolean);
-    const text = lines.join("\n");
+    const days = weekDayBreakdown(state);
+    const text = formatWeekHonestyText({
+      dayISO: todayISO(),
+      version: SITE_VERSION.id,
+      intention: state.ui.dailyIntention,
+      note: state.ui.dailyNote,
+      todayPlannedMin: plannedMinutes(),
+      todayUsageMin: dayUsageMinutes(),
+      week,
+      days: days.days,
+      reflection: weekReflection(week),
+    });
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
         () => {
@@ -4058,6 +4076,10 @@ document.addEventListener("keydown", (e) => {
       renderCheckInModal();
       requestAnimationFrame(() => $("#checkin-intention")?.focus());
     }
+  }
+  if (e.key === "r" || e.key === "R") {
+    state.ui.tab = "review";
+    persist();
   }
   if (e.key === "?" && !state.ui.tutorialOpen) {
     helpOpen = true;

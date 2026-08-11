@@ -227,6 +227,79 @@ export function formatDayPlanText(input = {}) {
 }
 
 /**
+ * Plain-text week honesty summary for copy/export.
+ * @param {{
+ *   dayISO?: string,
+ *   version?: string,
+ *   intention?: string,
+ *   note?: string,
+ *   todayPlannedMin?: number,
+ *   todayUsageMin?: number,
+ *   week?: object,
+ *   days?: Array,
+ *   reflection?: string,
+ * }} input
+ */
+export function formatWeekHonestyText(input = {}) {
+  const dayISO = typeof input.dayISO === "string" ? input.dayISO : "";
+  const version = typeof input.version === "string" ? input.version : "";
+  const week = input.week || {};
+  const days = Array.isArray(input.days) ? input.days : [];
+  const lines = [
+    `AIly${version ? ` ${version}` : ""} · local summary ${dayISO || ""}`.trim(),
+  ];
+  const intention = typeof input.intention === "string" ? input.intention.trim() : "";
+  const note = typeof input.note === "string" ? input.note.trim() : "";
+  lines.push(intention ? `Intention: ${intention}` : "Intention: (none)");
+  if (note) lines.push(`Note: ${note}`);
+  if (Number.isFinite(input.todayPlannedMin) || Number.isFinite(input.todayUsageMin)) {
+    lines.push(
+      `Today planned: ${Number.isFinite(input.todayPlannedMin) ? input.todayPlannedMin : 0}m · usage samples: ${
+        Number.isFinite(input.todayUsageMin) ? input.todayUsageMin : 0
+      }m`
+    );
+  }
+  lines.push(
+    `Week from ${week.start || "?"}: planned ${week.plannedMin|0}m · done ${week.doneMin|0}m · usage ${week.usageMin|0}m · glass ${week.glass|0}`
+  );
+  const reflection =
+    typeof input.reflection === "string" && input.reflection
+      ? input.reflection
+      : weekReflection(week);
+  if (reflection) lines.push(reflection);
+  if (days.length) {
+    lines.push("", "By day:");
+    for (const day of days) {
+      if (!day) continue;
+      const mark = day.date === dayISO ? " (today)" : "";
+      lines.push(
+        `${day.date || "?"}${mark}: plan ${day.plannedMin|0}m · done ${day.doneMin|0}m · open ${day.openCount|0}`
+      );
+    }
+  }
+  lines.push("", "Data stays on this device.");
+  return lines.join("\n");
+}
+
+/**
+ * Drop audit rows older than keepDays (by ts date prefix).
+ * @returns {{ audit: Array, removed: number }}
+ */
+export function pruneAuditEntries(audit, keepDays = 45, today = "") {
+  const list = Array.isArray(audit) ? audit.slice() : [];
+  if (!today || !Number.isFinite(keepDays) || keepDays < 1) {
+    return { audit: list, removed: 0 };
+  }
+  let cutoff = today;
+  for (let i = 0; i < keepDays; i += 1) cutoff = previousDayISO(cutoff);
+  const next = list.filter((a) => {
+    if (!a || typeof a.ts !== "string" || a.ts.length < 10) return true;
+    return a.ts.slice(0, 10) >= cutoff;
+  });
+  return { audit: next, removed: list.length - next.length };
+}
+
+/**
  * Per-day planned/done totals for the week containing `now` (Mon–Sun).
  * @returns {{ start: string, days: Array<{ date: string, plannedMin: number, doneMin: number, openCount: number, doneCount: number }> }}
  */

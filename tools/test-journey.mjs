@@ -3,9 +3,11 @@ import {
   attentionMismatchNote,
   findSameDayDuplicate,
   formatDayPlanText,
+  formatWeekHonestyText,
   intentionStreak,
   nextDayISO,
   previousDayISO,
+  pruneAuditEntries,
   stalePendingCommitments,
   weekDayBreakdown,
   weekJourneyStats,
@@ -112,6 +114,42 @@ assert.match(planText, /Intention: Ship/);
 assert.match(planText, /Note: Deep work/);
 assert.match(planText, /50m \(must-keep\) Hard part · AIly/);
 assert.match(planText, /Total planned: 50m/);
+
+const honesty = formatWeekHonestyText({
+  dayISO: "2026-08-11",
+  version: "2026.08.11.110",
+  intention: "Deep work",
+  todayPlannedMin: 80,
+  todayUsageMin: 40,
+  week: {
+    start: "2026-08-10",
+    plannedMin: 120,
+    doneMin: 60,
+    usageMin: 40,
+    glass: 1,
+  },
+  days: [{ date: "2026-08-11", plannedMin: 80, doneMin: 20, openCount: 2 }],
+  reflection: "Some progress landed.",
+});
+assert.match(honesty, /2026\.08\.11\.110/);
+assert.match(honesty, /Intention: Deep work/);
+assert.match(honesty, /Today planned: 80m/);
+assert.match(honesty, /Week from 2026-08-10/);
+assert.match(honesty, /2026-08-11 \(today\): plan 80m/);
+assert.match(honesty, /Some progress landed/);
+
+const pruned = pruneAuditEntries(
+  [
+    { tool: "a", ts: "2026-06-01T00:00:00.000Z" },
+    { tool: "b", ts: "2026-08-10T00:00:00.000Z" },
+    { tool: "c", ts: "2026-08-11T00:00:00.000Z" },
+  ],
+  7,
+  "2026-08-11"
+);
+assert.equal(pruned.removed, 1);
+assert.equal(pruned.audit.length, 2);
+assert.equal(pruned.audit[0].tool, "b");
 
 assert.match(weekReflection(stats), /progress|slipping|follow/i);
 assert.match(weekReflection({ plannedMin: 0 }), /No planned/i);
