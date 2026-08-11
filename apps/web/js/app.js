@@ -1311,6 +1311,7 @@ function renderBlocks() {
           <span class="muted">${policy.delaySec}s glass</span>
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
           <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
+          <button type="button" data-action="rename-rule-app" data-id="${r.id}">App key</button>
           <button type="button" data-action="set-delay" data-id="${r.id}">Delay</button>
           <button type="button" data-action="set-daily-limit" data-id="${r.id}">Limit</button>
           <button type="button" data-action="delete-rule" data-id="${r.id}">Delete</button>
@@ -1549,6 +1550,7 @@ function friendlyAuditTool(tool) {
     "ally.accept_all": "Accepted ally plan",
     "block.rule_delete": "Deleted block rule",
     "block.rule_merge": "Merged block rule",
+    "block.rule_rename": "Renamed rule app key",
     "block.disarm_all": "Disarmed all rules",
     "block.arm_all": "Armed all rules",
     "block.delay": "Changed break-glass delay",
@@ -2439,6 +2441,14 @@ document.addEventListener("click", (e) => {
     }
     estimateMin = snapEstimateMin(estimateMin);
     if ($("#new-commit-min")) $("#new-commit-min").value = String(estimateMin);
+    if (
+      isMorningLocal() &&
+      isReady(state) &&
+      !state.ui.dailyIntention &&
+      state.ui.lastCheckInDate !== todayISO()
+    ) {
+      showToast("Tip: set a morning intention first — or continue adding.", "ok", 3500);
+    }
     const payload = { text, targetId, estimateMin, mustKeep: !!mustKeep };
     if (shouldAskIntention(estimateMin)) {
       pendingIntention = payload;
@@ -2862,13 +2872,39 @@ document.addEventListener("click", (e) => {
   }
   if (action === "delete-rule") {
     const before = (state.blockRules || []).length;
+    const doomed = (state.blockRules || []).find((r) => r.id === id);
     state.blockRules = (state.blockRules || []).filter((r) => r.id !== id);
     if (state.blockRules.length < before) {
-      appendAudit(state, "block.rule_delete", id);
+      appendAudit(state, "block.rule_delete", doomed?.appKeys?.join(",") || id);
       if (pendingBreakGlass?.ruleId === id) cancelBreakGlass();
       persist();
       showToast("Rule deleted.", "ok");
     }
+  }
+  if (action === "rename-rule-app") {
+    const r = state.blockRules.find((x) => x.id === id);
+    if (!r) return;
+    const current = (r.appKeys || [])[0] || "";
+    const next = prompt("App key for this rule", current);
+    if (next == null) return;
+    const app = next.trim().slice(0, 80);
+    if (!app) {
+      showToast("App key cannot be empty.", "error");
+      return;
+    }
+    const clash = (state.blockRules || []).find(
+      (other) =>
+        other.id !== r.id &&
+        (other.appKeys || []).some((k) => String(k).toLowerCase() === app.toLowerCase())
+    );
+    if (clash) {
+      showToast("Another rule already uses that app key.", "error");
+      return;
+    }
+    r.appKeys = [app];
+    appendAudit(state, "block.rule_rename", app);
+    persist();
+    showToast(`Rule app key set to ${app}.`, "ok");
   }
   if (action === "disarm-all") {
     let n = 0;
