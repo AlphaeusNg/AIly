@@ -4,6 +4,7 @@
  */
 
 import { checkPlanAccept, dailySoftCapMinutes } from "./capacity.js";
+import { metricProgressRatio } from "./target.js";
 
 const FLOOR = 15;
 
@@ -11,13 +12,6 @@ function clampEstimate(min) {
   if (!Number.isFinite(min) || min < FLOOR) return FLOOR;
   // Snap to 15m steps for dogfood friendliness.
   return Math.max(FLOOR, Math.round(min / 15) * 15);
-}
-
-function targetProgressRatio(target) {
-  const m = target?.metrics?.[0];
-  if (!m) return 0;
-  const span = Math.abs(m.target - m.baseline) || 1;
-  return Math.min(1, Math.max(0, Math.abs(m.current - m.baseline) / span));
 }
 
 /**
@@ -90,7 +84,7 @@ export function proposeDayPlan(input) {
   const ranked = targets
     .map((t) => ({
       target: t,
-      progress: targetProgressRatio(t),
+      progress: metricProgressRatio(t.metrics?.[0]),
       softHours:
         softCaps.find((s) => s.targetId === t.id)?.hours ??
         (Number.isFinite(t.softCapacityHours) ? t.softCapacityHours : null),

@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (continuous improve loop — still shipping)
+Last updated: 2026-08-11 (workspace Cycle 100; AIly Cycle 20 — still shipping)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
   full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.94`.
-- Gate: Rust + store/usage/platform-usage/block/ally/journey/shell + 37 CI
+- Deployment version: `2026.08.11.96`.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 38 CI
   policy assertions via `npm test`.
 - Continuous improve loop on `main` (100+ commits since executable shell).
 
@@ -23,6 +23,7 @@ Last updated: 2026-08-11 (continuous improve loop — still shipping)
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
 | 4 | Wire Android unit tests into CI when runner has JDK | Test / DX | Medium | Small / low | Local `:app:testDebugUnitTest` green | Backlog |
+| — | Make browser target progress direction-aware | Correctness / ally UX | Critical: wrong-way movement appeared complete and deprioritized worsening targets | Small / low | Shared browser helper + Rust/browser regressions | Completed in Cycle 20 |
 | — | Local propose-only day planner + return nudge | Ally UX | High | Medium / low | ally.js + tests | Completed in Cycle 17 |
 | — | AIly Android shell unit + instrumented tests | Test / DX | Medium | Small / low | Replaces Capacitor samples | Completed in Cycle 13 |
 | — | Daily check-in + focus sessions | Ally UX | High | Small / low | Cycle 12 | Completed in Cycle 12 |
@@ -39,6 +40,64 @@ Last updated: 2026-08-11 (continuous improve loop — still shipping)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 20 — Preserve metric direction in progress and ally ranking (2026-08-11)
+
+**Why this won:** The browser UI and local ally measured absolute movement from
+baseline. For a target increasing from 0 to 100, moving to -50 therefore looked
+50% complete; moving to -100 looked 100% complete. AIly then ranked that
+worsening target behind genuinely progressing work. This contradicted the Rust
+domain model and the product's root promise to track measurable target journeys.
+
+**Plan and success criteria**
+
+1. Use signed movement toward the target for both upward and downward metrics.
+2. Clamp wrong-way movement to 0 and target overshoot to 100.
+3. Make the Targets UI and propose-only ally consume one browser implementation.
+4. Lock Rust/browser direction behavior and offline packaging in the full gate.
+
+**Changes**
+
+- Added `target.js` with shared `metricProgressRatio` and
+  `metricProgressPct` helpers.
+- Replaced duplicate absolute-distance calculations in `app.js` and `ally.js`.
+- Added nine browser metric contracts and a planner regression proving a
+  wrong-way target is ranked at zero progress.
+- Added Rust downward/wrong-way coverage for the already direction-aware source
+  of truth.
+- Added the new suite to `npm test`, enforced it in workflow policy, precached
+  the module, and bumped the web/PWA version to `2026.08.11.96`.
+
+**Verification evidence**
+
+- Test-first: the metric suite failed because no shared target module existed;
+  the ally regression independently selected the 10%-complete target instead of
+  the worsening one.
+- `npm test`: Rust formatting and strict Clippy passed; 16 Rust unit and 2
+  integration tests passed; 9 browser direction contracts, planner regression,
+  every existing domain suite, 19 shell assets/contracts, and 38 workflow/Pages
+  policies passed.
+- Recursive web/tool/service-worker syntax, package audit, local served web
+  preview, and `git diff --check` passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 3/10 | 10/10 | Wrong-way movement is 0 in UI and planner for upward/downward metrics |
+| Test coverage / verifiability | 6/10 | 10/10 | Rust, browser, planner, offline shell, and CI policy cover the contract |
+| Maintainability | 5/10 | 9/10 | One browser metric primitive replaces two divergent calculations |
+| Performance | 10/10 | 10/10 | Constant-time arithmetic; no dependency or network cost |
+| User / ally experience | 3/10 | 10/10 | Journey meters and proposals now reflect actual direction toward the target |
+
+**Lesson / process improvement:** Absolute distance is not progress when a
+metric has direction. Domain behavior duplicated across runtime layers should
+share a primitive within each language and receive explicit upward, downward,
+wrong-way, and overshoot contracts.
+
+**Next opportunity:** Wire the existing Android JVM unit suite into hosted CI
+with an explicit JDK/SDK contract. Workspace next: rotate to the GitHub profile
+repository for the next breadth cycle.
 
 ### Cycle 19 — Off-limits usage honesty (2026-08-11)
 

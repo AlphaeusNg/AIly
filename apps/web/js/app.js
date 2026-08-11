@@ -1,4 +1,5 @@
 import { SITE_VERSION } from "./version.js";
+import { metricProgressPct } from "./target.js";
 import {
   loadState,
   saveState,
@@ -1011,13 +1012,6 @@ function renderToday() {
   });
 }
 
-function targetProgressPct(metric) {
-  if (!metric) return 0;
-  const span = Math.abs(metric.target - metric.baseline) || 1;
-  const moved = Math.abs(metric.current - metric.baseline);
-  return Math.min(100, Math.max(0, Math.round((moved / span) * 100)));
-}
-
 function renderTargets() {
   const el = $("#panel-targets");
   const active = state.targets.filter((t) => t.status === "active");
@@ -1026,7 +1020,7 @@ function renderTargets() {
     const sa = order[a.status] ?? 9;
     const sb = order[b.status] ?? 9;
     if (sa !== sb) return sa - sb;
-    return targetProgressPct(a.metrics?.[0]) - targetProgressPct(b.metrics?.[0]);
+    return metricProgressPct(a.metrics?.[0]) - metricProgressPct(b.metrics?.[0]);
   });
   el.innerHTML = `
     <header class="panel-head">
@@ -1058,7 +1052,7 @@ function renderTargets() {
       ${sortedTargets
         .map((t) => {
           const m = t.metrics[0];
-          const pct = targetProgressPct(m);
+          const pct = metricProgressPct(m);
           return `<li class="target-card">
             <div class="target-card-main">
               <strong>${escapeHtml(t.title)}</strong>
@@ -2634,7 +2628,7 @@ document.addEventListener("click", (e) => {
     }
     appendAudit(state, "metric.bump", t.title);
     persist();
-    const pct = targetProgressPct(m);
+    const pct = metricProgressPct(m);
     showToast(`Progress logged · ~${pct}% of journey.`, "ok");
   }
   if (action === "set-metric") {
@@ -2651,7 +2645,7 @@ document.addEventListener("click", (e) => {
     m.current = val;
     appendAudit(state, "metric.set", `${t.title}:${val}`);
     persist();
-    showToast(`Set ${m.name} to ${val}. · ~${targetProgressPct(m)}%`, "ok");
+    showToast(`Set ${m.name} to ${val}. · ~${metricProgressPct(m)}%`, "ok");
   }
   if (action === "pause-target") {
     const t = state.targets.find((x) => x.id === id);

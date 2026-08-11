@@ -15,7 +15,7 @@ See north-star: `../../plans/aily-heavy-plan.md`.
 
 ## Ally propose (local only)
 
-`proposeDayPlan` ranks active targets by journey progress, biases the first
+`proposeDayPlan` ranks active targets by direction-aware journey progress, biases the first
 slot toward today’s intention when titles match, snaps estimates to 15m, and
 rejects anything that fails `checkPlanAccept`. The user must accept each item
 (or “add all”); AIly never silently mutates the day plan.
@@ -27,6 +27,7 @@ rejects anything that fails `checkPlanAccept`. The user must accept each item
 | `app.js` | UI shell, events, native/PWA wiring |
 | `store.js` | localStorage hydrate/save/export/import/prune |
 | `capacity.js` | plan accept + replan (ports aily-core) |
+| `target.js` | direction-aware metric progress shared by UI + ally |
 | `tutorial.js` | chapters + arm gates |
 | `usage.js` | samples + visibility session tracker |
 | `block.js` | break-glass helpers + try-open match |

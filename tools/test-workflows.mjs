@@ -31,6 +31,7 @@ check(ci, /run:\s*npm test\b/, "CI runs the canonical local gate");
 check(gate, /cargo fmt --all -- --check/, "local gate enforces Rust formatting");
 check(gate, /cargo clippy --all-targets --all-features -- -D warnings/, "local gate enforces strict Clippy");
 check(gate, /cargo test/, "local gate runs Rust tests");
+check(gate, /node tools\/test-target\.mjs/, "local gate runs target progress tests");
 check(gate, /node tools\/test-usage\.mjs/, "local gate runs usage helper tests");
 check(gate, /node tools\/test-platform-usage\.mjs/, "local gate runs platform usage adapter tests");
 check(gate, /node tools\/test-block\.mjs/, "local gate runs block helper tests");

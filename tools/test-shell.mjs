@@ -18,6 +18,7 @@ const required = [
   "js/app.js",
   "js/store.js",
   "js/capacity.js",
+  "js/target.js",
   "js/tutorial.js",
   "js/usage.js",
   "js/block.js",
@@ -57,6 +58,7 @@ assert.match(sw, /offline\.html/, "SW caches offline page");
 assert.match(sw, /SKIP_WAITING/, "SW handles update message");
 assert.match(sw, /journey\.js/, "SW caches journey module");
 assert.match(sw, /ally\.js/, "SW caches ally module");
+assert.match(sw, /target\.js/, "SW caches target progress module");
 
 const version = read("js/version.js");
 assert.match(version, /SITE_VERSION/, "version module exports SITE_VERSION");
@@ -69,6 +71,7 @@ assert.match(manifest.name || "", /AIly/i);
 
 const app = read("js/app.js");
 assert.match(app, /proposeDayPlan/, "app wires ally propose");
+assert.match(app, /metricProgressPct/, "app uses shared direction-aware target progress");
 assert.match(app, /cloneYesterday|clone-yesterday/, "app can clone yesterday");
 assert.match(app, /watchServiceWorkerUpdates/, "app watches SW updates");
 assert.match(app, /prefers-reduced-motion|reduceMotion|reduce-motion/, "motion prefs considered");

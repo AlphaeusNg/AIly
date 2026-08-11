@@ -61,6 +61,31 @@ const full = proposeDayPlan({
 assert.equal(full.ok, true);
 assert.equal(full.proposals.length, 0, "no proposals when day already full");
 
+const wrongWay = proposeDayPlan({
+  targets: [
+    {
+      id: "worse",
+      title: "Worsening target",
+      status: "active",
+      metrics: [{ baseline: 0, target: 10, current: -10 }],
+    },
+    {
+      id: "some",
+      title: "Some progress",
+      status: "active",
+      metrics: [{ baseline: 0, target: 10, current: 1 }],
+    },
+  ],
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  maxItems: 1,
+});
+assert.equal(
+  wrongWay.proposals[0]?.targetId,
+  "worse",
+  "AIly prioritizes a wrong-way metric as zero progress",
+);
+
 assert.equal(returnNudge({ awayMin: 2 }), null);
 assert.match(returnNudge({ awayMin: 20, intention: "Deep work" }), /intention/i);
 assert.match(returnNudge({ awayMin: 20, focusActive: true }), /Focus/i);

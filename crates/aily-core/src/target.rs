@@ -125,4 +125,18 @@ mod tests {
         m.current = 40.0;
         assert!((m.progress_toward_target() - 0.4).abs() < 1e-9);
     }
+
+    #[test]
+    fn progress_down_and_wrong_way_clamp() {
+        let mut down = Metric::new("latency", "ms", 100.0, 20.0).unwrap();
+        down.current = 60.0;
+        assert!((down.progress_toward_target() - 0.5).abs() < 1e-9);
+
+        down.current = 140.0;
+        assert_eq!(down.progress_toward_target(), 0.0);
+
+        let mut up = Metric::new("pages", "pages", 0.0, 100.0).unwrap();
+        up.current = -50.0;
+        assert_eq!(up.progress_toward_target(), 0.0);
+    }
 }
