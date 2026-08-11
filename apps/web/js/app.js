@@ -722,6 +722,8 @@ function seedDemoJourney(opts = {}) {
   state.user.displayName = keepName && priorName ? priorName : priorName || "Friend";
   state.user.weeklyCapacityHours = 12;
   state.user.nightsPerWeek = 5;
+  state.ui.focusPausedRemainingMs = 0;
+  state.ui.focusSessionEndsAt = 0;
   state.tutorial.chapters = Object.fromEntries(
     CHAPTERS.map((c) => [c.id, c.required ? "done" : "skipped"])
   );
@@ -3168,6 +3170,8 @@ document.addEventListener("click", (e) => {
       pendingBreakGlass = null;
       helpOpen = false;
       updateBannerDismissed = false;
+      undoStack = [];
+      document.title = "AIly — Your AI Ally";
       persist();
       showToast("Demo data reset.", "ok");
     }
