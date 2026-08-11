@@ -2,6 +2,8 @@ import { SITE_VERSION } from "./version.js";
 import {
   checkSoftCapSum,
   metricProgressPct,
+  scaleSoftCapsToFit,
+  stepMetricAwayFromTarget,
   stepMetricTowardTarget,
 } from "./target.js";
 import {
@@ -45,6 +47,7 @@ import {
   attentionMismatchNote,
   findSameDayDuplicate,
   intentionStreak,
+  nextDayISO,
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
@@ -150,6 +153,16 @@ function undoLast() {
     appendAudit(state, "undo.hide_done", `${(entry.payload || []).length}`);
     persist();
     showToast("Restored completed items on Today.", "ok");
+    return;
+  }
+  if (entry.type === "defer-tomorrow") {
+    for (const item of entry.payload || []) {
+      const c = state.commitments.find((x) => x.id === item.id);
+      if (c && item.prevDate) c.planDate = item.prevDate;
+    }
+    appendAudit(state, "undo.defer_tomorrow", `${(entry.payload || []).length}`);
+    persist();
+    showToast("Moved items back to today.", "ok");
     return;
   }
   showToast("Could not undo that action.", "error");
@@ -928,6 +941,7 @@ function renderToday() {
       <button type="button" data-action="clone-yesterday">Clone yesterday</button>
       ${today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : ""}
       ${today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : ""}
+      ${today.some((c) => c.status === "pending") ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>` : ""}
       ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
     </div>
@@ -1035,7 +1049,8 @@ function renderTargets() {
     </header>
     ${
       !softCheck.ok
-        ? `<div class="banner warn">Soft caps sum to <strong>${softCheck.sum.toFixed(1)}h</strong> over weekly <strong>${softCheck.weekly}h</strong>. Capacity checks will fail until you lower soft hours.</div>`
+        ? `<div class="banner warn">Soft caps sum to <strong>${softCheck.sum.toFixed(1)}h</strong> over weekly <strong>${softCheck.weekly}h</strong>. Capacity checks will fail until you lower soft hours.
+             <button type="button" class="primary" data-action="scale-soft-caps">Scale to fit weekly</button></div>`
         : softCheck.sum > 0
           ? `<p class="muted">Soft caps: ${softCheck.sum.toFixed(1)}h of ${softCheck.weekly}h weekly.</p>`
           : ""
@@ -1090,6 +1105,7 @@ function renderTargets() {
               ${
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+                     <button type="button" data-action="nudge-metric-back" data-id="${t.id}">− progress</button>
                      <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
@@ -1163,6 +1179,7 @@ function renderReview() {
         ? `<div class="row">
              <button type="button" data-action="review-all-done-metric">All done + metric</button>
              <button type="button" data-action="review-all-noimpact">All no-impact</button>
+             <button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>
            </div>`
         : ""
     }
@@ -2672,6 +2689,83 @@ document.addEventListener("click", (e) => {
         ? `Progress logged · target reached (~${pct}%).`
         : `Progress logged · ~${pct}% of journey.`,
       "ok"
+    );
+  }
+  if (action === "nudge-metric-back") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t?.metrics?.[0]) return;
+    if (t.status !== "active") {
+      showToast("Reactivate the target before adjusting progress.", "error");
+      return;
+    }
+    const m = t.metrics[0];
+    const stepped = stepMetricAwayFromTarget(m);
+    if (!stepped.moved) {
+      showToast("Already at baseline — nothing to reverse.", "ok");
+      return;
+    }
+    m.current = stepped.next;
+    appendAudit(state, "metric.nudge_back", t.title);
+    persist();
+    showToast(`Progress reversed · ~${metricProgressPct(m)}% of journey.`, "ok");
+  }
+  if (action === "scale-soft-caps") {
+    const caps = softCaps();
+    const result = scaleSoftCapsToFit(caps, state.user.weeklyCapacityHours);
+    if (!result.scaled) {
+      showToast(
+        result.error === "invalid_weekly"
+          ? "Set a valid weekly capacity first."
+          : "Soft caps already fit weekly capacity.",
+        result.error ? "error" : "ok"
+      );
+      return;
+    }
+    if (!confirm(
+      `Scale soft hours by ~${Math.round(result.scale * 100)}% so they fit ${result.weekly}h/week?`
+    )) {
+      return;
+    }
+    const byId = new Map(result.softCaps.map((s) => [s.targetId, s.hours]));
+    for (const t of state.targets) {
+      if (byId.has(t.id)) t.softCapacityHours = byId.get(t.id);
+    }
+    appendAudit(state, "target.soft_scale", `scale:${result.scale.toFixed(3)}`);
+    persist();
+    showToast(
+      `Soft caps scaled to ~${result.sum.toFixed(1)}h of ${result.weekly}h weekly.`,
+      "ok",
+      4500
+    );
+  }
+  if (action === "defer-pending-tomorrow") {
+    const d = todayISO();
+    const pending = (state.commitments || []).filter(
+      (c) => c.planDate === d && c.status === "pending"
+    );
+    if (!pending.length) {
+      showToast("No open items to move.", "ok");
+      return;
+    }
+    if (
+      !confirm(
+        `Move ${pending.length} open item${pending.length === 1 ? "" : "s"} to tomorrow? (Capacity re-checked then.)`
+      )
+    ) {
+      return;
+    }
+    const tomorrow = nextDayISO(d);
+    pushUndo({
+      type: "defer-tomorrow",
+      payload: pending.map((c) => ({ id: c.id, prevDate: c.planDate })),
+    });
+    for (const c of pending) c.planDate = tomorrow;
+    appendAudit(state, "plan.defer_tomorrow", `${pending.length}→${tomorrow}`);
+    persist();
+    showToast(
+      `Moved ${pending.length} open item${pending.length === 1 ? "" : "s"} to ${tomorrow}.`,
+      "ok",
+      4000
     );
   }
   if (action === "set-metric") {

@@ -3,6 +3,7 @@ import {
   attentionMismatchNote,
   findSameDayDuplicate,
   intentionStreak,
+  nextDayISO,
   previousDayISO,
   weekJourneyStats,
   weekReflection,
@@ -16,6 +17,8 @@ assert.equal(weekStartISO(new Date(2026, 7, 9)), "2026-08-03"); // Sunday → pr
 
 assert.equal(previousDayISO("2026-08-11"), "2026-08-10");
 assert.equal(previousDayISO("2026-03-01"), "2026-02-28");
+assert.equal(nextDayISO("2026-08-11"), "2026-08-12");
+assert.equal(nextDayISO("2026-02-28"), "2026-03-01");
 
 const stats = weekJourneyStats({
   now: new Date(2026, 7, 11),

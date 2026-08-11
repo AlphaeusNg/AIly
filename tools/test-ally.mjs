@@ -86,6 +86,28 @@ assert.equal(
   "AIly prioritizes a wrong-way metric as zero progress",
 );
 
+const skipPlanned = proposeDayPlan({
+  targets,
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  softCaps: [
+    { targetId: "a", hours: 6 },
+    { targetId: "b", hours: 4 },
+  ],
+  existingToday: [{ id: "x", targetId: "a", estimateMin: 30, status: "pending" }],
+  intention: "",
+  maxItems: 2,
+});
+assert.equal(skipPlanned.ok, true);
+assert.ok(
+  skipPlanned.proposals.every((p) => p.targetId !== "a" || /buffer|break/i.test(p.text)),
+  "skips Progress proposals for targets that already have pending work",
+);
+assert.ok(
+  skipPlanned.proposals.some((p) => p.targetId === "b") || skipPlanned.proposals.length === 0,
+  "prefers unplanned targets when capacity remains",
+);
+
 assert.equal(returnNudge({ awayMin: 2 }), null);
 assert.match(returnNudge({ awayMin: 20, intention: "Deep work" }), /intention/i);
 assert.match(returnNudge({ awayMin: 20, focusActive: true }), /Focus/i);

@@ -71,6 +71,13 @@ export function proposeDayPlan(input) {
   const intention = typeof input?.intention === "string" ? input.intention.trim() : "";
   const softCaps = Array.isArray(input?.softCaps) ? input.softCaps : [];
 
+  // Targets that already have pending work today — prefer other journeys first.
+  const plannedTargetIds = new Set(
+    existing
+      .filter((c) => c && c.status === "pending" && c.targetId)
+      .map((c) => c.targetId)
+  );
+
   if (remaining < FLOOR) {
     return {
       ok: true,
@@ -88,8 +95,14 @@ export function proposeDayPlan(input) {
       softHours:
         softCaps.find((s) => s.targetId === t.id)?.hours ??
         (Number.isFinite(t.softCapacityHours) ? t.softCapacityHours : null),
+      alreadyPlanned: plannedTargetIds.has(t.id),
     }))
-    .sort((a, b) => a.progress - b.progress || String(a.target.title).localeCompare(String(b.target.title)));
+    .sort(
+      (a, b) =>
+        Number(a.alreadyPlanned) - Number(b.alreadyPlanned) ||
+        a.progress - b.progress ||
+        String(a.target.title).localeCompare(String(b.target.title))
+    );
 
   const proposals = [];
   const intentionLower = intention.toLowerCase();
@@ -112,6 +125,10 @@ export function proposeDayPlan(input) {
   for (const row of order) {
     if (proposals.length >= maxItems || remaining < FLOOR) break;
     const t = row.target;
+    // Skip targets that already have pending work unless intention named them first.
+    if (row.alreadyPlanned && !(intention && proposals.length === 0 && order[0] === row)) {
+      continue;
+    }
     // Share remaining across remaining slots, but leave room for later targets.
     const slotsLeft = maxItems - proposals.length;
     let slice = clampEstimate(remaining / slotsLeft);

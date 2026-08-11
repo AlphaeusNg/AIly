@@ -100,6 +100,16 @@ export function previousDayISO(ymd) {
   return `${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())}`;
 }
 
+/** Next calendar day YYYY-MM-DD (UTC date arithmetic). */
+export function nextDayISO(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return ymd;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  d.setUTCDate(d.getUTCDate() + 1);
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())}`;
+}
+
 /**
  * Suggest a gentle ally reflection string from week stats.
  */

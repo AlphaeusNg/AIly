@@ -4,6 +4,8 @@ import {
   metricIsUpward,
   metricProgressPct,
   metricProgressRatio,
+  scaleSoftCapsToFit,
+  stepMetricAwayFromTarget,
   stepMetricTowardTarget,
 } from "../apps/web/js/target.js";
 
@@ -80,5 +82,55 @@ const softBad = checkSoftCapSum(
 );
 assert.equal(softBad.ok, false);
 assert.equal(softBad.error, "soft_sum_over");
+
+const awayUp = stepMetricAwayFromTarget({
+  baseline: 0,
+  target: 10,
+  current: 4,
+  minMeaningfulDelta: 2,
+});
+assert.equal(awayUp.next, 2);
+assert.equal(awayUp.moved, true);
+assert.equal(awayUp.complete, false);
+
+const awayAtBase = stepMetricAwayFromTarget({
+  baseline: 0,
+  target: 10,
+  current: 0,
+  minMeaningfulDelta: 1,
+});
+assert.equal(awayAtBase.moved, false);
+
+const awayDown = stepMetricAwayFromTarget({
+  baseline: 100,
+  target: 40,
+  current: 50,
+  minMeaningfulDelta: 10,
+});
+assert.equal(awayDown.next, 60);
+assert.equal(awayDown.moved, true);
+
+const scaled = scaleSoftCapsToFit(
+  [
+    { targetId: "a", hours: 6 },
+    { targetId: "b", hours: 6 },
+  ],
+  10
+);
+assert.equal(scaled.scaled, true);
+assert.equal(scaled.ok, true);
+assert.ok(scaled.sum <= 10 + 1e-9);
+assert.equal(scaled.softCaps[0].hours, 5);
+assert.equal(scaled.softCaps[1].hours, 5);
+
+const alreadyFit = scaleSoftCapsToFit(
+  [
+    { targetId: "a", hours: 4 },
+    { targetId: "b", hours: 5 },
+  ],
+  10
+);
+assert.equal(alreadyFit.scaled, false);
+assert.equal(alreadyFit.ok, true);
 
 console.log("test-target.mjs: direction-aware metric progress + soft caps passed");
