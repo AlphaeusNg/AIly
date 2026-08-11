@@ -3425,6 +3425,13 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "p" || e.key === "P") {
     if (isReady(state) && state.ui.tab === "today") runAllyPropose();
   }
+  if (e.key === "i" || e.key === "I") {
+    if (isReady(state)) {
+      state.ui.checkInOpen = true;
+      renderCheckInModal();
+      requestAnimationFrame(() => $("#checkin-intention")?.focus());
+    }
+  }
   if (e.key === "?" && !state.ui.tutorialOpen) {
     helpOpen = true;
     renderHelpModal();
