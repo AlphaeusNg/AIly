@@ -876,7 +876,17 @@ function renderToday() {
   el.innerHTML = `
     <header class="panel-head">
       <h1>Today</h1>
-      <p class="muted">Journey for ${todayISO()} · ${used|0}m / ${daily|0}m day soft cap · ${cap}h week</p>
+      <p class="muted">Journey for ${todayISO()} · ${used|0}m / ${daily|0}m day soft cap · ${cap}h week${
+        (() => {
+          const mk = today.filter((c) => c.mustKeep && c.status === "pending");
+          if (!mk.length) return "";
+          const mkMin = mk.reduce(
+            (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+            0
+          );
+          return ` · ${mk.length} must-keep (~${mkMin|0}m)`;
+        })()
+      }</p>
     </header>
     <div class="capacity-card">
       <h2>Time consciousness</h2>
@@ -1177,9 +1187,11 @@ function renderTargets() {
                      <button type="button" data-action="edit-step" data-id="${t.id}">Step size</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
+                     <button type="button" data-action="duplicate-target" data-id="${t.id}">Duplicate</button>
                      <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
                      <button type="button" data-action="complete-target" data-id="${t.id}">Complete</button>`
                   : `<button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
+                     <button type="button" data-action="duplicate-target" data-id="${t.id}">Duplicate</button>
                      <button type="button" data-action="activate-target" data-id="${t.id}">Reactivate</button>`
               }
             </div>
@@ -1435,6 +1447,9 @@ function renderBlocks() {
           <span class="tag ${r.armed ? "armed" : ""}">${r.armed ? "armed" : "idle"}</span>
           <span class="muted">${policy.delaySec}s glass</span>
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
+          <button type="button" data-action="toggle-block-mode" data-id="${r.id}">${
+            r.mode === "hard_block" ? "Make soft" : "Make hard"
+          }</button>
           <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
           <button type="button" data-action="rename-rule-app" data-id="${r.id}">App key</button>
           <button type="button" data-action="set-delay" data-id="${r.id}">Delay</button>
@@ -1640,8 +1655,10 @@ function friendlyAuditTool(tool) {
     "target.complete": "Completed target",
     "target.complete_drop": "Dropped pending on complete",
     "target.activate": "Reactivated target",
+    "target.duplicate": "Duplicated target",
     "target.rename": "Renamed target",
     "target.soft": "Edited soft hours",
+    "block.mode": "Toggled block mode",
     "undo.drop": "Undid drop",
     "undo.hide_done": "Undid hide-done",
     // keep labels in sync with pushUndo types
@@ -3205,6 +3222,42 @@ document.addEventListener("click", (e) => {
     persist();
     showToast("Target active again.", "ok");
   }
+  if (action === "duplicate-target") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t) return;
+    const baseTitle = String(t.title || "Target").slice(0, 100);
+    const title = `${baseTitle} (copy)`.slice(0, 120);
+    const metrics = (Array.isArray(t.metrics) ? t.metrics : []).map((m) => ({
+      ...m,
+      current: Number.isFinite(m?.baseline) ? m.baseline : m?.current,
+    }));
+    if (!metrics.length) {
+      showToast("Target has no metric to copy.", "error");
+      return;
+    }
+    const copy = {
+      id: uid(),
+      title,
+      status: "active",
+      softCapacityHours:
+        t.softCapacityHours != null && Number.isFinite(t.softCapacityHours)
+          ? t.softCapacityHours
+          : null,
+      metrics,
+    };
+    // Soft-cap sum may fail after duplicate — clear soft on copy if so
+    state.targets.push(copy);
+    if (copy.softCapacityHours != null) {
+      const check = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
+      if (!check.ok) {
+        copy.softCapacityHours = null;
+        showToast("Duplicated without soft hours (would oversubscribe week).", "ok", 4500);
+      }
+    }
+    appendAudit(state, "target.duplicate", `${t.title}→${title}`);
+    persist();
+    showToast(`Duplicated “${title}” (metric at baseline).`, "ok", 4000);
+  }
   if (action === "rename-target") {
     const t = state.targets.find((x) => x.id === id);
     if (!t) return;
@@ -3426,6 +3479,21 @@ document.addEventListener("click", (e) => {
       persist();
       showToast(`Disarmed ${r.appKeys.join(", ")}.`, "ok");
     }
+  }
+  if (action === "toggle-block-mode") {
+    const r = state.blockRules.find((x) => x.id === id);
+    if (!r) return;
+    const wasHard = r.mode === "hard_block";
+    r.mode = wasHard ? "soft_delay" : "hard_block";
+    appendAudit(state, "block.mode", `${(r.appKeys || []).join(",")}:${r.mode}`);
+    persist();
+    showToast(
+      wasHard
+        ? "Switched to soft delay (break-glass path)."
+        : "Switched to hard block (still break-glass dogfood).",
+      "ok",
+      4000
+    );
   }
   if (action === "break-glass") {
     const r = state.blockRules.find((x) => x.id === id);
