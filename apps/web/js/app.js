@@ -1972,11 +1972,19 @@ function onImportBackup(e) {
       e.target.value = "";
       return;
     }
+    usageTracker?.stop();
+    usageTracker = null;
+    if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
+    pendingBreakGlass = null;
+    allyProposal = null;
+    undoStack = [];
+    helpOpen = false;
     state = result.state;
     pendingIntention = null;
     lastSave = null;
     appendAudit(state, "state.import", file.name || "backup");
     persist();
+    syncUsageTracker();
     showToast("Backup imported.", "ok");
     e.target.value = "";
   };

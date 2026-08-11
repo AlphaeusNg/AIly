@@ -31,7 +31,8 @@ rejects anything that fails `checkPlanAccept`. The user must accept each item
 | `usage.js` | samples + visibility session tracker |
 | `block.js` | break-glass helpers + try-open match |
 | `ally.js` | local propose-only day plan |
-| `journey.js` | week stats, streak, reflection |
+| `journey.js` | week stats, streak, duplicates, reflections |
+| `platform-usage.js` | usage backend select + honesty |
 | `version.js` | deploy stamp |
 
 ## Next
