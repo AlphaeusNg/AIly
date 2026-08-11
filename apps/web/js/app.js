@@ -1226,6 +1226,7 @@ function renderUsage() {
            </form>
            <div class="row">
              <button type="button" data-action="flush-usage" ${usageTracker?.isRunning?.() ? "" : "disabled"}>Flush live buffer now</button>
+             <button type="button" data-action="clear-usage-today" ${usage > 0 ? "" : "disabled"}>Clear today</button>
              <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all samples</button>
            </div>
            <ul class="list">${(state.usageSamples || [])
@@ -1537,6 +1538,7 @@ function friendlyAuditTool(tool) {
     "usage.sample": "Logged usage",
     "usage.blocked_sample": "Logged off-limits app",
     "usage.clear": "Cleared usage samples",
+    "usage.clear_today": "Cleared today’s usage",
     "plan.replan": "Replanned day",
     "tutorial.complete": "Tutorial step",
     "permission.grant": "Granted permission",
@@ -2841,6 +2843,21 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "usage.clear", `${n}`);
     persist();
     showToast("Usage samples cleared.", "ok");
+  }
+  if (action === "clear-usage-today") {
+    const day = todayISO();
+    const before = (state.usageSamples || []).length;
+    state.usageSamples = (state.usageSamples || []).filter(
+      (u) => !(typeof u.ts === "string" && u.ts.startsWith(day))
+    );
+    const removed = before - state.usageSamples.length;
+    if (!removed) {
+      showToast("No samples for today.", "ok");
+      return;
+    }
+    appendAudit(state, "usage.clear_today", `${removed}`);
+    persist();
+    showToast(`Cleared ${removed} sample${removed === 1 ? "" : "s"} from today.`, "ok");
   }
   if (action === "toggle-arm") {
     const r = state.blockRules.find((x) => x.id === id);
