@@ -3162,6 +3162,9 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "f" || e.key === "F") {
     if (!focusRemainingLabel()) startFocusMinutes(25);
   }
+  if (e.key === "p" || e.key === "P") {
+    if (isReady(state) && state.ui.tab === "today") runAllyPropose();
+  }
   if (e.key === "?" && !state.ui.tutorialOpen) {
     helpOpen = true;
     renderHelpModal();
