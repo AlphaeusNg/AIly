@@ -1252,6 +1252,7 @@ function renderBlocks() {
           <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
           <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
           <button type="button" data-action="set-delay" data-id="${r.id}">Delay</button>
+          <button type="button" data-action="set-daily-limit" data-id="${r.id}">Limit</button>
           <button type="button" data-action="delete-rule" data-id="${r.id}">Delete</button>
         </li>`;
         })
@@ -1480,6 +1481,7 @@ function friendlyAuditTool(tool) {
     "block.disarm_all": "Disarmed all rules",
     "block.arm_all": "Armed all rules",
     "block.delay": "Changed break-glass delay",
+    "block.limit": "Changed daily glass limit",
     "capacity.save": "Saved capacity",
     "permission.revoke": "Revoked permission",
     "user.name": "Saved display name",
@@ -2895,6 +2897,41 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "block.delay", `${r.appKeys.join(",")}:${delaySec}`);
     persist();
     showToast(`Break-glass delay set to ${delaySec}s.`, "ok");
+  }
+  if (action === "set-daily-limit") {
+    const r = state.blockRules.find((x) => x.id === id);
+    if (!r) return;
+    const policy = breakGlassPolicy(r);
+    const raw = prompt(
+      "Daily break-glass limit (empty = unlimited)",
+      policy.dailyLimit != null ? String(policy.dailyLimit) : ""
+    );
+    if (raw == null) return;
+    let dailyLimit = null;
+    if (String(raw).trim() !== "") {
+      dailyLimit = Number(raw);
+      if (!Number.isFinite(dailyLimit) || dailyLimit < 0 || dailyLimit > 100) {
+        showToast("Limit must be 0–100 or empty.", "error");
+        return;
+      }
+      dailyLimit = Math.floor(dailyLimit);
+    }
+    r.breakGlass = {
+      ...(r.breakGlass || {}),
+      delaySec: policy.delaySec,
+      requireReason: policy.requireReason,
+      dailyLimit,
+    };
+    appendAudit(
+      state,
+      "block.limit",
+      `${r.appKeys.join(",")}:${dailyLimit == null ? "none" : dailyLimit}`
+    );
+    persist();
+    showToast(
+      dailyLimit == null ? "Daily limit cleared." : `Daily break-glass limit ${dailyLimit}.`,
+      "ok"
+    );
   }
   if (action === "reset-demo") {
     if (confirm("Reset all local AIly demo data?")) {
