@@ -1398,6 +1398,7 @@ function renderSetup() {
         <button type="button" data-action="open-help">Keyboard help</button>
       </div>
       <p class="muted">Version ${SITE_VERSION.id} · ${SITE_VERSION.tagline}</p>
+      <p class="muted">Local store ≈ ${formatBytes(storageRoughBytes())} · undo stack ${undoStack.length}</p>
     </div>
   `;
   $("#import-backup")?.addEventListener("change", onImportBackup);
@@ -1880,6 +1881,22 @@ function onImportBackup(e) {
   };
   reader.onerror = () => showToast("Could not read backup file.", "error");
   reader.readAsText(file);
+}
+
+async function storageRoughBytes() {
+  try {
+    const raw = localStorage.getItem("aily.v1.state");
+    return raw ? raw.length * 2 : 0; // UTF-16-ish browser estimate
+  } catch {
+    return 0;
+  }
+}
+
+function formatBytes(n) {
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 async function downloadBackup() {
