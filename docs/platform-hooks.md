@@ -31,3 +31,14 @@ Phase 0 dogfood is honest about limits. This note is the **scaffold** for real O
 3. Windows/Linux after dogfood metrics prove the loop  
 
 Keep domain logic in `aily-core` / pure JS modules; platform code is a thin adapter.
+
+## Code boundary (Phase 0)
+
+| File | Role |
+|---|---|
+| `apps/web/js/platform-usage.js` | Backend select + honesty strings |
+| `apps/web/js/usage.js` | Sample merge + visibility session tracker |
+| `tools/test-platform-usage.mjs` | Boundary tests |
+
+`selectUsageBackend()` returns the Android stub on native Android so the UI can
+say “not installed” instead of lying about OS coverage.

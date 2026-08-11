@@ -1297,6 +1297,7 @@ function renderSetup() {
         </label>
         <button type="button" data-action="clear-audit">Clear activity log</button>
         <button type="button" data-action="seed-demo">Load sample journey</button>
+        <button type="button" data-action="undo" ${undoStack.length ? "" : "disabled"}>Undo last</button>
         <button type="button" data-action="reset-demo">Reset demo data</button>
         <button type="button" data-action="open-help">Keyboard help</button>
       </div>
@@ -2827,5 +2828,8 @@ document.addEventListener("keydown", (e) => {
   }
   if ((e.key === "z" || e.key === "Z") && !e.shiftKey) {
     undoLast();
+  }
+  if (e.key === "u" || e.key === "U") {
+    if (undoStack.length) undoLast();
   }
 });
