@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  checkSoftCapSum,
+  metricIsUpward,
   metricProgressPct,
   metricProgressRatio,
+  stepMetricTowardTarget,
 } from "../apps/web/js/target.js";
 
 assert.equal(
@@ -38,4 +41,44 @@ assert.equal(metricProgressRatio({ baseline: 1, target: 1, current: 1 }), 0);
 assert.equal(metricProgressRatio({ baseline: 0, target: 1, current: Number.NaN }), 0);
 assert.equal(metricProgressPct({ baseline: 0, target: 3, current: 1 }), 33);
 
-console.log("test-target.mjs: direction-aware metric progress passed (9 contracts)");
+assert.equal(metricIsUpward({ baseline: 0, target: 10 }), true);
+assert.equal(metricIsUpward({ baseline: 10, target: 2 }), false);
+
+const up = stepMetricTowardTarget({
+  baseline: 0,
+  target: 10,
+  current: 9,
+  minMeaningfulDelta: 2,
+});
+assert.equal(up.next, 10);
+assert.equal(up.moved, true);
+assert.equal(up.complete, true);
+
+const down = stepMetricTowardTarget({
+  baseline: 100,
+  target: 40,
+  current: 50,
+  minMeaningfulDelta: 5,
+});
+assert.equal(down.next, 45);
+assert.equal(down.complete, false);
+
+const softOk = checkSoftCapSum(
+  [
+    { targetId: "a", hours: 4 },
+    { targetId: "b", hours: 5 },
+  ],
+  10
+);
+assert.equal(softOk.ok, true);
+const softBad = checkSoftCapSum(
+  [
+    { targetId: "a", hours: 6 },
+    { targetId: "b", hours: 6 },
+  ],
+  10
+);
+assert.equal(softBad.ok, false);
+assert.equal(softBad.error, "soft_sum_over");
+
+console.log("test-target.mjs: direction-aware metric progress + soft caps passed");

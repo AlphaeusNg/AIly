@@ -1,5 +1,9 @@
 import { SITE_VERSION } from "./version.js";
-import { metricProgressPct } from "./target.js";
+import {
+  checkSoftCapSum,
+  metricProgressPct,
+  stepMetricTowardTarget,
+} from "./target.js";
 import {
   loadState,
   saveState,
@@ -1015,6 +1019,7 @@ function renderToday() {
 function renderTargets() {
   const el = $("#panel-targets");
   const active = state.targets.filter((t) => t.status === "active");
+  const softCheck = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
   const sortedTargets = state.targets.slice().sort((a, b) => {
     const order = { active: 0, paused: 1, completed: 2 };
     const sa = order[a.status] ?? 9;
@@ -1027,6 +1032,13 @@ function renderTargets() {
       <h1>Targets</h1>
       <p class="muted">What you're journeying toward — with real metrics.</p>
     </header>
+    ${
+      !softCheck.ok
+        ? `<div class="banner warn">Soft caps sum to <strong>${softCheck.sum.toFixed(1)}h</strong> over weekly <strong>${softCheck.weekly}h</strong>. Capacity checks will fail until you lower soft hours.</div>`
+        : softCheck.sum > 0
+          ? `<p class="muted">Soft caps: ${softCheck.sum.toFixed(1)}h of ${softCheck.weekly}h weekly.</p>`
+          : ""
+    }
     ${
       !active.length
         ? `<div class="empty-hero">
@@ -2618,18 +2630,21 @@ document.addEventListener("click", (e) => {
       return;
     }
     const m = t.metrics[0];
-    const step = m.minMeaningfulDelta || 1;
-    const before = m.current;
-    if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
-    else m.current = Math.max(m.target, m.current - step);
-    if (m.current === before) {
+    const stepped = stepMetricTowardTarget(m);
+    if (!stepped.moved) {
       showToast("Already at target — consider marking complete.", "ok");
       return;
     }
+    m.current = stepped.next;
     appendAudit(state, "metric.bump", t.title);
     persist();
     const pct = metricProgressPct(m);
-    showToast(`Progress logged · ~${pct}% of journey.`, "ok");
+    showToast(
+      stepped.complete
+        ? `Progress logged · target reached (~${pct}%).`
+        : `Progress logged · ~${pct}% of journey.`,
+      "ok"
+    );
   }
   if (action === "set-metric") {
     const t = state.targets.find((x) => x.id === id);
@@ -2735,7 +2750,18 @@ document.addEventListener("click", (e) => {
       showToast("Soft hours must be 0–168.", "error");
       return;
     }
+    const prev = t.softCapacityHours;
     t.softCapacityHours = Math.round(hours * 10) / 10;
+    const check = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
+    if (!check.ok) {
+      t.softCapacityHours = prev;
+      showToast(
+        `Soft caps would sum to ${check.sum.toFixed(1)}h over weekly ${check.weekly}h. Adjust other targets first.`,
+        "error",
+        5500
+      );
+      return;
+    }
     appendAudit(state, "target.soft", `${t.title}:${t.softCapacityHours}`);
     persist();
     showToast(`Soft hours set to ${t.softCapacityHours}h/week.`, "ok");
