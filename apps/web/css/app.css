@@ -976,3 +976,32 @@ body.density-compact .panel-head h1 {
 body.density-compact .capacity-card {
   padding: 0.75rem 0.85rem;
 }
+
+body.high-contrast {
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --border: #6b7280;
+  --text: #ffffff;
+  --muted: #d1d5db;
+  --accent: #93c5fd;
+  --accent-2: #5eead4;
+}
+
+body.high-contrast {
+  background: #000;
+}
+
+body.high-contrast .banner.ok {
+  border-color: #4ade80;
+  background: #052e16;
+}
+
+body.high-contrast .banner.warn {
+  border-color: #fbbf24;
+  background: #422006;
+}
+
+body.high-contrast .banner.danger {
+  border-color: #f87171;
+  background: #450a0a;
+}

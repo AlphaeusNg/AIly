@@ -373,6 +373,7 @@ function dismissBootSplash() {
 function applyUiPrefs() {
   document.body.classList.toggle("density-compact", state.ui.density === "compact");
   document.body.classList.toggle("reduce-motion", !!state.ui.reduceMotion);
+  document.body.classList.toggle("high-contrast", !!state.ui.highContrast);
 }
 
 function render() {
@@ -948,6 +949,12 @@ function renderToday() {
         .join("") || emptyTodayCta()}
     </ul>
   `;
+  $("#new-commit-text")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.querySelector('[data-action="add-commit"]')?.click();
+    }
+  });
 }
 
 function targetProgressPct(metric) {
@@ -1388,6 +1395,7 @@ function renderSetup() {
       <div class="row">
         <label class="chk"><input type="checkbox" id="setup-compact" ${state.ui.density === "compact" ? "checked" : ""} /> Compact density</label>
         <label class="chk"><input type="checkbox" id="setup-reduce-motion" ${state.ui.reduceMotion ? "checked" : ""} /> Reduce motion</label>
+        <label class="chk"><input type="checkbox" id="setup-contrast" ${state.ui.highContrast ? "checked" : ""} /> Higher contrast</label>
         <button type="button" data-action="save-display">Save display</button>
       </div>
       ${
@@ -1427,6 +1435,11 @@ function renderSetup() {
       </div>
       <p class="muted">Version ${SITE_VERSION.id} · ${SITE_VERSION.tagline}</p>
       <p class="muted">Local store ≈ ${formatBytes(storageRoughBytes())} · undo stack ${undoStack.length}</p>
+      ${
+        state.ui.lastExportAt
+          ? `<p class="muted">Last backup: ${escapeHtml(state.ui.lastExportAt.slice(0, 19).replace("T", " "))}</p>`
+          : `<p class="muted">No backup exported yet this device.</p>`
+      }
     </div>
   `;
   $("#import-backup")?.addEventListener("change", onImportBackup);
@@ -1443,6 +1456,7 @@ function friendlyAuditTool(tool) {
     "target.create": "Created target",
     "target.pause": "Paused target",
     "target.complete": "Completed target",
+    "target.complete_drop": "Dropped pending on complete",
     "target.activate": "Reactivated target",
     "target.rename": "Renamed target",
     "target.soft": "Edited soft hours",
@@ -1996,6 +2010,7 @@ async function downloadBackup() {
           title: "AIly backup",
           text: "Local AIly backup — keep private.",
         });
+        state.ui.lastExportAt = new Date().toISOString();
         appendAudit(state, "state.export", `share:${name}`);
         persist();
         showToast("Backup shared.", "ok");
@@ -2015,6 +2030,7 @@ async function downloadBackup() {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+  state.ui.lastExportAt = new Date().toISOString();
   appendAudit(state, "state.export", name);
   persist();
   showToast("Backup downloaded.", "ok");
@@ -2554,6 +2570,23 @@ document.addEventListener("click", (e) => {
     if (!t) return;
     if (!confirm(`Mark “${t.title}” complete?`)) return;
     t.status = "completed";
+    const pending = (state.commitments || []).filter(
+      (c) => c.targetId === t.id && c.planDate === todayISO() && c.status === "pending"
+    );
+    if (pending.length) {
+      if (
+        confirm(
+          `Drop ${pending.length} pending Today item${pending.length === 1 ? "" : "s"} for this target?`
+        )
+      ) {
+        pushUndo({
+          type: "hide-done",
+          payload: pending.map((c) => ({ id: c.id, prevStatus: c.status })),
+        });
+        for (const c of pending) c.status = "dropped";
+        appendAudit(state, "target.complete_drop", `${t.title}:${pending.length}`);
+      }
+    }
     appendAudit(state, "target.complete", t.title);
     persist();
     showToast("Target completed. Nice journey.", "ok");
@@ -2786,7 +2819,12 @@ document.addEventListener("click", (e) => {
   if (action === "save-display") {
     state.ui.density = $("#setup-compact")?.checked ? "compact" : "comfortable";
     state.ui.reduceMotion = !!$("#setup-reduce-motion")?.checked;
-    appendAudit(state, "ui.display", `${state.ui.density},${state.ui.reduceMotion}`);
+    state.ui.highContrast = !!$("#setup-contrast")?.checked;
+    appendAudit(
+      state,
+      "ui.display",
+      `${state.ui.density},${state.ui.reduceMotion},${state.ui.highContrast}`
+    );
     persist();
     showToast("Display preferences saved.", "ok");
   }
@@ -2818,6 +2856,35 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "audit.export", `${rows.length}`);
     persist();
     showToast("Audit TSV downloaded (local only).", "ok");
+  }
+  if (action === "export-today-plan") {
+    const list = todayCommitments();
+    if (!list.length) {
+      showToast("No commitments today.", "ok");
+      return;
+    }
+    const lines = [
+      `AIly plan ${todayISO()}`,
+      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : null,
+      state.ui.dailyNote ? `Note: ${state.ui.dailyNote}` : null,
+      "",
+      ...list.map((c) => {
+        const t = state.targets.find((x) => x.id === c.targetId);
+        return `- [${c.status}] ${c.estimateMin}m ${c.mustKeep ? "(must-keep) " : ""}${c.text} · ${t?.title || "?"}`;
+      }),
+      "",
+      `Total planned: ${plannedMinutes()}m`,
+    ].filter((x) => x != null);
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aily-plan-${todayISO()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    appendAudit(state, "plan.export_today", `${list.length}`);
+    persist();
+    showToast("Today plan exported (local file).", "ok");
   }
   if (action === "start-focus-25") {
     startFocusMinutes(25);
