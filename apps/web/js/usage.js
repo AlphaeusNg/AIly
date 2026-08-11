@@ -48,6 +48,19 @@ export function appendUsageSample(samples, entry, opts = {}) {
   return { samples: list.slice(0, maxSamples), added: true, merged: false };
 }
 
+/**
+ * Remove a sample by index (newest-first list as stored).
+ * @returns {{ samples: Array, removed: boolean }}
+ */
+export function removeUsageSampleAt(samples, index) {
+  const list = Array.isArray(samples) ? samples.slice() : [];
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) {
+    return { samples: list, removed: false };
+  }
+  list.splice(index, 1);
+  return { samples: list, removed: true };
+}
+
 /** Sum minutes for samples whose ts falls on the local calendar day YYYY-MM-DD. */
 export function totalMinutesForDay(samples, dayISO) {
   if (!Array.isArray(samples) || typeof dayISO !== "string") return 0;

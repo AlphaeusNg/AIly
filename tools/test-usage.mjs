@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   appendUsageSample,
   createSessionTracker,
+  removeUsageSampleAt,
   summarizeDayByApp,
   totalMinutesForDay,
 } from "../apps/web/js/usage.js";
@@ -38,6 +39,11 @@ assert.equal(c.samples.length, 2);
 
 assert.equal(totalMinutesForDay(c.samples, "2026-08-11"), 9);
 assert.equal(totalMinutesForDay(c.samples, "2026-08-10"), 0);
+
+const removed = removeUsageSampleAt(c.samples, 0);
+assert.equal(removed.removed, true);
+assert.equal(removed.samples.length, 1);
+assert.equal(removeUsageSampleAt(c.samples, 99).removed, false);
 
 const summary = summarizeDayByApp(
   [

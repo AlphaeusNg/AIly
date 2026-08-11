@@ -1,6 +1,7 @@
 import { SITE_VERSION } from "./version.js";
 import {
   checkSoftCapSum,
+  metricIsUpward,
   metricProgressPct,
   scaleSoftCapsToFit,
   snapMetricToTarget,
@@ -31,6 +32,7 @@ import { CHAPTERS, canArmBlocks, isReady, chapterStatus } from "./tutorial.js";
 import {
   appendUsageSample,
   createSessionTracker,
+  removeUsageSampleAt,
   summarizeDayByApp,
   totalMinutesForDay,
 } from "./usage.js";
@@ -629,6 +631,7 @@ function trayLabel() {
   if (isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()) {
     return "AIly · Intention?";
   }
+  if (pending > 0) return `AIly · ${pending} open`;
   return "AIly · Ready";
 }
 
@@ -1089,7 +1092,13 @@ function renderTargets() {
           return `<li class="target-card">
             <div class="target-card-main">
               <strong>${escapeHtml(t.title)}</strong>
-              <span class="muted">${escapeHtml(m?.name || "")}: ${m?.current ?? "—"} / ${m?.target ?? "—"} ${escapeHtml(m?.unit || "")}</span>
+              <span class="muted">${escapeHtml(m?.name || "")}: ${m?.current ?? "—"} / ${m?.target ?? "—"} ${escapeHtml(m?.unit || "")}${
+                m
+                  ? metricIsUpward(m)
+                    ? " · ↑ higher is better"
+                    : " · ↓ lower is better"
+                  : ""
+              }</span>
               <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Target progress">
                 <div class="capacity-meter-fill" style="width:${pct}%"></div>
               </div>
@@ -1196,7 +1205,10 @@ function renderReview() {
           .join("")}
       </ul>
       <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
-      <button type="button" data-action="copy-summary">Copy honesty summary</button>
+      <div class="row">
+        <button type="button" data-action="copy-summary">Copy honesty summary</button>
+        <button type="button" data-action="export-week-summary">Export week text</button>
+      </div>
     </div>
     <p class="muted">Today: ${done.length} done · ${pending.length} still open</p>
     ${
@@ -1283,7 +1295,12 @@ function renderUsage() {
            </div>
            <ul class="list">${(state.usageSamples || [])
              .slice(0, 20)
-             .map((u) => `<li>${escapeHtml(u.app)} · ${u.mins}m · ${u.ts.slice(0, 16).replace("T", " ")}</li>`)
+             .map(
+               (u, i) => `<li>
+                 ${escapeHtml(u.app)} · ${u.mins}m · ${u.ts.slice(0, 16).replace("T", " ")}
+                 <button type="button" data-action="remove-usage-sample" data-index="${i}">Remove</button>
+               </li>`
+             )
              .join("") || "<li class='muted'>No samples yet.</li>"}</ul>`
         : `<div class="banner warn">Grant usage in Setup / tutorial chapter “Attention map”.</div>
            <button type="button" class="primary" data-action="grant-usage">Grant usage tracking</button>`
@@ -1599,6 +1616,8 @@ function friendlyAuditTool(tool) {
     "usage.blocked_sample": "Logged off-limits app",
     "usage.clear": "Cleared usage samples",
     "usage.clear_today": "Cleared today’s usage",
+    "usage.remove": "Removed usage sample",
+    "state.export_week": "Exported week honesty",
     "plan.replan": "Replanned day",
     "tutorial.complete": "Tutorial step",
     "permission.grant": "Granted permission",
@@ -3035,10 +3054,8 @@ document.addEventListener("click", (e) => {
     c.metricDelta = true;
     const t = state.targets.find((x) => x.id === c.targetId);
     if (t?.metrics?.[0] && t.status === "active") {
-      const m = t.metrics[0];
-      const step = m.minMeaningfulDelta || 1;
-      if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
-      else m.current = Math.max(m.target, m.current - step);
+      const stepped = stepMetricTowardTarget(t.metrics[0]);
+      if (stepped.moved) t.metrics[0].current = stepped.next;
     }
     appendAudit(state, "review.metric_path", c.text);
     persist();
@@ -3091,15 +3108,56 @@ document.addEventListener("click", (e) => {
       c.metricDelta = true;
       const t = state.targets.find((x) => x.id === c.targetId);
       if (t?.metrics?.[0] && t.status === "active") {
-        const m = t.metrics[0];
-        const step = m.minMeaningfulDelta || 1;
-        if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
-        else m.current = Math.max(m.target, m.current - step);
+        const stepped = stepMetricTowardTarget(t.metrics[0]);
+        if (stepped.moved) t.metrics[0].current = stepped.next;
       }
     }
     appendAudit(state, "review.bulk_metric", `${open.length}`);
     persist();
     showToast(`Closed ${open.length} with metrics. Z undoes status only.`, "ok", 4500);
+  }
+  if (action === "remove-usage-sample") {
+    const index = Number(act.dataset.index);
+    const result = removeUsageSampleAt(state.usageSamples || [], index);
+    if (!result.removed) {
+      showToast("Sample not found.", "error");
+      return;
+    }
+    state.usageSamples = result.samples;
+    appendAudit(state, "usage.remove", `${index}`);
+    persist();
+    showToast("Usage sample removed.", "ok");
+  }
+  if (action === "export-week-summary") {
+    const week = weekJourneyStats(state);
+    const days = weekDayBreakdown(state);
+    const d = todayISO();
+    const lines = [
+      `AIly week honesty · from ${week.start}`,
+      `Exported ${d}`,
+      "",
+      `Week: planned ${week.plannedMin|0}m · done ${week.doneMin|0}m · open ${week.openCount} · usage ${week.usageMin|0}m · break-glass ${week.glass}`,
+      weekReflection(week),
+      "",
+      "By day:",
+      ...days.days.map(
+        (day) =>
+          `${day.date}${day.date === d ? " (today)" : ""}: plan ${day.plannedMin|0}m · done ${day.doneMin|0}m · open ${day.openCount}`
+      ),
+      "",
+      state.ui.dailyIntention ? `Today intention: ${state.ui.dailyIntention}` : "Today intention: (none)",
+      "",
+      "Local only — numbers stay on this device.",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `aily-week-${week.start}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    appendAudit(state, "state.export_week", week.start);
+    persist();
+    showToast("Week honesty exported.", "ok");
   }
   if (action === "grant-usage") {
     state.tutorial.permissions.usage = true;
