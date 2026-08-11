@@ -5,6 +5,7 @@ import {
   intentionStreak,
   nextDayISO,
   previousDayISO,
+  weekDayBreakdown,
   weekJourneyStats,
   weekReflection,
   weekStartISO,
@@ -59,6 +60,22 @@ assert.equal(stats.openCount, 1);
 assert.equal(stats.usageMin, 20);
 assert.equal(stats.glass, 1);
 assert.ok(Math.abs(stats.doneRatio - 60 / 90) < 1e-9);
+
+const days = weekDayBreakdown({
+  now: new Date(2026, 7, 11),
+  commitments: [
+    { id: "1", planDate: "2026-08-10", estimateMin: 60, status: "done" },
+    { id: "2", planDate: "2026-08-11", estimateMin: 30, status: "pending" },
+    { id: "3", planDate: "2026-08-11", estimateMin: 20, status: "done" },
+  ],
+});
+assert.equal(days.start, "2026-08-10");
+assert.equal(days.days.length, 7);
+const tue = days.days.find((x) => x.date === "2026-08-11");
+assert.equal(tue.plannedMin, 50);
+assert.equal(tue.doneMin, 20);
+assert.equal(tue.openCount, 1);
+assert.equal(tue.doneCount, 1);
 
 assert.match(weekReflection(stats), /progress|slipping|follow/i);
 assert.match(weekReflection({ plannedMin: 0 }), /No planned/i);

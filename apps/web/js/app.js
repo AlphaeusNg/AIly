@@ -49,6 +49,7 @@ import {
   findSameDayDuplicate,
   intentionStreak,
   nextDayISO,
+  weekDayBreakdown,
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
@@ -1013,9 +1014,12 @@ function renderToday() {
               c.status !== "done"
                 ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>
                    <button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
+                   <button type="button" data-action="estimate-minus" data-id="${c.id}" title="−15 minutes">−15m</button>
+                   <button type="button" data-action="estimate-plus" data-id="${c.id}" title="+15 minutes">+15m</button>
                    <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
                    <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
-                   <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>`
+                   <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
+                   ${c.status === "pending" ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>` : ""}`
                 : ""
             }
             <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
@@ -1144,9 +1148,11 @@ function renderReview() {
   const pending = list.filter((c) => c.status === "pending");
   const done = list.filter((c) => c.status === "done");
   const week = weekJourneyStats(state);
+  const breakdown = weekDayBreakdown(state);
   const streak = intentionStreak(state, d);
   const plannedToday = list.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
   const doneToday = done.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  const maxDayPlan = Math.max(1, ...breakdown.days.map((x) => x.plannedMin));
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
@@ -1172,6 +1178,23 @@ function renderReview() {
       </p>
       <p class="ally-line">${escapeHtml(weekReflection(week))}</p>
       ${streak > 0 ? `<p class="muted">Check-in streak: <strong>${streak}</strong> day${streak === 1 ? "" : "s"}.</p>` : ""}
+      <ul class="list week-day-list">
+        ${breakdown.days
+          .map((day) => {
+            const pct = Math.min(100, Math.round((day.plannedMin / maxDayPlan) * 100));
+            const label = day.date === d ? "Today" : day.date.slice(5);
+            const donePct =
+              day.plannedMin > 0 ? Math.min(100, Math.round((day.doneMin / day.plannedMin) * 100)) : 0;
+            return `<li>
+              <strong>${label}</strong>
+              <span class="muted">${day.plannedMin|0}m plan · ${day.doneMin|0}m done · ${day.openCount} open</span>
+              <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${donePct}" aria-label="Day completion">
+                <div class="capacity-meter-fill ${meterClass(day.plannedMin > 0 ? day.doneMin / day.plannedMin : 0)}" style="width:${pct}%"></div>
+              </div>
+            </li>`;
+          })
+          .join("")}
+      </ul>
       <p class="muted">Numbers stay on this device. Use them to notice patterns — not to shame yourself.</p>
       <button type="button" data-action="copy-summary">Copy honesty summary</button>
     </div>
@@ -1538,6 +1561,8 @@ function friendlyAuditTool(tool) {
     "commitment.must_keep": "Toggled must-keep",
     "commitment.drop": "Dropped commitment",
     "commitment.reopen": "Reopened commitment",
+    "commitment.estimate": "Adjusted estimate",
+    "plan.defer_one": "Deferred one item",
     "target.create": "Created target",
     "target.pause": "Paused target",
     "target.complete": "Completed target",
@@ -2833,6 +2858,54 @@ document.addEventListener("click", (e) => {
       "ok",
       4000
     );
+  }
+  if (action === "defer-one-tomorrow") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status !== "pending") return;
+    const tomorrow = nextDayISO(todayISO());
+    pushUndo({
+      type: "defer-tomorrow",
+      payload: [{ id: c.id, prevDate: c.planDate }],
+    });
+    c.planDate = tomorrow;
+    appendAudit(state, "plan.defer_one", `${c.text.slice(0, 40)}→${tomorrow}`);
+    persist();
+    showToast(`Moved to ${tomorrow}.`, "ok");
+  }
+  if (action === "estimate-plus" || action === "estimate-minus") {
+    const c = state.commitments.find((x) => x.id === id);
+    if (!c || c.status === "done" || c.status === "dropped") return;
+    const prev = c.estimateMin;
+    const next =
+      action === "estimate-plus"
+        ? snapEstimateMin((Number.isFinite(prev) ? prev : 30) + 15)
+        : Math.max(15, snapEstimateMin((Number.isFinite(prev) ? prev : 30) - 15));
+    if (next === prev) {
+      showToast(action === "estimate-minus" ? "Already at 15m floor." : "Estimate unchanged.", "ok");
+      return;
+    }
+    c.estimateMin = next;
+    const today = todayCommitments().map((x) => ({
+      id: x.id,
+      targetId: x.targetId,
+      estimateMin: x.estimateMin,
+      mustKeep: !!x.mustKeep,
+    }));
+    const check = checkPlanAccept({
+      weeklyCapacityHours: state.user.weeklyCapacityHours,
+      nightsPerWeek: state.user.nightsPerWeek,
+      softCaps: softCaps(),
+      weekOther: [],
+      today,
+    });
+    if (!check.ok) {
+      c.estimateMin = prev;
+      showToast(`Cannot resize — ${errorLabel(check.error)}`, "error", 4500);
+      return;
+    }
+    appendAudit(state, "commitment.estimate", `${c.text.slice(0, 40)}:${prev}→${next}`);
+    persist();
+    showToast(`Estimate ${next}m.`, "ok");
   }
   if (action === "set-metric") {
     const t = state.targets.find((x) => x.id === id);

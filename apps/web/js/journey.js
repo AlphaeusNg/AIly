@@ -168,3 +168,38 @@ export function attentionMismatchNote(plannedMin, usageMin) {
   }
   return null;
 }
+
+/**
+ * Per-day planned/done totals for the week containing `now` (Mon–Sun).
+ * @returns {{ start: string, days: Array<{ date: string, plannedMin: number, doneMin: number, openCount: number, doneCount: number }> }}
+ */
+export function weekDayBreakdown(state = {}) {
+  const now = state.now instanceof Date ? state.now : new Date();
+  const start = weekStartISO(now);
+  const days = [];
+  let cursor = start;
+  for (let i = 0; i < 7; i += 1) {
+    const commits = (state.commitments || []).filter(
+      (c) => c && c.planDate === cursor && c.status !== "dropped"
+    );
+    const done = commits.filter((c) => c.status === "done");
+    const open = commits.filter((c) => c.status === "pending");
+    const plannedMin = commits.reduce(
+      (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+      0
+    );
+    const doneMin = done.reduce(
+      (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+      0
+    );
+    days.push({
+      date: cursor,
+      plannedMin,
+      doneMin,
+      openCount: open.length,
+      doneCount: done.length,
+    });
+    cursor = nextDayISO(cursor);
+  }
+  return { start, days };
+}
