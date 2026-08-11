@@ -491,18 +491,33 @@ function skipCheckIn() {
 }
 
 function focusRemainingMin() {
+  if (state.ui.focusPausedRemainingMs > 0) {
+    return Math.ceil(state.ui.focusPausedRemainingMs / 60000);
+  }
   const ends = state.ui.focusSessionEndsAt || 0;
   if (!ends || ends <= Date.now()) return 0;
   return Math.ceil((ends - Date.now()) / 60000);
 }
 
 function focusRemainingLabel() {
+  if (state.ui.focusPausedRemainingMs > 0) {
+    const totalSec = Math.ceil(state.ui.focusPausedRemainingMs / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    if (m >= 5) return `${m}m (paused)`;
+    return `${m}:${String(s).padStart(2, "0")} (paused)`;
+  }
   return formatFocusRemaining(state.ui.focusSessionEndsAt || 0) || "";
+}
+
+function isFocusPaused() {
+  return (state.ui.focusPausedRemainingMs || 0) > 0;
 }
 
 function startFocusMinutes(mins) {
   const m = Number(mins);
   if (!Number.isFinite(m) || m < 1) return;
+  state.ui.focusPausedRemainingMs = 0;
   state.ui.focusSessionEndsAt = Date.now() + m * 60_000;
   let armed = 0;
   if (canArmBlocks(state)) {
@@ -528,9 +543,11 @@ function startFocusMinutes(mins) {
 }
 
 function endFocusSessionIfNeeded() {
+  if (isFocusPaused()) return false;
   if (!state.ui.focusSessionEndsAt) return false;
   if (state.ui.focusSessionEndsAt > Date.now()) return false;
   state.ui.focusSessionEndsAt = 0;
+  state.ui.focusPausedRemainingMs = 0;
   // Soft policy: disarm rules when the timed focus session ends.
   let disarmed = 0;
   for (const r of state.blockRules || []) {
@@ -543,6 +560,32 @@ function endFocusSessionIfNeeded() {
   return true;
 }
 
+function pauseFocusSession() {
+  const ends = state.ui.focusSessionEndsAt || 0;
+  if (!ends || ends <= Date.now()) {
+    showToast("No active focus to pause.", "error");
+    return;
+  }
+  state.ui.focusPausedRemainingMs = Math.max(0, ends - Date.now());
+  state.ui.focusSessionEndsAt = 0;
+  appendAudit(state, "focus.pause", `${Math.ceil(state.ui.focusPausedRemainingMs / 60000)}m`);
+  persist();
+  showToast("Focus paused. Resume when ready.", "ok");
+}
+
+function resumeFocusSession() {
+  const rem = state.ui.focusPausedRemainingMs || 0;
+  if (rem <= 0) {
+    showToast("No paused focus to resume.", "error");
+    return;
+  }
+  state.ui.focusSessionEndsAt = Date.now() + rem;
+  state.ui.focusPausedRemainingMs = 0;
+  appendAudit(state, "focus.resume", `${Math.ceil(rem / 60000)}m`);
+  persist();
+  showToast("Focus resumed.", "ok");
+}
+
 function isMorningLocal() {
   const h = new Date().getHours();
   return h >= 5 && h < 11;
@@ -552,7 +595,8 @@ function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   const focusLabel = focusRemainingLabel();
   if (focusLabel) {
-    document.title = `Focus ${focusLabel} · AIly`;
+    const titleBit = focusLabel.replace(" (paused)", "⏸");
+    document.title = `Focus ${titleBit} · AIly`;
     return `AIly · Focus ${focusLabel}`;
   }
   if (document.title.startsWith("Focus ")) {
@@ -826,7 +870,12 @@ function renderToday() {
       ${
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
-             <button type="button" data-action="extend-focus-10">+10m</button>
+             ${
+               isFocusPaused()
+                 ? `<button type="button" class="primary" data-action="resume-focus">Resume</button>`
+                 : `<button type="button" data-action="pause-focus">Pause</button>
+                    <button type="button" data-action="extend-focus-10">+10m</button>`
+             }
              <button type="button" data-action="end-focus">End early</button></p>`
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-25">Focus 25m</button>
@@ -1032,6 +1081,7 @@ function renderTargets() {
               ${
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+                     <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
                      <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
@@ -1471,6 +1521,10 @@ function friendlyAuditTool(tool) {
     "focus.start": "Focus started",
     "focus.end": "Focus ended",
     "focus.extend": "Focus extended",
+    "focus.pause": "Focus paused",
+    "focus.resume": "Focus resumed",
+    "metric.bump": "Logged progress",
+    "metric.set": "Set metric value",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
     "block.disarm": "Disarmed block",
@@ -2228,6 +2282,7 @@ document.addEventListener("click", (e) => {
   }
   if (action === "end-focus") {
     state.ui.focusSessionEndsAt = 0;
+    state.ui.focusPausedRemainingMs = 0;
     let disarmed = 0;
     for (const r of state.blockRules || []) {
       if (r.armed) {
@@ -2241,6 +2296,12 @@ document.addEventListener("click", (e) => {
       disarmed ? `Focus ended · disarmed ${disarmed} rule${disarmed === 1 ? "" : "s"}.` : "Focus session ended.",
       "ok"
     );
+  }
+  if (action === "pause-focus") {
+    pauseFocusSession();
+  }
+  if (action === "resume-focus") {
+    resumeFocusSession();
   }
   if (action === "notify-test") {
     try {
@@ -2561,6 +2622,22 @@ document.addEventListener("click", (e) => {
     persist();
     const pct = targetProgressPct(m);
     showToast(`Progress logged · ~${pct}% of journey.`, "ok");
+  }
+  if (action === "set-metric") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t?.metrics?.[0] || t.status !== "active") return;
+    const m = t.metrics[0];
+    const raw = prompt(`Set current ${m.name} (${m.unit})`, String(m.current));
+    if (raw == null) return;
+    const val = Number(raw);
+    if (!Number.isFinite(val)) {
+      showToast("Enter a number.", "error");
+      return;
+    }
+    m.current = val;
+    appendAudit(state, "metric.set", `${t.title}:${val}`);
+    persist();
+    showToast(`Set ${m.name} to ${val}. · ~${targetProgressPct(m)}%`, "ok");
   }
   if (action === "pause-target") {
     const t = state.targets.find((x) => x.id === id);
