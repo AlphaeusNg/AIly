@@ -2492,6 +2492,7 @@ document.addEventListener("click", (e) => {
     discardInvalidCommitments(state);
     appendAudit(state, "state.recovery_discard", `${count} invalid commitment(s)`);
     persist();
+    showToast("Quarantined items removed.", "ok");
   }
   if (action === "replan") {
     const pending = todayCommitments().filter((c) => c.status === "pending");
