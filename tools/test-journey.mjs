@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
+  formatDayPlanText,
   intentionStreak,
   nextDayISO,
   previousDayISO,
+  stalePendingCommitments,
   weekDayBreakdown,
   weekJourneyStats,
   weekReflection,
@@ -76,6 +78,40 @@ assert.equal(tue.plannedMin, 50);
 assert.equal(tue.doneMin, 20);
 assert.equal(tue.openCount, 1);
 assert.equal(tue.doneCount, 1);
+
+const stale = stalePendingCommitments(
+  [
+    { id: "1", planDate: "2026-08-09", status: "pending", estimateMin: 30, text: "old" },
+    { id: "2", planDate: "2026-08-11", status: "pending", estimateMin: 20, text: "today" },
+    { id: "3", planDate: "2026-08-08", status: "done", estimateMin: 10, text: "closed" },
+    { id: "4", planDate: "2026-08-07", status: "dropped", estimateMin: 10, text: "gone" },
+  ],
+  "2026-08-11"
+);
+assert.equal(stale.length, 1);
+assert.equal(stale[0].id, "1");
+
+const planText = formatDayPlanText({
+  dayISO: "2026-08-11",
+  intention: "Ship",
+  note: "Deep work",
+  commitments: [
+    {
+      id: "1",
+      targetId: "t1",
+      text: "Hard part",
+      estimateMin: 50,
+      mustKeep: true,
+      status: "pending",
+    },
+  ],
+  targets: [{ id: "t1", title: "AIly" }],
+});
+assert.match(planText, /AIly plan 2026-08-11/);
+assert.match(planText, /Intention: Ship/);
+assert.match(planText, /Note: Deep work/);
+assert.match(planText, /50m \(must-keep\) Hard part · AIly/);
+assert.match(planText, /Total planned: 50m/);
 
 assert.match(weekReflection(stats), /progress|slipping|follow/i);
 assert.match(weekReflection({ plannedMin: 0 }), /No planned/i);

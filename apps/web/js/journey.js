@@ -170,6 +170,63 @@ export function attentionMismatchNote(plannedMin, usageMin) {
 }
 
 /**
+ * Pending commitments planned before `today` (still open from earlier days).
+ * @param {Array} commitments
+ * @param {string} today YYYY-MM-DD
+ * @returns {Array}
+ */
+export function stalePendingCommitments(commitments, today) {
+  if (!Array.isArray(commitments) || typeof today !== "string" || !today) return [];
+  return commitments.filter(
+    (c) =>
+      c &&
+      c.status === "pending" &&
+      typeof c.planDate === "string" &&
+      c.planDate < today
+  );
+}
+
+/**
+ * Plain-text day plan for copy/export (local-only honesty aid).
+ * @param {{
+ *   dayISO: string,
+ *   intention?: string,
+ *   note?: string,
+ *   commitments?: Array,
+ *   targets?: Array,
+ * }} input
+ * @returns {string}
+ */
+export function formatDayPlanText(input = {}) {
+  const dayISO = typeof input.dayISO === "string" ? input.dayISO : "";
+  const list = Array.isArray(input.commitments) ? input.commitments : [];
+  const targets = Array.isArray(input.targets) ? input.targets : [];
+  const titleById = new Map(targets.map((t) => [t?.id, t?.title || "?"]));
+  const lines = [`AIly plan ${dayISO || "(unknown day)"}`];
+  const intention = typeof input.intention === "string" ? input.intention.trim() : "";
+  const note = typeof input.note === "string" ? input.note.trim() : "";
+  if (intention) lines.push(`Intention: ${intention}`);
+  if (note) lines.push(`Note: ${note}`);
+  lines.push("");
+  if (!list.length) {
+    lines.push("(no commitments)");
+  } else {
+    for (const c of list) {
+      if (!c || c.status === "dropped") continue;
+      const title = titleById.get(c.targetId) || "?";
+      const keep = c.mustKeep ? " (must-keep)" : "";
+      const mins = Number.isFinite(c.estimateMin) ? c.estimateMin : 0;
+      lines.push(`- [${c.status || "pending"}] ${mins}m${keep} ${c.text || ""} · ${title}`);
+    }
+  }
+  const total = list
+    .filter((c) => c && c.status !== "dropped")
+    .reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  lines.push("", `Total planned: ${total}m`);
+  return lines.join("\n");
+}
+
+/**
  * Per-day planned/done totals for the week containing `now` (Mon–Sun).
  * @returns {{ start: string, days: Array<{ date: string, plannedMin: number, doneMin: number, openCount: number, doneCount: number }> }}
  */

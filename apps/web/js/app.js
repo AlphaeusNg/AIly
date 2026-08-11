@@ -49,8 +49,10 @@ import { proposeDayPlan, returnNudge } from "./ally.js";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
+  formatDayPlanText,
   intentionStreak,
   nextDayISO,
+  stalePendingCommitments,
   weekDayBreakdown,
   weekJourneyStats,
   weekReflection,
@@ -167,7 +169,7 @@ function undoLast() {
     }
     appendAudit(state, "undo.defer_tomorrow", `${(entry.payload || []).length}`);
     persist();
-    showToast("Moved items back to today.", "ok");
+    showToast("Restored previous plan dates.", "ok");
     return;
   }
   showToast("Could not undo that action.", "error");
@@ -905,6 +907,7 @@ function renderToday() {
              }
              <button type="button" data-action="end-focus">End early</button></p>`
           : `<p class="ally-line row">
+               <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
                <button type="button" class="primary" data-action="start-focus-50">Focus 50m</button>
              </p>`
@@ -927,6 +930,22 @@ function renderToday() {
       !check.ok
         ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
         : `<div class="banner ok">Plan fits capacity · <strong>${Math.max(0, Math.round(daily - used))}m</strong> soft room left today.</div>`
+    }
+    ${
+      (() => {
+        const stale = stalePendingCommitments(state.commitments || [], todayISO());
+        if (!stale.length) return "";
+        const mins = stale.reduce(
+          (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+          0
+        );
+        return `<div class="banner warn"><strong>${stale.length}</strong> open item${
+          stale.length === 1 ? "" : "s"
+        } from earlier days (~${mins|0}m). Recover with honesty — not guilt.
+          <button type="button" class="primary" data-action="pull-stale-today">Pull to today</button>
+          <button type="button" data-action="drop-stale">Drop stale</button>
+        </div>`;
+      })()
     }
     ${
       (() => {
@@ -1683,6 +1702,8 @@ function friendlyAuditTool(tool) {
     "plan.hide_done": "Hid completed items",
     "plan.export_today": "Exported today plan",
     "plan.copy_today": "Copied today plan",
+    "plan.pull_stale": "Pulled stale items to today",
+    "plan.drop_stale": "Dropped stale items",
     "review.bulk_no_impact": "Bulk no-impact close",
     "review.bulk_metric": "Bulk done + metric",
   };
@@ -3531,19 +3552,14 @@ document.addEventListener("click", (e) => {
       showToast("No commitments today.", "ok");
       return;
     }
-    const lines = [
-      `AIly plan ${todayISO()}`,
-      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : null,
-      state.ui.dailyNote ? `Note: ${state.ui.dailyNote}` : null,
-      "",
-      ...list.map((c) => {
-        const t = state.targets.find((x) => x.id === c.targetId);
-        return `- [${c.status}] ${c.estimateMin}m ${c.mustKeep ? "(must-keep) " : ""}${c.text} · ${t?.title || "?"}`;
-      }),
-      "",
-      `Total planned: ${plannedMinutes()}m`,
-    ].filter((x) => x != null);
-    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
+    const text = formatDayPlanText({
+      dayISO: todayISO(),
+      intention: state.ui.dailyIntention,
+      note: state.ui.dailyNote,
+      commitments: list,
+      targets: state.targets,
+    });
+    const blob = new Blob([text + "\n"], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -3560,18 +3576,13 @@ document.addEventListener("click", (e) => {
       showToast("No commitments today.", "ok");
       return;
     }
-    const lines = [
-      `AIly plan ${todayISO()}`,
-      state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : null,
-      "",
-      ...list.map((c) => {
-        const t = state.targets.find((x) => x.id === c.targetId);
-        return `- ${c.estimateMin}m ${c.text} (${t?.title || "?"}) [${c.status}]`;
-      }),
-      "",
-      `Total: ${plannedMinutes()}m`,
-    ].filter((x) => x != null);
-    const text = lines.join("\n");
+    const text = formatDayPlanText({
+      dayISO: todayISO(),
+      intention: state.ui.dailyIntention,
+      note: state.ui.dailyNote,
+      commitments: list,
+      targets: state.targets,
+    });
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
         () => {
@@ -3584,6 +3595,59 @@ document.addEventListener("click", (e) => {
     } else {
       showToast("Clipboard unavailable.", "error");
     }
+  }
+  if (action === "pull-stale-today") {
+    const d = todayISO();
+    const stale = stalePendingCommitments(state.commitments || [], d);
+    if (!stale.length) {
+      showToast("No stale open items.", "ok");
+      return;
+    }
+    if (
+      !confirm(
+        `Pull ${stale.length} open item${stale.length === 1 ? "" : "s"} from earlier days onto today? Replan if over capacity.`
+      )
+    ) {
+      return;
+    }
+    pushUndo({
+      type: "defer-tomorrow",
+      payload: stale.map((c) => ({ id: c.id, prevDate: c.planDate })),
+    });
+    for (const c of stale) c.planDate = d;
+    appendAudit(state, "plan.pull_stale", `${stale.length}`);
+    persist();
+    showToast(
+      `Pulled ${stale.length} to today. Press Z to undo. Replan if overloaded.`,
+      "ok",
+      5000
+    );
+  }
+  if (action === "drop-stale") {
+    const d = todayISO();
+    const stale = stalePendingCommitments(state.commitments || [], d);
+    if (!stale.length) {
+      showToast("No stale open items.", "ok");
+      return;
+    }
+    if (
+      !confirm(
+        `Drop ${stale.length} open item${stale.length === 1 ? "" : "s"} from earlier days? (Undo with Z.)`
+      )
+    ) {
+      return;
+    }
+    pushUndo({
+      type: "hide-done",
+      payload: stale.map((c) => ({ id: c.id, prevStatus: c.status })),
+    });
+    for (const c of stale) c.status = "dropped";
+    appendAudit(state, "plan.drop_stale", `${stale.length}`);
+    persist();
+    showToast(`Dropped ${stale.length} stale item${stale.length === 1 ? "" : "s"}. Z undoes.`, "ok", 4500);
+  }
+  if (action === "start-focus-15") {
+    startFocusMinutes(15);
   }
   if (action === "start-focus-25") {
     startFocusMinutes(25);
