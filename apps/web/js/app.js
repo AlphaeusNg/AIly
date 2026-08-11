@@ -37,6 +37,7 @@ import {
 import { proposeDayPlan, returnNudge } from "./ally.js";
 import {
   attentionMismatchNote,
+  findSameDayDuplicate,
   intentionStreak,
   weekJourneyStats,
   weekReflection,
@@ -500,7 +501,13 @@ function isMorningLocal() {
 function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   const focusLabel = focusRemainingLabel();
-  if (focusLabel) return `AIly · Focus ${focusLabel}`;
+  if (focusLabel) {
+    document.title = `Focus ${focusLabel} · AIly`;
+    return `AIly · Focus ${focusLabel}`;
+  }
+  if (document.title.startsWith("Focus ")) {
+    document.title = "AIly — Your AI Ally";
+  }
   if (state.blockRules.some((r) => r.armed)) return "AIly · Focus";
   if (!navigator.onLine) return "AIly · Offline";
   const pending = pendingReviewCount();
@@ -571,40 +578,54 @@ function watchServiceWorkerUpdates() {
   });
 }
 
+function setNavCount(btn, n, show) {
+  let pill = btn.querySelector(".nav-count");
+  if (show && n > 0) {
+    if (!pill) {
+      pill = document.createElement("span");
+      pill.className = "nav-count";
+      btn.appendChild(pill);
+    }
+    pill.textContent = String(n);
+    pill.hidden = false;
+  } else if (pill) {
+    pill.hidden = true;
+  }
+}
+
 function renderNav() {
   $$("[data-nav]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.nav === state.ui.tab);
     if (btn.dataset.nav === "review") {
-      const n = pendingReviewCount();
-      let pill = btn.querySelector(".nav-count");
-      if (n > 0 && isEveningLocal()) {
-        if (!pill) {
-          pill = document.createElement("span");
-          pill.className = "nav-count";
-          btn.appendChild(pill);
-        }
-        pill.textContent = String(n);
-        pill.hidden = false;
-      } else if (pill) {
-        pill.hidden = true;
-      }
+      setNavCount(btn, pendingReviewCount(), isEveningLocal());
+    }
+    if (btn.dataset.nav === "today") {
+      const n = todayCommitments().filter((c) => c.status === "pending").length;
+      setNavCount(btn, n, n > 0 && isReady(state));
+    }
+    if (btn.dataset.nav === "blocks") {
+      const n = (state.blockRules || []).filter((r) => r.armed).length;
+      setNavCount(btn, n, n > 0);
     }
   });
   const badge = $("#setup-badge");
   if (badge) badge.classList.toggle("hidden", isReady(state));
 }
 
-function seedDemoJourney() {
+function seedDemoJourney(opts = {}) {
+  const keepName = !!opts.keepName;
+  const priorName = state.user?.displayName || "";
   usageTracker?.stop();
   usageTracker = null;
   if (pendingBreakGlass?.timer) window.clearInterval(pendingBreakGlass.timer);
   pendingBreakGlass = null;
   pendingIntention = null;
   allyProposal = null;
+  undoStack = [];
   const t1 = uid();
   const t2 = uid();
   state = defaultState();
-  state.user.displayName = state.user.displayName || "Friend";
+  state.user.displayName = keepName && priorName ? priorName : priorName || "Friend";
   state.user.weeklyCapacityHours = 12;
   state.user.nightsPerWeek = 5;
   state.tutorial.chapters = Object.fromEntries(
@@ -1163,7 +1184,17 @@ function renderBlocks() {
       <button type="button" data-action="disarm-all" ${state.blockRules.some((r) => r.armed) ? "" : "disabled"}>Disarm all</button>
       <button type="button" data-action="arm-all" ${ok && state.blockRules.some((r) => !r.armed) ? "" : "disabled"}>Arm all</button>
     </div>
-    <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}</p>
+    <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}${
+      (() => {
+        const uses = breakGlassUsesToday(state.audit || [], todayISO());
+        const limits = (state.blockRules || [])
+          .map((r) => breakGlassPolicy(r).dailyLimit)
+          .filter((x) => x != null);
+        if (!limits.length) return "";
+        const lim = Math.min(...limits);
+        return ` · tightest daily limit ${lim}${uses >= lim ? " (at/over)" : ""}`;
+      })()
+    }</p>
   `;
   $("#block-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -1701,6 +1732,17 @@ function queueCommitment(payload) {
     pendingIntention = null;
     renderIntentionModal();
     return;
+  }
+  const dup = findSameDayDuplicate(state.commitments || [], {
+    planDate: todayISO(),
+    text: payload.text,
+  });
+  if (dup.duplicate) {
+    if (!confirm(`You already have “${dup.match.text}” today. Add another copy anyway?`)) {
+      pendingIntention = null;
+      renderIntentionModal();
+      return;
+    }
   }
   state.commitments.push({
     id: uid(),

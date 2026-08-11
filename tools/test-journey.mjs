@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   attentionMismatchNote,
+  findSameDayDuplicate,
   intentionStreak,
   previousDayISO,
   weekJourneyStats,
@@ -89,5 +90,23 @@ assert.equal(attentionMismatchNote(10, 100), null, "ignores tiny plans");
 assert.match(attentionMismatchNote(60, 120), /above planned/i);
 assert.match(attentionMismatchNote(120, 20), /larger than logged/i);
 assert.equal(attentionMismatchNote(60, 50), null);
+
+const dup = findSameDayDuplicate(
+  [
+    { id: "1", planDate: "2026-08-11", text: "Deep work", status: "pending" },
+    { id: "2", planDate: "2026-08-11", text: "Other", status: "pending" },
+  ],
+  { planDate: "2026-08-11", text: "  deep   work " }
+);
+assert.equal(dup.duplicate, true);
+assert.equal(dup.match.id, "1");
+assert.equal(
+  findSameDayDuplicate(
+    [{ id: "1", planDate: "2026-08-11", text: "Deep work", status: "dropped" }],
+    { planDate: "2026-08-11", text: "Deep work" }
+  ).duplicate,
+  false,
+  "dropped items are not duplicates"
+);
 
 console.log("test-journey.mjs: week stats and streak helpers passed");

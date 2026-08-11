@@ -124,6 +124,29 @@ export function weekReflection(stats) {
  * Compare planned minutes vs logged attention for a gentle mismatch note.
  * @returns {string|null}
  */
+/**
+ * Detect near-duplicate commitments on the same plan day (honest planning aid).
+ * @returns {{ duplicate: boolean, match?: object }}
+ */
+export function findSameDayDuplicate(commitments, { planDate, text, excludeId }) {
+  if (!Array.isArray(commitments) || typeof text !== "string") {
+    return { duplicate: false };
+  }
+  const norm = text.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!norm || typeof planDate !== "string") return { duplicate: false };
+  for (const c of commitments) {
+    if (!c || c.status === "dropped") continue;
+    if (excludeId && c.id === excludeId) continue;
+    if (c.planDate !== planDate) continue;
+    const other = String(c.text || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    if (other === norm) return { duplicate: true, match: c };
+  }
+  return { duplicate: false };
+}
+
 export function attentionMismatchNote(plannedMin, usageMin) {
   if (!Number.isFinite(plannedMin) || !Number.isFinite(usageMin)) return null;
   if (plannedMin < 30 || usageMin < 15) return null;
