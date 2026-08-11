@@ -88,6 +88,7 @@ const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
 let lastHiddenAt = 0;
+let lastReturnNudgeAt = 0;
 const usageBackend = selectUsageBackend();
 /** @type {Array<{ type: string, payload: any }>} */
 let undoStack = [];
@@ -884,7 +885,8 @@ function renderToday() {
       ${
         state.ui.dailyIntention
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
-             <button type="button" class="ghost" data-action="open-checkin">Edit</button></p>`
+             <button type="button" class="ghost" data-action="open-checkin">Edit</button>
+             <button type="button" class="ghost" data-action="clear-intention">Clear</button></p>`
           : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
@@ -921,7 +923,11 @@ function renderToday() {
       ${invalidCommitments.length > 3 ? `<p>And ${invalidCommitments.length - 3} more.</p>` : ""}
       <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
     </div>` : ""}
-    ${!check.ok ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>` : `<div class="banner ok">Plan fits capacity.</div>`}
+    ${
+      !check.ok
+        ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
+        : `<div class="banner ok">Plan fits capacity · <strong>${Math.max(0, Math.round(daily - used))}m</strong> soft room left today.</div>`
+    }
     ${
       (() => {
         const overs = softCapOverTargets();
@@ -1393,6 +1399,8 @@ function renderBlocks() {
     </form>
     <ul class="list">
       ${(state.blockRules || [])
+        .slice()
+        .sort((a, b) => Number(!!b.armed) - Number(!!a.armed) || String(a.appKeys?.[0] || "").localeCompare(String(b.appKeys?.[0] || "")))
         .map((r) => {
           const policy = breakGlassPolicy(r);
           return `<li>
@@ -1613,6 +1621,7 @@ function friendlyAuditTool(tool) {
     // keep labels in sync with pushUndo types
     "checkin.save": "Daily intention",
     "checkin.skip": "Skipped check-in",
+    "checkin.clear": "Cleared intention",
     "focus.start": "Focus started",
     "focus.end": "Focus ended",
     "focus.extend": "Focus extended",
@@ -2265,8 +2274,7 @@ async function initNativeShell() {
         } else if (lastHiddenAt) {
           const awayMin = (Date.now() - lastHiddenAt) / 60000;
           lastHiddenAt = 0;
-          const msg = returnNudge(buildReturnNudgeCtx(awayMin));
-          if (msg) showToast(msg, "ok", 5500);
+          maybeReturnNudge(awayMin);
           usageTracker?.onVisibilityOrFocus();
         }
       });
@@ -2287,6 +2295,16 @@ function buildReturnNudgeCtx(awayMin) {
     openPending: open.length,
     plannedMin: open.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0),
   };
+}
+
+/** Toast welcome-back at most once per 2 minutes of session thrash. */
+function maybeReturnNudge(awayMin) {
+  const now = Date.now();
+  if (now - lastReturnNudgeAt < 120_000) return;
+  const msg = returnNudge(buildReturnNudgeCtx(awayMin));
+  if (!msg) return;
+  lastReturnNudgeAt = now;
+  showToast(msg, "ok", 5500);
 }
 
 function onCreateTarget(e) {
@@ -2415,6 +2433,18 @@ document.addEventListener("click", (e) => {
     renderCheckInModal();
     // Focus intention field for speed
     requestAnimationFrame(() => $("#checkin-intention")?.focus());
+  }
+  if (action === "clear-intention") {
+    if (!state.ui.dailyIntention && !state.ui.dailyNote) {
+      showToast("No intention set.", "ok");
+      return;
+    }
+    if (!confirm("Clear today’s intention and note?")) return;
+    state.ui.dailyIntention = "";
+    state.ui.dailyNote = "";
+    appendAudit(state, "checkin.clear", "intention");
+    persist();
+    showToast("Intention cleared.", "ok");
   }
   if (action === "checkin-save") {
     saveCheckIn();
@@ -3778,8 +3808,7 @@ document.addEventListener("visibilitychange", () => {
   } else if (document.visibilityState === "visible" && lastHiddenAt) {
     const awayMin = (Date.now() - lastHiddenAt) / 60000;
     lastHiddenAt = 0;
-    const msg = returnNudge(buildReturnNudgeCtx(awayMin));
-    if (msg) showToast(msg, "ok", 5500);
+    maybeReturnNudge(awayMin);
   }
 });
 window.addEventListener("focus", () => usageTracker?.onVisibilityOrFocus());
