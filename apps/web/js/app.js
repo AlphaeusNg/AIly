@@ -798,6 +798,7 @@ function renderToday() {
       ${
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
+             <button type="button" data-action="extend-focus-10">+10m</button>
              <button type="button" data-action="end-focus">End early</button></p>`
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-25">Focus 25m</button>
@@ -1397,6 +1398,7 @@ function friendlyAuditTool(tool) {
     "checkin.skip": "Skipped check-in",
     "focus.start": "Focus started",
     "focus.end": "Focus ended",
+    "focus.extend": "Focus extended",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
     "block.disarm": "Disarmed block",
@@ -2605,6 +2607,17 @@ document.addEventListener("click", (e) => {
   }
   if (action === "start-focus-50") {
     startFocusMinutes(50);
+  }
+  if (action === "extend-focus-10") {
+    const ends = state.ui.focusSessionEndsAt || 0;
+    if (!ends || ends <= Date.now()) {
+      startFocusMinutes(10);
+      return;
+    }
+    state.ui.focusSessionEndsAt = ends + 10 * 60_000;
+    appendAudit(state, "focus.extend", "10m");
+    persist();
+    showToast("Focus extended +10m.", "ok");
   }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
