@@ -72,6 +72,23 @@ export function validateBreakGlassComplete({
   return { ok: true };
 }
 
+/**
+ * Match an app key against a rule key (exact, or substring when both ≥4 chars).
+ * Helps dogfood when users type "youtube" vs "com.google.android.youtube".
+ */
+export function appKeyMatches(ruleKey, appKey) {
+  const a = String(appKey || "")
+    .trim()
+    .toLowerCase();
+  const r = String(ruleKey || "")
+    .trim()
+    .toLowerCase();
+  if (!a || !r) return false;
+  if (a === r) return true;
+  if (a.length >= 4 && r.length >= 4 && (a.includes(r) || r.includes(a))) return true;
+  return false;
+}
+
 /** Simulate whether an app key is currently blocked by armed rules. */
 export function isAppBlocked(rules, appKey) {
   if (!Array.isArray(rules) || typeof appKey !== "string") return null;
@@ -80,7 +97,7 @@ export function isAppBlocked(rules, appKey) {
   for (const rule of rules) {
     if (!rule || !rule.armed) continue;
     const keys = Array.isArray(rule.appKeys) ? rule.appKeys : [];
-    if (keys.some((k) => String(k).toLowerCase() === key)) {
+    if (keys.some((k) => appKeyMatches(k, key))) {
       return rule;
     }
   }
@@ -95,7 +112,7 @@ export function findRuleForApp(rules, appKey) {
   for (const rule of rules) {
     if (!rule) continue;
     const keys = Array.isArray(rule.appKeys) ? rule.appKeys : [];
-    if (keys.some((k) => String(k).toLowerCase() === key)) return rule;
+    if (keys.some((k) => appKeyMatches(k, key))) return rule;
   }
   return null;
 }

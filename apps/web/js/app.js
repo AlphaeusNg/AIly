@@ -174,6 +174,18 @@ function undoLast() {
     showToast("Restored previous plan dates.", "ok");
     return;
   }
+  if (entry.type === "replan") {
+    for (const item of entry.payload || []) {
+      const c = state.commitments.find((x) => x.id === item.id);
+      if (!c) continue;
+      if (item.prevStatus) c.status = item.prevStatus;
+      if (Number.isFinite(item.prevEstimate)) c.estimateMin = item.prevEstimate;
+    }
+    appendAudit(state, "undo.replan", `${(entry.payload || []).length}`);
+    persist();
+    showToast("Undid replan drops/shrinks.", "ok");
+    return;
+  }
   showToast("Could not undo that action.", "error");
 }
 
@@ -1680,6 +1692,7 @@ function friendlyAuditTool(tool) {
     "plan.defer_tomorrow": "Deferred open items",
     "plan.copy_one_tomorrow": "Copied item to tomorrow",
     "undo.defer_tomorrow": "Undid defer-to-tomorrow",
+    "undo.replan": "Undid replan",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
     "block.disarm": "Disarmed block",
@@ -2856,17 +2869,35 @@ document.addEventListener("click", (e) => {
     });
     const msg = `Replan will keep ${preview.keep.length}, drop ${preview.drop.length}, shrink ${preview.shrink.length}. Apply?`;
     if (!confirm(msg)) return;
+    const undoPayload = [];
     for (const d of preview.drop) {
       const c = state.commitments.find((x) => x.id === d);
-      if (c) c.status = "dropped";
+      if (c) {
+        undoPayload.push({
+          id: c.id,
+          prevStatus: c.status,
+          prevEstimate: c.estimateMin,
+        });
+        c.status = "dropped";
+      }
     }
     for (const s of preview.shrink) {
       const c = state.commitments.find((x) => x.id === s.id);
-      if (c) c.estimateMin = s.newEstimateMin;
+      if (c) {
+        undoPayload.push({
+          id: c.id,
+          prevStatus: c.status,
+          prevEstimate: c.estimateMin,
+        });
+        c.estimateMin = s.newEstimateMin;
+      }
+    }
+    if (undoPayload.length) {
+      pushUndo({ type: "replan", payload: undoPayload });
     }
     appendAudit(state, "plan.replan", preview.reasons.join("; "));
     showToast(
-      `Replan: kept ${preview.keep.length}, dropped ${preview.drop.length}, shrunk ${preview.shrink.length}.`,
+      `Replan: kept ${preview.keep.length}, dropped ${preview.drop.length}, shrunk ${preview.shrink.length}. Z undoes.`,
       "ok",
       4500
     );
@@ -4147,6 +4178,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "r" || e.key === "R") {
     state.ui.tab = "review";
+    persist();
+  }
+  if (e.key === "b" || e.key === "B") {
+    state.ui.tab = "blocks";
     persist();
   }
   if (e.key === "?" && !state.ui.tutorialOpen) {

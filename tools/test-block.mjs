@@ -1,6 +1,7 @@
 /** Unit tests for block / break-glass helpers. */
 import assert from "node:assert/strict";
 import {
+  appKeyMatches,
   breakGlassPolicy,
   breakGlassReady,
   breakGlassRemainingSec,
@@ -88,6 +89,18 @@ const rules = [
 assert.equal(isAppBlocked(rules, "firefox")?.id, "1");
 assert.equal(isAppBlocked(rules, "slack"), null);
 assert.equal(isAppBlocked(rules, "Notion"), null);
+
+assert.equal(appKeyMatches("youtube", "youtube"), true);
+assert.equal(appKeyMatches("youtube", "com.google.android.youtube"), true);
+assert.equal(appKeyMatches("com.google.android.youtube", "youtube"), true);
+assert.equal(appKeyMatches("yt", "youtube"), false, "short keys stay exact-only");
+assert.equal(
+  isAppBlocked(
+    [{ id: "yt", armed: true, appKeys: ["youtube"] }],
+    "com.google.android.youtube"
+  )?.id,
+  "yt"
+);
 
 assert.equal(findRuleForApp(rules, "Slack")?.id, "2");
 const upserted = upsertBlockRule(rules, {
