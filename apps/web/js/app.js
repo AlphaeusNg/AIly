@@ -3004,6 +3004,9 @@ document.addEventListener("keydown", (e) => {
     state.ui.tab = map[e.key];
     persist();
   }
+  if (e.key === "f" || e.key === "F") {
+    if (!focusRemainingLabel()) startFocusMinutes(25);
+  }
   if (e.key === "?" && !state.ui.tutorialOpen) {
     helpOpen = true;
     renderHelpModal();
