@@ -34,6 +34,11 @@ assertions += 1;
 check(androidJob, /runs-on:\s*ubuntu-latest/, "Android tests use a hosted Linux runner");
 check(androidJob, /timeout-minutes:\s*15/, "Android tests have a bounded timeout");
 check(androidJob, /uses:\s*actions\/checkout@v7/, "Android tests use checkout v7");
+check(androidJob, /uses:\s*actions\/setup-node@v7/, "Android tests use setup-node v7");
+check(androidJob, /node-version:\s*["']24["']/, "Android sync uses Node 24 LTS");
+check(androidJob, /cache:\s*npm/, "Android tests cache locked npm dependencies");
+check(androidJob, /run:\s*npm ci --ignore-scripts\b/, "Android tests install exact Capacitor dependencies");
+check(androidJob, /run:\s*npx cap sync android\b/, "Android tests regenerate ignored Capacitor inputs");
 check(androidJob, /uses:\s*actions\/setup-java@v5/, "Android tests use setup-java v5");
 check(androidJob, /distribution:\s*["']?temurin["']?/, "Android tests use Temurin");
 check(androidJob, /java-version:\s*["']21["']/, "Android tests use JDK 21");
@@ -44,6 +49,12 @@ check(
   /run:\s*\.\/gradlew :app:testDebugUnitTest --no-daemon\b/,
   "Android tests run the JVM suite without a persistent daemon",
 );
+assert(
+  androidJob.indexOf("npm ci --ignore-scripts") < androidJob.indexOf("npx cap sync android")
+    && androidJob.indexOf("npx cap sync android") < androidJob.indexOf("./gradlew"),
+  "Android dependencies and generated inputs must exist before Gradle runs",
+);
+assertions += 1;
 
 check(gate, /cargo fmt --all -- --check/, "local gate enforces Rust formatting");
 check(gate, /cargo clippy --all-targets --all-features -- -D warnings/, "local gate enforces strict Clippy");

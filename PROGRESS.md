@@ -10,8 +10,8 @@ Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
 
 - Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
   full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.107`.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 48 CI
+- Deployment version: `2026.08.11.108`.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 54 CI
   policy assertions via `npm test`, plus three Android JVM shell tests in a
   separate cached JDK 21 hosted job.
 - Continuous improve loop on `main` (100+ commits since executable shell).
@@ -23,7 +23,7 @@ Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
 | 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
-| — | Wire Android unit tests into CI with an explicit JDK | Test / DX | Medium | Small / low | Three compiled-shell tests plus ten CI policy contracts | Completed in Cycle 21 |
+| — | Wire Android unit tests into CI with explicit Node/JDK setup | Test / DX | Medium | Small / low | Three compiled-shell tests plus 16 CI policy contracts | Completed in Cycle 21 |
 | — | Make browser target progress direction-aware | Correctness / ally UX | Critical: wrong-way movement appeared complete and deprioritized worsening targets | Small / low | Shared browser helper + Rust/browser regressions | Completed in Cycle 20 |
 | — | Local propose-only day planner + return nudge | Ally UX | High | Medium / low | ally.js + tests | Completed in Cycle 17 |
 | — | AIly Android shell unit + instrumented tests | Test / DX | Medium | Small / low | Replaces Capacitor samples | Completed in Cycle 13 |
@@ -61,18 +61,20 @@ large real-usage-hook architecture slice.
 
 **Changes**
 
-- Added an independent `android-test` job using checkout v7, Temurin 21 through
-  `actions/setup-java@v5`, Gradle caching scoped to native build definitions, a
-  15-minute bound, and the checked-in wrapper.
+- Added an independent `android-test` job using checkout/setup-node v7, locked
+  npm installation, Capacitor sync, Temurin 21 through `actions/setup-java@v5`,
+  Gradle caching scoped to native build definitions, a 15-minute bound, and the
+  checked-in wrapper.
 - Runs `:app:testDebugUnitTest --no-daemon` from `android/`; the documented npm
   command now uses that same daemon-free invocation.
-- Expanded workflow policy from 38 to 48 assertions so removal or drift of the
-  Android job, JDK, cache, directory, or task fails the canonical `npm test`.
+- Expanded workflow policy from 38 to 54 assertions so removal or drift of the
+  Android job, Node/JDK runtimes, npm/Gradle caches, generated inputs, directory,
+  ordering, or task fails the canonical `npm test`.
 - Strengthened the JVM suite from two to three tests: it now reads the compiled
   `MainActivity` package and proves the entry point inherits Capacitor's
   `BridgeActivity`, while retaining the brand/tagline checks.
 - Documented the native gate and bumped the web/service-worker version to
-  `2026.08.11.107` because every push also deploys Pages.
+  `2026.08.11.108` because every push also deploys Pages.
 
 **Verification evidence**
 
@@ -83,10 +85,17 @@ large real-usage-hook architecture slice.
   intentionally does not generate `BuildConfig`; the test was corrected to
   inspect the real `MainActivity` package instead of enabling unused production
   build machinery solely for verification.
+- The first hosted job then exposed a local-cache blind spot: ignored Capacitor
+  plugin inputs did not exist on a clean checkout. The workflow now installs
+  the exact npm lockfile and runs `npx cap sync android` before Gradle; six new
+  policy assertions lock those prerequisites and their order.
+- A clean-input simulation moved the ignored plugin/assets/config outputs aside;
+  `npm ci` plus Capacitor sync recreated them, then 51 Gradle tasks executed and
+  all three JVM tests passed in 7 seconds.
 - `npm run android:test`: three tests, zero failures/errors; 71 Gradle tasks
   completed successfully in 6 seconds.
 - `npm test`: all 16 Rust unit, two shared-contract, browser-domain, 19 shell,
-  and 48 workflow/Pages policy checks passed.
+  and 54 workflow/Pages policy checks passed.
 - JavaScript/Java syntax, package audit, version/cache parity, and
   `git diff --check`: passed.
 
