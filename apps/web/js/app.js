@@ -2250,10 +2250,11 @@ document.addEventListener("click", (e) => {
   if (action === "done-commit") {
     const c = state.commitments.find((x) => x.id === id);
     if (!c) return;
+    pushUndo({ type: "drop-commit", payload: { id: c.id, prevStatus: c.status } });
     c.status = "done";
     appendAudit(state, "commitment.done", c.text);
     persist();
-    showToast("Marked done. Review can still log metric impact.", "ok");
+    showToast("Marked done. Z undoes. Review can still log metric impact.", "ok");
   }
   if (action === "edit-commit") {
     const c = state.commitments.find((x) => x.id === id);
@@ -2442,10 +2443,11 @@ document.addEventListener("click", (e) => {
   if (action === "review-done") {
     const c = state.commitments.find((x) => x.id === id);
     if (!c) return;
+    pushUndo({ type: "drop-commit", payload: { id: c.id, prevStatus: c.status } });
     c.status = "done";
     c.metricDelta = true;
     const t = state.targets.find((x) => x.id === c.targetId);
-    if (t?.metrics?.[0]) {
+    if (t?.metrics?.[0] && t.status === "active") {
       const m = t.metrics[0];
       const step = m.minMeaningfulDelta || 1;
       if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
@@ -2453,6 +2455,7 @@ document.addEventListener("click", (e) => {
     }
     appendAudit(state, "review.metric_path", c.text);
     persist();
+    showToast("Done + metric. Z undoes status (not metric).", "ok");
   }
   if (action === "review-noimpact") {
     const c = state.commitments.find((x) => x.id === id);
