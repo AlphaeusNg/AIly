@@ -108,6 +108,27 @@ assert.ok(
   "prefers unplanned targets when capacity remains",
 );
 
+const skipDupText = proposeDayPlan({
+  targets: [targets[0]],
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  existingToday: [
+    {
+      id: "dup",
+      targetId: "a",
+      estimateMin: 30,
+      status: "pending",
+      text: "Progress: Ship AIly on features",
+    },
+  ],
+  intention: "",
+  maxItems: 3,
+});
+assert.ok(
+  skipDupText.proposals.every((p) => !/Progress: Ship AIly/i.test(p.text) || /buffer|break/i.test(p.text)),
+  "does not re-propose identical Progress text already on today",
+);
+
 assert.equal(returnNudge({ awayMin: 2 }), null);
 assert.match(returnNudge({ awayMin: 20, intention: "Deep work" }), /intention/i);
 assert.match(returnNudge({ awayMin: 20, focusActive: true }), /Focus/i);

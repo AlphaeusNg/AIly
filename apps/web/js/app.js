@@ -1149,6 +1149,7 @@ function renderTargets() {
                      <button type="button" data-action="nudge-metric-back" data-id="${t.id}">− progress</button>
                      <button type="button" data-action="snap-metric-goal" data-id="${t.id}">Snap to goal</button>
                      <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
+                     <button type="button" data-action="edit-step" data-id="${t.id}">Step size</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
                      <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
@@ -1631,6 +1632,7 @@ function friendlyAuditTool(tool) {
     "metric.nudge_back": "Reversed progress",
     "metric.snap_goal": "Snapped metric to goal",
     "metric.set": "Set metric value",
+    "metric.step": "Edited progress step",
     "target.soft_scale": "Scaled soft caps",
     "target.soft_share": "Shared soft hours evenly",
     "plan.defer_tomorrow": "Deferred open items",
@@ -2003,8 +2005,15 @@ function acceptAllAllyProposals() {
       skipped += 1;
       continue;
     }
-    // Skip intention gate for bulk accept — user already reviewed the list.
-    state.commitments.push({
+    const dup = findSameDayDuplicate(state.commitments || [], {
+      planDate: todayISO(),
+      text: p.text,
+    });
+    if (dup.duplicate) {
+      skipped += 1;
+      continue;
+    }
+    const draft = {
       id: uid(),
       targetId: p.targetId,
       planDate: todayISO(),
@@ -2013,20 +2022,55 @@ function acceptAllAllyProposals() {
       mustKeep: !!p.mustKeep,
       priority: 0,
       status: "pending",
+    };
+    // Capacity-check with this draft added before mutating.
+    const preview = todayCommitments()
+      .filter((c) => c.status !== "dropped")
+      .map((c) => ({
+        id: c.id,
+        targetId: c.targetId,
+        estimateMin: c.estimateMin,
+        mustKeep: !!c.mustKeep,
+      }));
+    preview.push({
+      id: draft.id,
+      targetId: draft.targetId,
+      estimateMin: draft.estimateMin,
+      mustKeep: draft.mustKeep,
     });
+    const check = checkPlanAccept({
+      weeklyCapacityHours: state.user.weeklyCapacityHours,
+      nightsPerWeek: state.user.nightsPerWeek,
+      softCaps: softCaps(),
+      weekOther: [],
+      today: preview,
+    });
+    if (!check.ok) {
+      skipped += 1;
+      continue;
+    }
+    // Skip intention gate for bulk accept — user already reviewed the list.
+    state.commitments.push(draft);
     n += 1;
   }
   appendAudit(state, "ally.accept_all", `${n} commitments${skipped ? ` skip:${skipped}` : ""}`);
   persist();
   if (!n) {
-    showToast("No proposals could be added (targets inactive?).", "error");
+    showToast(
+      skipped
+        ? "Nothing added — capacity full, duplicates, or inactive targets."
+        : "No proposals could be added.",
+      "error",
+      4500
+    );
     return;
   }
   showToast(
     skipped
-      ? `Added ${n}; skipped ${skipped} for inactive targets.`
+      ? `Added ${n}; skipped ${skipped} (capacity, dup, or inactive).`
       : `Added ${n} proposed commitment${n === 1 ? "" : "s"}.`,
-    "ok"
+    "ok",
+    4500
   );
 }
 
@@ -3056,6 +3100,29 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "metric.set", `${t.title}:${val}`);
     persist();
     showToast(`Set ${m.name} to ${val}. · ~${metricProgressPct(m)}%`, "ok");
+  }
+  if (action === "edit-step") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t?.metrics?.[0] || t.status !== "active") return;
+    const m = t.metrics[0];
+    const cur =
+      Number.isFinite(m.minMeaningfulDelta) && m.minMeaningfulDelta > 0
+        ? m.minMeaningfulDelta
+        : 1;
+    const raw = prompt(
+      `Progress step size for ${m.name} (${m.unit}) — used by +progress and Review done+metric`,
+      String(cur)
+    );
+    if (raw == null) return;
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val <= 0) {
+      showToast("Step must be a positive number.", "error");
+      return;
+    }
+    m.minMeaningfulDelta = val;
+    appendAudit(state, "metric.step", `${t.title}:${val}`);
+    persist();
+    showToast(`Step size set to ${val} ${m.unit || ""}.`.trim(), "ok");
   }
   if (action === "pause-target") {
     const t = state.targets.find((x) => x.id === id);

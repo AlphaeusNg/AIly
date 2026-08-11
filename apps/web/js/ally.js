@@ -122,6 +122,12 @@ export function proposeDayPlan(input) {
     }
   }
 
+  const existingTexts = new Set(
+    existing
+      .filter((c) => c && c.status !== "dropped" && typeof c.text === "string")
+      .map((c) => c.text.trim().toLowerCase().replace(/\s+/g, " "))
+  );
+
   for (const row of order) {
     if (proposals.length >= maxItems || remaining < FLOOR) break;
     const t = row.target;
@@ -149,6 +155,10 @@ export function proposeDayPlan(input) {
     const text = intention && proposals.length === 0
       ? `Protect: ${intention.slice(0, 80)}`
       : `Progress: ${String(t.title).slice(0, 60)}${metricHint}`;
+    const normText = text.trim().toLowerCase().replace(/\s+/g, " ");
+    if (existingTexts.has(normText) || proposals.some((p) => p.text.trim().toLowerCase().replace(/\s+/g, " ") === normText)) {
+      continue;
+    }
 
     const draft = {
       text,
