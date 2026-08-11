@@ -4,15 +4,16 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (workspace Cycle 120; AIly Cycle 22)
+Last updated: 2026-08-11 (workspace Cycle 130; AIly Cycle 23)
 
 ## Current state
 
-- Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
-  full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.113`.
+- Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
+  usage slice; local ally propose (JS+Rust), full daily loop, and
+  consent-gated Android daily UsageStats reads.
+- Deployment version: `2026.08.11.114`.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
-  policy assertions via `npm test`, plus three Android JVM shell tests in a
+  policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
 - Continuous improve loop on `main` (100+ commits since executable shell).
 
@@ -20,9 +21,10 @@ Last updated: 2026-08-11 (workspace Cycle 120; AIly Cycle 22)
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
+| 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
+| — | Add a consent-gated Android UsageStats adapter | Product spine / privacy | High: Capacitor APK can show real current-day app totals without background collection | Medium / low | Native plugin, dual grants, bounded live results, adapter/JVM contracts | Completed in Cycle 23 |
 | — | Protect foreign same-origin caches during service-worker activation | Correctness / isolation | Critical: activating AIly could evict offline data owned by other GitHub Pages projects | Small / low | Behavioral worker fixture with AIly, ChristoDay, and foreign cache names | Completed in Cycle 22 |
 | — | Wire Android unit tests into CI with explicit Node/JDK setup | Test / DX | Medium | Small / low | Three compiled-shell tests plus 16 CI policy contracts | Completed in Cycle 21 |
 | — | Make browser target progress direction-aware | Correctness / ally UX | Critical: wrong-way movement appeared complete and deprioritized worsening targets | Small / low | Shared browser helper + Rust/browser regressions | Completed in Cycle 20 |
@@ -42,6 +44,96 @@ Last updated: 2026-08-11 (workspace Cycle 120; AIly Cycle 22)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 23 — Read Android daily usage behind dual consent (2026-08-11)
+
+**Why this won:** Real OS usage was the top durable product-spine gap and both
+the heavy plan and prior cycle named Android UsageStats as the first reversible
+slice. Permission status, a user-initiated Settings handoff, and bounded local
+reads deliver real value without yet accepting the risk of background
+collection or enforcement.
+
+**Plan and success criteria**
+
+1. Require tutorial consent and Android's independently revocable Usage Access
+   grant before any cross-app usage read or block-arming eligibility.
+2. Register a thin local Capacitor plugin that returns only bounded current-day
+   foreground aggregates and never schedules, persists, or uploads them.
+3. Normalize the native result into the existing browser usage shape while
+   preserving the web/PWA session tracker.
+4. Prove consent gating, Settings flow, invalid-row rejection, capping,
+   registration, native compilation, and the complete existing gate.
+
+**Changes**
+
+- Declared `PACKAGE_USAGE_STATS` and registered local `AilyUsagePlugin` before
+  Capacitor creates its bridge.
+- Added native permission status, explicit Usage Access Settings handoff, and a
+  consent-enforcing `listTodayUsage` method. Results are sorted, sanitized, and
+  capped at 50; package labels safely fall back to package keys when Android's
+  visibility policy hides metadata.
+- Replaced the Android stub at runtime with a real adapter that independently
+  requires `{ consented: true }`, validates/caps the native envelope, and maps
+  milliseconds into the existing usage-sample shape.
+- Made native startup fail closed until the OS grant is confirmed, reconciled
+  revocation on resume, and kept native totals in memory so exports/backups do
+  not silently acquire app-usage data. Web/PWA behavior remains the existing
+  visibility/focus session tracker.
+- Made in-app revocation immediately clear the native memory snapshot and
+  explain that Android's separate system grant must be revoked in Settings.
+- Added refresh/status UI and explicit copy distinguishing live Android totals
+  from removable saved manual samples.
+- Expanded adapter, shell/native-source, and Android JVM contracts; documented
+  the platform, privacy, architecture, install, and package boundaries; bumped
+  the coupled Pages/PWA version/cache to `2026.08.11.114`.
+
+**Verification evidence**
+
+- Test-first: the JavaScript contract failed because no real Android adapter
+  export existed; the Android JVM suite failed because the plugin and
+  registration did not exist.
+- Self-review then found that in-app revocation stopped future reads but left
+  the last memory-only totals visible. A new shell contract failed first; the
+  revoke path now clears them synchronously.
+- Focused adapter tests prove denied→Settings, already-granted short-circuit,
+  zero native calls without explicit consent, malformed-row rejection, mapping,
+  and the independent 50-row JavaScript cap.
+- Five Android JVM tests pass, including plugin annotation/method/registration
+  reflection and deterministic sort/drop/cap behavior. A post-sync
+  `assembleDebug` passed all 139 Gradle tasks; the APK contains the `.114` web
+  assets, requested UsageStats permission, AIly activity, and plugin dex class.
+- `npm test` passed Rust formatting and strict Clippy, 16 Rust unit + two
+  shared-contract tests, all browser-domain/service-worker suites, 19 shell
+  assets plus the new native source contracts, and 55 workflow policies.
+- Recursive syntax, package audit with zero vulnerabilities, JSON checks, and
+  `git diff --check` passed.
+- Honest limit: no physical Android device was attached in this cycle, so the
+  OEM Settings return journey and UsageStats day-boundary accuracy remain the
+  next device-backed verification target. Android documents that usage results
+  are OS aggregates whose interval may be expanded.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 2/10 | 8/10 | Real read path fails closed across both grants and reconciles revocation; device journey remains |
+| Test coverage / verifiability | 3/10 | 9/10 | JS boundary, native shape/aggregation, source contracts, JVM compile, and APK build are gated |
+| Maintainability | 5/10 | 8/10 | One thin plugin and one backend contract isolate platform code from domain/UI logic |
+| Performance / resources | 6/10 | 9/10 | On-demand/resume reads, one-minute UI refresh bound, 50-row cap, no background service |
+| Privacy / safety | 5/10 | 9/10 | Dual consent, local-only live data, no backup/cloud copy, no enforcement scope |
+| User experience | 3/10 | 8/10 | In-app Settings handoff, status, refresh, denial recovery; OEM device proof remains |
+
+**Lesson / process improvement:** Special Android access is not a normal
+runtime permission. Model user tutorial intent and OS AppOps state as separate,
+revocable gates, register local plugins before the Capacitor bridge loads, and
+test the web wrapper's no-consent path by asserting the native function is never
+called. Keep the first platform slice read-only and memory-only so device
+dogfood can inform persistence/background design.
+
+**Next opportunity:** Run a device-backed Android permission/read journey and
+characterize UsageStats accuracy across local midnight, lock/unlock, and grant
+revocation before adding background collection. Workspace next: skip the GitHub
+profile after two zero-delta audits and rotate to VerseKeep.
 
 ### Cycle 22 — Protect shared-origin caches during activation (2026-08-11)
 

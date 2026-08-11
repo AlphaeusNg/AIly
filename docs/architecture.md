@@ -1,4 +1,4 @@
-# AIly architecture (Phase 0)
+# AIly architecture (Phase 0 shell + Phase 1 usage slice)
 
 See north-star: `../../plans/aily-heavy-plan.md`.
 
@@ -9,7 +9,7 @@ See north-star: `../../plans/aily-heavy-plan.md`.
 | Domain | Rust crate `aily-core` (targets, capacity, replan, tutorial, blocks) |
 | UI dogfood | Static web app `apps/web` (localStorage) + Capacitor Android shell |
 | Ally propose | Pure JS `ally.js` — deterministic, local, no cloud / no model |
-| Usage dogfood | Visibility/focus session tracker + manual samples |
+| Usage dogfood | Web visibility/manual samples + consent-gated Android daily UsageStats |
 | Blocks dogfood | Arm + try-open sim + break-glass countdown UI |
 | Desktop | Tauri planned when WebKit GTK available |
 
@@ -40,7 +40,7 @@ rejects anything that fails `checkPlanAccept`. The user must accept each item
 
 See `platform-hooks.md` for adapter plan.
 
-- Real OS usage tracking hooks
+- Device-test and extend OS usage tracking hooks beyond Android daily reads
 - Real hard-block OS enforcement
 - Optional on-device model for richer propose (still propose-only)
 - Tauri shell wrapping the same UI + Rust core commands

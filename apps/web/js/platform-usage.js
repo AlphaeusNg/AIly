@@ -10,20 +10,26 @@
  * @returns {{
  *   id: string,
  *   label: string,
+ *   available?: boolean,
  *   capabilities: { session: boolean, perApp: boolean, realtime: boolean },
  *   async listTodaySamples(): Promise<UsageSample[]>,
- *   async requestPermission(): Promise<'granted'|'denied'|'unsupported'>,
+ *   async permissionStatus(): Promise<'granted'|'denied'|'unsupported'>,
+ *   async requestPermission(): Promise<'granted'|'settings_opened'|'unsupported'>,
  * }}
  */
 export function createWebSessionBackend() {
   return {
     id: "web-session",
     label: "This tab (visibility + focus)",
+    available: true,
     capabilities: { session: true, perApp: false, realtime: true },
     async listTodaySamples() {
       return [];
     },
     async requestPermission() {
+      return "granted";
+    },
+    async permissionStatus() {
       return "granted";
     },
   };
@@ -37,12 +43,70 @@ export function createAndroidUsageBackendStub() {
   return {
     id: "android-usagestats",
     label: "Android UsageStats (not installed)",
+    available: false,
     capabilities: { session: false, perApp: true, realtime: false },
     async listTodaySamples() {
       return [];
     },
     async requestPermission() {
       return "unsupported";
+    },
+    async permissionStatus() {
+      return "unsupported";
+    },
+  };
+}
+
+/**
+ * Bind AIly's local Capacitor UsageStats plugin to the shared usage shape.
+ * Native reads require an explicit consent argument even after Android grants
+ * usage access; this prevents an incidental render from crossing the boundary.
+ * @param {object} plugin
+ */
+export function createAndroidUsageBackend(plugin) {
+  return {
+    id: "android-usagestats",
+    label: "Android-reported daily app totals",
+    available: true,
+    capabilities: { session: false, perApp: true, realtime: false },
+    async permissionStatus() {
+      if (typeof plugin?.getPermissionStatus !== "function") return "unsupported";
+      const result = await plugin.getPermissionStatus();
+      return result?.granted === true ? "granted" : "denied";
+    },
+    async requestPermission() {
+      const status = await this.permissionStatus();
+      if (status === "granted" || status === "unsupported") return status;
+      if (typeof plugin?.openUsageAccessSettings !== "function") return "unsupported";
+      await plugin.openUsageAccessSettings();
+      return "settings_opened";
+    },
+    async listTodaySamples(options = {}) {
+      if (options.consented !== true || typeof plugin?.listTodayUsage !== "function") {
+        return [];
+      }
+      const result = await plugin.listTodayUsage({ consented: true });
+      if (result?.permission !== "granted" || !Array.isArray(result.samples)) return [];
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(result.day || "")
+        ? result.day
+        : new Date().toLocaleDateString("en-CA");
+      return result.samples
+        .slice(0, 50)
+        .flatMap((row) => {
+          const packageName = String(row?.packageName || "").trim().slice(0, 200);
+          const app = String(row?.label || "").trim().slice(0, 120);
+          const foregroundMs = Number(row?.foregroundMs);
+          if (!packageName || !app || !Number.isFinite(foregroundMs) || foregroundMs <= 0) {
+            return [];
+          }
+          return [{
+            app,
+            mins: Math.max(1, Math.round(foregroundMs / 60000)),
+            ts: `${day}T12:00:00`,
+            source: "android-usagestats",
+            packageName,
+          }];
+        });
     },
   };
 }
@@ -57,8 +121,10 @@ export function selectUsageBackend(env = {}) {
     env.platform || globalThis.Capacitor?.getPlatform?.() || "web"
   ).toLowerCase();
   if (native && platform === "android") {
-    // Real plugin not shipped — still return stub so UI can explain limits.
-    return createAndroidUsageBackendStub();
+    const plugin = Object.hasOwn(env, "plugin")
+      ? env.plugin
+      : globalThis.Capacitor?.Plugins?.AilyUsage;
+    return plugin ? createAndroidUsageBackend(plugin) : createAndroidUsageBackendStub();
   }
   return createWebSessionBackend();
 }
@@ -73,6 +139,9 @@ export function usageBackendHonesty(backend) {
     return "Tracking this AIly tab only (visible + focused). Other apps are manual samples until OS hooks ship.";
   }
   if (backend.id === "android-usagestats") {
+    if (backend.available) {
+      return "Android local daily totals — read only after tutorial consent and the system usage-access grant.";
+    }
     return "Android UsageStats adapter is scaffolded but not installed — samples stay manual/session-only.";
   }
   return backend.label || backend.id;

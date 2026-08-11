@@ -79,7 +79,36 @@ assert.match(app, /seedDemoJourney|seed-demo/, "sample journey seeder exists");
 assert.match(app, /upsertBlockRule/, "block upsert is wired");
 assert.match(app, /attentionMismatchNote/, "attention mismatch note is wired");
 assert.match(app, /platform-usage|selectUsageBackend/, "platform usage backend is wired");
+assert.match(app, /requestUsageGrant/, "usage grant is routed through the selected backend");
+assert.match(app, /listTodaySamples\(\{ consented: true \}\)/, "native usage reads require consent");
+assert.match(
+  app,
+  /action === "revoke-usage"[\s\S]{0,700}platformUsageSamples = \[\]/,
+  "revoking usage immediately clears in-memory native totals",
+);
 assert.match(app, /undoLast|pushUndo/, "session undo is wired");
+
+const androidManifest = readFileSync(join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
+assert.match(
+  androidManifest,
+  /android\.permission\.PACKAGE_USAGE_STATS/,
+  "Android declares special usage access",
+);
+const androidMain = readFileSync(
+  join(root, "android/app/src/main/java/com/alphaeusng/aily/MainActivity.java"),
+  "utf8",
+);
+assert.match(androidMain, /AilyUsagePlugin\.class/, "Android registers AIly's local usage plugin");
+assert.ok(
+  androidMain.indexOf("registerPlugins(nativePlugins())") < androidMain.indexOf("super.onCreate(savedInstanceState)"),
+  "local plugins are registered before Capacitor creates the bridge",
+);
+const androidUsage = readFileSync(
+  join(root, "android/app/src/main/java/com/alphaeusng/aily/AilyUsagePlugin.java"),
+  "utf8",
+);
+assert.match(androidUsage, /USAGE_CONSENT_REQUIRED/, "native usage reads enforce tutorial consent");
+assert.match(androidUsage, /MAX_ENTRIES\s*=\s*50/, "native usage output is bounded");
 
 const offline = read("offline.html");
 assert.match(offline, /offline/i, "offline page mentions offline");

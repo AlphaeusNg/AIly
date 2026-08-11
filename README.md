@@ -71,7 +71,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.11.113`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.11.114`):
 
 - Boot splash + brand assets, PWA install/update banners, offline page  
 - Time-consciousness meter + intentional check before ≥30m commitments  
@@ -79,6 +79,7 @@ native-shell changes.
 - **Local propose-only ally planner** (JS + Rust) — Ask AIly to propose a plan  
 - Clone yesterday, must-keep / priority controls, target pause/complete  
 - In-app attention tracker + honesty prompt for off-limits app samples  
+- Capacitor Android: consent-gated local daily app totals via UsageStats
 - Break-glass countdown + configurable delay; try-open simulation  
 - Weekly journey stats + reflection; evening review badges  
 - Display density / reduce-motion; keyboard help (`?`, `Esc`, `1–7`)  
@@ -87,7 +88,7 @@ native-shell changes.
 - Setup → **Load sample journey** for instant dogfood  
 - Local web: `npm run web` · gate: `npm test`
 
-**Later:** real OS usage tracking + hard app blocking; sealed DB; optional local AI.
+**Later:** background/desktop usage hooks + hard app blocking; sealed DB; optional local AI.
 
 ## Docs
 

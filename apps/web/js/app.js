@@ -62,6 +62,14 @@ import {
 import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 
 let state = loadState();
+const usageBackend = selectUsageBackend();
+const usesNativeUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
+let nativeUsageConsentPending = usesNativeUsage && !!state.tutorial.permissions.usage;
+let nativeUsageConsentWasStored = nativeUsageConsentPending;
+if (nativeUsageConsentPending) {
+  // Fail closed until Android confirms its independently revocable special grant.
+  state.tutorial.permissions.usage = false;
+}
 {
   const pruned = pruneOldCommitments(state, 45, todayISO());
   const prunedUsage = pruneOldUsageSamples(state, 45, todayISO());
@@ -91,9 +99,11 @@ let helpOpen = false;
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
+let platformUsageSamples = [];
+let platformUsageStatus = usesNativeUsage ? "checking" : "unsupported";
+let lastPlatformUsageRefreshAt = 0;
 let lastHiddenAt = 0;
 let lastReturnNudgeAt = 0;
-const usageBackend = selectUsageBackend();
 /** @type {Array<{ type: string, payload: any }>} */
 let undoStack = [];
 const MAX_UNDO = 12;
@@ -246,7 +256,11 @@ function todayCommitments() {
 }
 
 function dayUsageMinutes() {
-  return totalMinutesForDay(state.usageSamples || [], todayISO());
+  return totalMinutesForDay(allUsageSamples(), todayISO());
+}
+
+function allUsageSamples() {
+  return [...platformUsageSamples, ...(state.usageSamples || [])];
 }
 
 function flushUsageSample(entry) {
@@ -266,7 +280,7 @@ function flushUsageSample(entry) {
 }
 
 function syncUsageTracker() {
-  const granted = !!state.tutorial.permissions.usage;
+  const granted = !!state.tutorial.permissions.usage && usageBackend.capabilities.session;
   if (granted && !usageTracker) {
     usageTracker = createSessionTracker({
       appName: "AIly",
@@ -277,6 +291,101 @@ function syncUsageTracker() {
   } else if (!granted && usageTracker) {
     usageTracker.stop();
     usageTracker = null;
+  }
+}
+
+function commitUsageGrant(chapterId = "attention", options = {}) {
+  const changed = !state.tutorial.permissions.usage;
+  state.tutorial.permissions.usage = true;
+  nativeUsageConsentPending = false;
+  nativeUsageConsentWasStored = false;
+  if (chapterStatus(state, chapterId) !== "done") completeChapter(chapterId);
+  if (!options.restoring && changed) {
+    appendAudit(state, "permission.grant", usesNativeUsage ? "usage:android" : "usage");
+    persist();
+  } else if (options.restoring) {
+    render();
+  }
+  syncUsageTracker();
+}
+
+async function requestUsageGrant(chapterId = "attention") {
+  try {
+    const result = await usageBackend.requestPermission();
+    if (result === "granted") {
+      commitUsageGrant(chapterId);
+      await refreshPlatformUsage({ force: true });
+      showToast(
+        usesNativeUsage
+          ? "Android usage access confirmed — local daily totals are on."
+          : "Usage tracking on — AIly will log this tab’s attention.",
+        "ok",
+        4500,
+      );
+      return true;
+    }
+    if (result === "settings_opened") {
+      nativeUsageConsentPending = true;
+      nativeUsageConsentWasStored = false;
+      platformUsageStatus = "waiting";
+      render();
+      showToast("Choose AIly in Android Usage Access, then return here.", "ok", 5500);
+      return false;
+    }
+    showToast("Usage access is unavailable on this installation.", "error", 4500);
+  } catch {
+    showToast("Could not request usage access. You can try again safely.", "error", 4500);
+  }
+  return false;
+}
+
+async function refreshPlatformUsage(options = {}) {
+  if (!usesNativeUsage) return;
+  const now = Date.now();
+  if (!options.force && now - lastPlatformUsageRefreshAt < 60_000) return;
+  lastPlatformUsageRefreshAt = now;
+  const pending = nativeUsageConsentPending;
+  try {
+    const permission = await usageBackend.permissionStatus();
+    platformUsageStatus = permission;
+    if (permission !== "granted") {
+      platformUsageSamples = [];
+      nativeUsageConsentPending = false;
+      if (state.tutorial.permissions.usage || nativeUsageConsentWasStored) {
+        state.tutorial.permissions.usage = false;
+        nativeUsageConsentWasStored = false;
+        appendAudit(state, "permission.revoke", "usage:android-system");
+        persist();
+        syncUsageTracker();
+      } else if (state.ui.tab === "usage") {
+        renderUsage();
+      }
+      if (options.fromSettings && pending) {
+        showToast("Android usage access was not granted. AIly left tracking off.", "ok", 5000);
+      }
+      return;
+    }
+
+    if (nativeUsageConsentWasStored) {
+      commitUsageGrant("attention", { restoring: true });
+    } else if (pending) {
+      commitUsageGrant("attention");
+      showToast("Android usage access confirmed — local daily totals are on.", "ok", 4500);
+    }
+    if (state.tutorial.permissions.usage) {
+      platformUsageSamples = await usageBackend.listTodaySamples({ consented: true });
+    } else {
+      platformUsageSamples = [];
+    }
+    if (state.ui.tab === "usage") renderUsage();
+    if (state.ui.tab === "today") renderToday();
+  } catch {
+    platformUsageStatus = "error";
+    platformUsageSamples = [];
+    if (options.force || options.fromSettings) {
+      showToast("Android usage totals could not be read. No data left the device.", "error", 5000);
+    }
+    if (state.ui.tab === "usage") renderUsage();
   }
 }
 
@@ -1323,7 +1432,7 @@ function renderUsage() {
   const el = $("#panel-usage");
   const granted = state.tutorial.permissions.usage;
   const usage = dayUsageMinutes();
-  const byApp = summarizeDayByApp(state.usageSamples || [], todayISO());
+  const byApp = summarizeDayByApp(allUsageSamples(), todayISO());
   const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
   const pendingMs = usageTracker?.pendingMs?.() || 0;
   const pendingMin = Math.floor(pendingMs / 60000);
@@ -1336,10 +1445,14 @@ function renderUsage() {
     <p class="muted">Backend: <strong>${escapeHtml(usageBackend.label)}</strong> · <code>${escapeHtml(usageBackend.id)}</code></p>
     ${
       granted
-        ? `<div class="banner ok">Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
-            usageTracker?.isRunning?.()
-              ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
-              : ""
+        ? `<div class="banner ok">${
+            usesNativeUsage
+              ? `Android usage access confirmed. Showing ${platformUsageSamples.length} local OS total${platformUsageSamples.length === 1 ? "" : "s"}; status: ${escapeHtml(platformUsageStatus)}.`
+              : `Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
+                  usageTracker?.isRunning?.()
+                    ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
+                    : ""
+                }`
           }</div>
            <div class="capacity-card">
              <h2>Today’s logged attention</h2>
@@ -1357,7 +1470,7 @@ function renderUsage() {
                        </div>`
                      )
                      .join("")}</div>`
-                 : `<p class="muted">No samples yet — stay in AIly a minute, or log another app below.</p>`
+                 : `<p class="muted">No samples yet — use AIly for a minute, refresh Android totals, or log another app below.</p>`
              }
            </div>
            <form id="usage-form" class="row">
@@ -1366,10 +1479,12 @@ function renderUsage() {
              <button class="primary" type="submit">Log sample usage</button>
            </form>
            <div class="row">
+             ${usesNativeUsage ? `<button type="button" data-action="refresh-platform-usage">Refresh Android totals</button>` : ""}
              <button type="button" data-action="flush-usage" ${usageTracker?.isRunning?.() ? "" : "disabled"}>Flush live buffer now</button>
-             <button type="button" data-action="clear-usage-today" ${usage > 0 ? "" : "disabled"}>Clear today</button>
-             <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all samples</button>
+             <button type="button" data-action="clear-usage-today" ${(state.usageSamples || []).some((u) => u?.ts?.startsWith(todayISO())) ? "" : "disabled"}>Clear today’s saved samples</button>
+             <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all saved samples</button>
            </div>
+           ${usesNativeUsage ? `<p class="muted">Android totals are read live from the OS and are not copied into AIly backups. Saved manual samples remain removable below.</p>` : ""}
            <ul class="list">${(state.usageSamples || [])
              .slice(0, 20)
              .map(
@@ -1378,9 +1493,13 @@ function renderUsage() {
                  <button type="button" data-action="remove-usage-sample" data-index="${i}">Remove</button>
                </li>`
              )
-             .join("") || "<li class='muted'>No samples yet.</li>"}</ul>`
-        : `<div class="banner warn">Grant usage in Setup / tutorial chapter “Attention map”.</div>
-           <button type="button" class="primary" data-action="grant-usage">Grant usage tracking</button>`
+             .join("") || "<li class='muted'>No saved manual/session samples.</li>"}</ul>`
+        : `<div class="banner warn">${
+            nativeUsageConsentPending
+              ? "Finish the Android Usage Access choice, then return to AIly."
+              : "Grant usage in Setup / tutorial chapter “Attention map”."
+          }</div>
+           <button type="button" class="primary" data-action="grant-usage">${usesNativeUsage ? "Open Android usage access" : "Grant usage tracking"}</button>`
     }
   `;
   $("#usage-form")?.addEventListener("submit", (e) => {
@@ -2209,7 +2328,10 @@ function completeChapter(id) {
 }
 
 async function grantAndComplete(chapter) {
-  if (chapter.grant === "usage") state.tutorial.permissions.usage = true;
+  if (chapter.grant === "usage") {
+    await requestUsageGrant(chapter.id);
+    return;
+  }
   if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
   if (chapter.grant === "notifications") {
     state.tutorial.permissions.notifications = true;
@@ -2379,9 +2501,11 @@ async function initNativeShell() {
           lastHiddenAt = 0;
           maybeReturnNudge(awayMin);
           usageTracker?.onVisibilityOrFocus();
+          void refreshPlatformUsage({ force: true, fromSettings: true });
         }
       });
     }
+    await refreshPlatformUsage({ force: true });
   } catch {
     // Web / missing plugin — ignore.
   }
@@ -3448,11 +3572,10 @@ document.addEventListener("click", (e) => {
     showToast("Week honesty exported.", "ok");
   }
   if (action === "grant-usage") {
-    state.tutorial.permissions.usage = true;
-    completeChapter("attention");
-    persist();
-    syncUsageTracker();
-    showToast("Usage tracking on — AIly will log this tab’s attention.", "ok");
+    void requestUsageGrant("attention");
+  }
+  if (action === "refresh-platform-usage") {
+    void refreshPlatformUsage({ force: true });
   }
   if (action === "flush-usage") {
     if (!usageTracker?.isRunning?.()) {
@@ -3807,8 +3930,15 @@ document.addEventListener("click", (e) => {
     );
   }
   if (action === "revoke-usage") {
-    if (!confirm("Revoke usage tracking? Session auto-log stops; samples stay until you clear them.")) return;
+    const revokeCopy = usesNativeUsage
+      ? "Turn off AIly usage reads? Live Android totals disappear now; revoke system Usage Access separately in Android Settings. Saved manual samples remain."
+      : "Revoke usage tracking? Session auto-log stops; samples stay until you clear them.";
+    if (!confirm(revokeCopy)) return;
     state.tutorial.permissions.usage = false;
+    nativeUsageConsentPending = false;
+    nativeUsageConsentWasStored = false;
+    platformUsageSamples = [];
+    platformUsageStatus = usesNativeUsage ? "revoked" : "unsupported";
     usageTracker?.stop();
     usageTracker = null;
     appendAudit(state, "permission.revoke", "usage");
@@ -4059,7 +4189,10 @@ document.addEventListener("visibilitychange", () => {
     maybeReturnNudge(awayMin);
   }
 });
-window.addEventListener("focus", () => usageTracker?.onVisibilityOrFocus());
+window.addEventListener("focus", () => {
+  usageTracker?.onVisibilityOrFocus();
+  if (usesNativeUsage) void refreshPlatformUsage({ force: true, fromSettings: true });
+});
 window.addEventListener("blur", () => usageTracker?.onVisibilityOrFocus());
 window.addEventListener("pagehide", () => usageTracker?.flush());
 
@@ -4109,6 +4242,9 @@ window.setInterval(() => {
   }
   // Periodic flush so multi-minute sessions land without waiting for hide
   if (usageTracker?.isRunning()) usageTracker.flush();
+  if (usesNativeUsage && state.tutorial.permissions.usage && state.ui.tab === "usage") {
+    void refreshPlatformUsage();
+  }
 }, 30_000);
 
 // Light keyboard nav for desktop dogfood (ignore when typing).

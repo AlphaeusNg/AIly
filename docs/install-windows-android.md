@@ -58,6 +58,11 @@ cd android && ./gradlew assembleDebug
 
 Install APK on a device with USB debugging, or copy the APK to the phone.
 
+To enable Android-reported daily app totals, open **Usage**, choose **Open Android usage
+access**, enable AIly in the system list, and return to the app. AIly does not
+read those totals until both the in-app tutorial consent and this system grant
+are present. Revoking either turns the integration off.
+
 ---
 
 ## WSL note
@@ -75,7 +80,9 @@ WSL can **develop** and **build** artifacts; **daily product testing** should be
 |---|---|---|---|
 | Tutorial, targets, Today, Review | yes | yes | yes |
 | Local data (localStorage) | yes | yes | yes |
-| OS app usage tracking | not yet | not yet | Phase 1 |
+| OS app usage tracking | not yet | not yet | current-day foreground totals (consent + Usage Access) |
 | OS hard app blocks | not yet | not yet | Phase 2 |
 
-Phase 0 is intentionally dogfoodable as a **local web/PWA app** so you can validate the ally journey before native hooks.
+The web/PWA remains a local dogfood shell. The Capacitor APK adds the first
+read-only native hook; background collection and hard enforcement remain later
+phases.
