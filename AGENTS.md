@@ -39,6 +39,7 @@ Tauri desktop shell lands when WebKit GTK deps are available; core logic stays i
 source "$HOME/.cargo/env"
 cd /home/alph/projects/AIly
 npm test
+JAVA_HOME="$HOME/.local/jdk-21" npm run android:test
 python3 -m http.server 8765 --directory apps/web
 # open http://127.0.0.1:8765/
 ```

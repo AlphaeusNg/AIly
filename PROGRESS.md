@@ -4,15 +4,16 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (workspace Cycle 100; AIly Cycle 20 — still shipping)
+Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
   full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.96`.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 38 CI
-  policy assertions via `npm test`.
+- Deployment version: `2026.08.11.107`.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 48 CI
+  policy assertions via `npm test`, plus three Android JVM shell tests in a
+  separate cached JDK 21 hosted job.
 - Continuous improve loop on `main` (100+ commits since executable shell).
 
 ## Opportunity backlog
@@ -22,7 +23,7 @@ Last updated: 2026-08-11 (workspace Cycle 100; AIly Cycle 20 — still shipping)
 | 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
-| 4 | Wire Android unit tests into CI when runner has JDK | Test / DX | Medium | Small / low | Local `:app:testDebugUnitTest` green | Backlog |
+| — | Wire Android unit tests into CI with an explicit JDK | Test / DX | Medium | Small / low | Three compiled-shell tests plus ten CI policy contracts | Completed in Cycle 21 |
 | — | Make browser target progress direction-aware | Correctness / ally UX | Critical: wrong-way movement appeared complete and deprioritized worsening targets | Small / low | Shared browser helper + Rust/browser regressions | Completed in Cycle 20 |
 | — | Local propose-only day planner + return nudge | Ally UX | High | Medium / low | ally.js + tests | Completed in Cycle 17 |
 | — | AIly Android shell unit + instrumented tests | Test / DX | Medium | Small / low | Replaces Capacitor samples | Completed in Cycle 13 |
@@ -40,6 +41,75 @@ Last updated: 2026-08-11 (workspace Cycle 100; AIly Cycle 20 — still shipping)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 21 — Run meaningful Android shell tests in CI (2026-08-11)
+
+**Why this won:** AIly already packaged a Capacitor Android shell and had a
+local JVM suite, but `main` could regress native compilation or shell identity
+while the Rust/web-only hosted job stayed green. Automating the existing native
+boundary compounds at much lower effort and permission risk than beginning the
+large real-usage-hook architecture slice.
+
+**Plan and success criteria**
+
+1. Make the JVM suite assert compiled AIly shell types rather than constants
+   alone.
+2. Run it in a separate, bounded JDK 21 CI job with Gradle dependency caching.
+3. Enforce the job, runtime, cache, working directory, and exact command through
+   the existing workflow-policy suite.
+4. Preserve the complete Rust/web gate and prove both jobs on a fresh runner.
+
+**Changes**
+
+- Added an independent `android-test` job using checkout v7, Temurin 21 through
+  `actions/setup-java@v5`, Gradle caching scoped to native build definitions, a
+  15-minute bound, and the checked-in wrapper.
+- Runs `:app:testDebugUnitTest --no-daemon` from `android/`; the documented npm
+  command now uses that same daemon-free invocation.
+- Expanded workflow policy from 38 to 48 assertions so removal or drift of the
+  Android job, JDK, cache, directory, or task fails the canonical `npm test`.
+- Strengthened the JVM suite from two to three tests: it now reads the compiled
+  `MainActivity` package and proves the entry point inherits Capacitor's
+  `BridgeActivity`, while retaining the brand/tagline checks.
+- Documented the native gate and bumped the web/service-worker version to
+  `2026.08.11.107` because every push also deploys Pages.
+
+**Verification evidence**
+
+- Baseline: the full Rust/web gate passed and the prior two-test Android suite
+  completed locally under OpenJDK 21 in 8 seconds.
+- Test-first workflow policy failed because no separate Android job existed.
+- The first strengthened JVM test failed at compile time because this build
+  intentionally does not generate `BuildConfig`; the test was corrected to
+  inspect the real `MainActivity` package instead of enabling unused production
+  build machinery solely for verification.
+- `npm run android:test`: three tests, zero failures/errors; 71 Gradle tasks
+  completed successfully in 6 seconds.
+- `npm test`: all 16 Rust unit, two shared-contract, browser-domain, 19 shell,
+  and 48 workflow/Pages policy checks passed.
+- JavaScript/Java syntax, package audit, version/cache parity, and
+  `git diff --check`: passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | Native source and generated Android build now gate every change |
+| Test coverage / verifiability | 6/10 | 10/10 | Meaningful JVM shell tests run locally and in an independent hosted job |
+| Maintainability | 7/10 | 9/10 | One npm/Gradle command is shared by docs and enforced CI policy |
+| Performance / resources | 7/10 | 8/10 | Parallel job isolates native cost; Gradle inputs are cached and daemon is bounded |
+| Security / robustness | 7/10 | 9/10 | Read-only job uses explicit JDK/action majors and the validated wrapper URL |
+
+**Lesson / process improvement:** A test that compares two literals protects no
+integration boundary. Native shell tests should reference compiled app types;
+when a proposed assertion requires enabling otherwise-unused build output,
+prefer a smaller observable contract rather than expanding production solely
+for test convenience. [Official `setup-java` documentation](https://github.com/actions/setup-java)
+confirms v5 supports JDK 21 and Gradle caching.
+
+**Next opportunity:** Begin the first reversible real usage-tracking slice: an
+Android permission/read adapter that remains local, explicit-consent gated, and
+separate from enforcement. Workspace next: rotate to the GitHub profile repo.
 
 ### Cycle 20 — Preserve metric direction in progress and ally ranking (2026-08-11)
 

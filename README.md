@@ -55,7 +55,9 @@ cd android && ./gradlew assembleDebug
 
 The canonical `npm test` gate checks Rust formatting, strict Clippy warnings,
 Rust unit and shared-contract tests, browser-domain suites, CI/Pages policy,
-and recursive web, tool, and service-worker syntax.
+and recursive web, tool, and service-worker syntax. CI also runs
+`npm run android:test` in a separate cached Temurin 21 job; run it locally after
+native-shell changes.
 
 ## Repo layout
 
@@ -69,7 +71,7 @@ and recursive web, tool, and service-worker syntax.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.11.96`):
+**Phase 0 dogfood executable shell** (`2026.08.11.107`):
 
 - Boot splash + brand assets, PWA install/update banners, offline page  
 - Time-consciousness meter + intentional check before ≥30m commitments  

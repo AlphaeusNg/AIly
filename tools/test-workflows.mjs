@@ -28,6 +28,23 @@ check(ci, /node-version:\s*["']24["']/, "CI uses Node 24 LTS");
 check(ci, /uses:\s*dtolnay\/rust-toolchain@stable[\s\S]*components:\s*rustfmt,\s*clippy/, "CI installs rustfmt and Clippy");
 check(ci, /run:\s*npm test\b/, "CI runs the canonical local gate");
 
+const androidJob = ci.split("\n  android-test:\n")[1];
+assert.ok(androidJob, "CI has a separate Android unit-test job");
+assertions += 1;
+check(androidJob, /runs-on:\s*ubuntu-latest/, "Android tests use a hosted Linux runner");
+check(androidJob, /timeout-minutes:\s*15/, "Android tests have a bounded timeout");
+check(androidJob, /uses:\s*actions\/checkout@v7/, "Android tests use checkout v7");
+check(androidJob, /uses:\s*actions\/setup-java@v5/, "Android tests use setup-java v5");
+check(androidJob, /distribution:\s*["']?temurin["']?/, "Android tests use Temurin");
+check(androidJob, /java-version:\s*["']21["']/, "Android tests use JDK 21");
+check(androidJob, /cache:\s*["']?gradle["']?/, "Android tests cache Gradle dependencies");
+check(androidJob, /working-directory:\s*android/, "Android tests run from the native project");
+check(
+  androidJob,
+  /run:\s*\.\/gradlew :app:testDebugUnitTest --no-daemon\b/,
+  "Android tests run the JVM suite without a persistent daemon",
+);
+
 check(gate, /cargo fmt --all -- --check/, "local gate enforces Rust formatting");
 check(gate, /cargo clippy --all-targets --all-features -- -D warnings/, "local gate enforces strict Clippy");
 check(gate, /cargo test/, "local gate runs Rust tests");

@@ -3,16 +3,22 @@ package com.alphaeusng.aily;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.getcapacitor.BridgeActivity;
 import org.junit.Test;
 
-/** Lightweight JVM checks for AIly shell constants (runs without a device). */
+/** Lightweight JVM checks for compiled AIly shell identity (runs without a device). */
 public class AilyUnitTest {
 
     @Test
-    public void applicationIdMatchesBrand() {
-        // Mirrors capacitor.config.json / app build.gradle applicationId.
-        assertEquals("com.alphaeusng.aily", "com.alphaeusng.aily");
+    public void shellPackageMatchesBrand() {
+        assertEquals("com.alphaeusng.aily", MainActivity.class.getPackageName());
         assertTrue("AIly".contains("AI"));
+    }
+
+    @Test
+    public void shellEntryPointUsesCapacitorBridge() {
+        assertEquals("com.alphaeusng.aily.MainActivity", MainActivity.class.getName());
+        assertTrue(BridgeActivity.class.isAssignableFrom(MainActivity.class));
     }
 
     @Test
