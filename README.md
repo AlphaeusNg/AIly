@@ -69,7 +69,7 @@ and recursive web, tool, and service-worker syntax.
 
 ## Status
 
-**Phase 0 dogfood executable shell** (`2026.08.11.59`):
+**Phase 0 dogfood executable shell** (`2026.08.11.63`):
 
 - Boot splash + brand assets, PWA install/update banners, offline page  
 - Time-consciousness meter + intentional check before ≥30m commitments  
@@ -82,6 +82,7 @@ and recursive web, tool, and service-worker syntax.
 - Display density / reduce-motion; keyboard help (`?`, `Esc`, `1–7`)  
 - Safe local persist, prune, export/import/share backup  
 - Android: `npx cap sync android && npm run android:build` · `npm run android:test`  
+- Setup → **Load sample journey** for instant dogfood  
 - Local web: `npm run web` · gate: `npm test`
 
 **Later:** real OS usage tracking + hard app blocking; sealed DB; optional local AI.
