@@ -435,12 +435,18 @@ function renderCheckInModal() {
   if (input && !input.value && state.ui.dailyIntention) {
     input.value = state.ui.dailyIntention;
   }
+  const note = $("#checkin-note");
+  if (note && !note.value && state.ui.dailyNote) {
+    note.value = state.ui.dailyNote;
+  }
 }
 
 function saveCheckIn() {
   const text = ($("#checkin-intention")?.value || "").trim().slice(0, 280);
+  const note = ($("#checkin-note")?.value || "").trim().slice(0, 500);
   const focusMin = Number($("#checkin-focus-min")?.value) || 0;
   state.ui.dailyIntention = text;
+  state.ui.dailyNote = note;
   state.ui.lastCheckInDate = todayISO();
   state.ui.checkInOpen = false;
   if (focusMin > 0) {
@@ -812,6 +818,11 @@ function renderToday() {
           : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
+        state.ui.dailyNote
+          ? `<p class="muted intention-chip">Note: ${escapeHtml(state.ui.dailyNote)}</p>`
+          : ""
+      }
+      ${
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
              <button type="button" data-action="extend-focus-10">+10m</button>
@@ -1012,6 +1023,7 @@ function renderTargets() {
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
                      <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
+                     <button type="button" data-action="edit-soft" data-id="${t.id}">Soft hours</button>
                      <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
                      <button type="button" data-action="complete-target" data-id="${t.id}">Complete</button>`
                   : `<button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
@@ -1417,6 +1429,7 @@ function friendlyAuditTool(tool) {
     "target.complete": "Completed target",
     "target.activate": "Reactivated target",
     "target.rename": "Renamed target",
+    "target.soft": "Edited soft hours",
     "undo.drop": "Undid drop",
     "undo.hide_done": "Undid hide-done",
     // keep labels in sync with pushUndo types
@@ -2489,6 +2502,16 @@ document.addEventListener("click", (e) => {
   if (action === "pause-target") {
     const t = state.targets.find((x) => x.id === id);
     if (!t) return;
+    const pending = todayPendingMinForTarget(t.id);
+    if (pending > 0) {
+      if (
+        !confirm(
+          `“${t.title}” still has ${pending}m pending today. Pause anyway? (Items stay; new plans skip this target.)`
+        )
+      ) {
+        return;
+      }
+    }
     t.status = "paused";
     appendAudit(state, "target.pause", t.title);
     persist();
@@ -2526,6 +2549,31 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "target.rename", `${prev}→${title}`);
     persist();
     showToast("Target renamed.", "ok");
+  }
+  if (action === "edit-soft") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t || t.status !== "active") return;
+    const raw = prompt(
+      "Soft hours/week (empty to clear)",
+      t.softCapacityHours != null ? String(t.softCapacityHours) : ""
+    );
+    if (raw == null) return;
+    if (String(raw).trim() === "") {
+      t.softCapacityHours = null;
+      appendAudit(state, "target.soft", `${t.title}:clear`);
+      persist();
+      showToast("Soft hours cleared.", "ok");
+      return;
+    }
+    const hours = Number(raw);
+    if (!Number.isFinite(hours) || hours < 0 || hours > 168) {
+      showToast("Soft hours must be 0–168.", "error");
+      return;
+    }
+    t.softCapacityHours = Math.round(hours * 10) / 10;
+    appendAudit(state, "target.soft", `${t.title}:${t.softCapacityHours}`);
+    persist();
+    showToast(`Soft hours set to ${t.softCapacityHours}h/week.`, "ok");
   }
   if (action === "review-done") {
     const c = state.commitments.find((x) => x.id === id);
@@ -2810,11 +2858,12 @@ document.addEventListener("click", (e) => {
     const lines = [
       `AIly ${SITE_VERSION.id} · local summary ${todayISO()}`,
       state.ui.dailyIntention ? `Intention: ${state.ui.dailyIntention}` : "Intention: (none)",
+      state.ui.dailyNote ? `Note: ${state.ui.dailyNote}` : null,
       `Today planned: ${plannedMinutes()}m · usage samples: ${dayUsageMinutes()}m`,
       `Week from ${week.start}: planned ${week.plannedMin}m · done ${week.doneMin}m · usage ${week.usageMin}m · glass ${week.glass}`,
       weekReflection(week),
       "Data stays on this device.",
-    ];
+    ].filter(Boolean);
     const text = lines.join("\n");
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(
