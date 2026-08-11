@@ -2318,6 +2318,12 @@ document.addEventListener("click", (e) => {
     queueCommitment(payload);
   }
   if (action === "add-commit") {
+    if (!state.targets.some((t) => t.status === "active")) {
+      showToast("Create an active target first.", "error");
+      state.ui.tab = "targets";
+      persist();
+      return;
+    }
     const text = $("#new-commit-text")?.value?.trim();
     const targetId = $("#new-commit-target")?.value;
     let estimateMin = Number($("#new-commit-min")?.value) || 30;
