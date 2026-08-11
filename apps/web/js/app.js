@@ -1303,6 +1303,7 @@ function renderSetup() {
           <span class="file-pick-label">Import backup…</span>
           <input type="file" id="import-backup" accept="application/json,.json" hidden />
         </label>
+        <button type="button" data-action="export-audit">Export audit TSV</button>
         <button type="button" data-action="clear-audit">Clear activity log</button>
         <button type="button" data-action="seed-demo">Load sample journey</button>
         <button type="button" data-action="undo" ${undoStack.length ? "" : "disabled"}>Undo last</button>
@@ -1367,6 +1368,7 @@ function friendlyAuditTool(tool) {
     "user.name": "Saved display name",
     "ui.display": "Saved display prefs",
     "audit.clear": "Cleared activity log",
+    "audit.export": "Exported audit TSV",
     "notify.test": "Test notification",
     "plan.clone_yesterday": "Cloned yesterday’s plan",
     "plan.hide_done": "Hid completed items",
@@ -2505,6 +2507,26 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "audit.clear", `${n}`);
     persist();
     showToast("Activity log cleared.", "ok");
+  }
+  if (action === "export-audit") {
+    const rows = state.audit || [];
+    if (!rows.length) {
+      showToast("Activity log is empty.", "ok");
+      return;
+    }
+    const text = rows
+      .map((a) => `${a.ts || ""}\t${a.tool || ""}\t${(a.detail || "").replace(/\t/g, " ")}`)
+      .join("\n");
+    const blob = new Blob([`ts\ttool\tdetail\n${text}\n`], { type: "text/tab-separated-values" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aily-audit-${todayISO()}.tsv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    appendAudit(state, "audit.export", `${rows.length}`);
+    persist();
+    showToast("Audit TSV downloaded (local only).", "ok");
   }
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
