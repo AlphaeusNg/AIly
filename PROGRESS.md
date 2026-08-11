@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
+Last updated: 2026-08-11 (workspace Cycle 120; AIly Cycle 22)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell; local ally propose (JS+Rust);
   full daily loop with honesty gates, journey stats, PWA update/offline shell.
-- Deployment version: `2026.08.11.108`.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/shell + 54 CI
+- Deployment version: `2026.08.11.113`.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
   policy assertions via `npm test`, plus three Android JVM shell tests in a
   separate cached JDK 21 hosted job.
 - Continuous improve loop on `main` (100+ commits since executable shell).
@@ -23,6 +23,7 @@ Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
 | 1 | Real OS usage tracking hooks (Windows/Android/Linux) | Product spine | High: in-app + manual samples only | Large / medium | Platform APIs + privacy docs | Next |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
+| — | Protect foreign same-origin caches during service-worker activation | Correctness / isolation | Critical: activating AIly could evict offline data owned by other GitHub Pages projects | Small / low | Behavioral worker fixture with AIly, ChristoDay, and foreign cache names | Completed in Cycle 22 |
 | — | Wire Android unit tests into CI with explicit Node/JDK setup | Test / DX | Medium | Small / low | Three compiled-shell tests plus 16 CI policy contracts | Completed in Cycle 21 |
 | — | Make browser target progress direction-aware | Correctness / ally UX | Critical: wrong-way movement appeared complete and deprioritized worsening targets | Small / low | Shared browser helper + Rust/browser regressions | Completed in Cycle 20 |
 | — | Local propose-only day planner + return nudge | Ally UX | High | Medium / low | ally.js + tests | Completed in Cycle 17 |
@@ -41,6 +42,71 @@ Last updated: 2026-08-11 (workspace Cycle 110; AIly Cycle 21 — still shipping)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 22 — Protect shared-origin caches during activation (2026-08-11)
+
+**Why this won:** The backlog's next product step is real OS usage tracking,
+but inspection found that AIly's service worker deleted every cache name except
+its current one during activation. Cache Storage is shared across an origin, so
+on `alphaeusng.github.io` an AIly update could erase ChristoDay or another
+project's offline cache. The workspace objectives rank this current correctness
+and isolation defect above beginning a larger capability.
+
+**Plan and success criteria**
+
+1. Execute the checked-in service worker's activation handler against current,
+   obsolete AIly, ChristoDay, and unrelated cache names.
+2. Delete only obsolete AIly-owned versions while preserving all foreign names.
+3. Keep client claiming in the activation lifetime and make the behavior part
+   of the canonical local/hosted gate.
+
+**Changes**
+
+- Added a named `aily-` cache ownership prefix and limited activation deletion
+  to non-current cache names within that prefix.
+- Added `tools/test-service-worker.mjs`, which evaluates the real worker in a
+  controlled VM, invokes activation, and asserts exact deletion plus client
+  claiming.
+- Added the behavioral suite to `npm test` and a workflow-policy assertion so
+  future gate drift cannot silently remove it (55 policies, up from 54).
+- Bumped the coupled Pages/PWA version and cache to `2026.08.11.113` and updated
+  the README's dogfood version.
+
+**Verification evidence**
+
+- Test-first: activation deleted `christoday-2026.08.11.3` and
+  `other-project-offline-v1` alongside `aily-obsolete-test`, reproducing the
+  cross-project eviction before the fix.
+- Final worker test deleted exactly `aily-obsolete-test`, preserved both foreign
+  sentinels and the current cache, and awaited `clients.claim()`.
+- `npm test`: Rust formatting and strict Clippy passed; 16 Rust unit and two
+  shared-contract tests passed; all browser-domain, service-worker, 19 shell,
+  and 55 workflow/Pages policy checks passed.
+- `npm run android:test`: three JVM shell tests passed; 71 Gradle tasks were
+  successful/up-to-date under JDK 21.
+- JavaScript/JSON checks, version/cache parity, package audit with zero
+  vulnerabilities, and `git diff --check` passed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 3/10 | 10/10 | Updates remove obsolete AIly state without mutating other projects' caches |
+| Test coverage / verifiability | 4/10 | 10/10 | The real activation handler is executed with exact origin-wide sentinels |
+| Maintainability | 6/10 | 9/10 | Cache ownership is explicit and guarded by the canonical gate |
+| Performance / resources | 9/10 | 9/10 | Cleanup remains one small linear pass over cache names |
+| Security / isolation | 3/10 | 10/10 | Destructive storage mutation is constrained to the worker's namespace |
+
+**Lesson / process improvement:** A product backlog should not outrank new
+evidence of a destructive correctness defect. Service-worker scope and Cache
+Storage ownership are different boundaries; reuse a behavioral foreign-cache
+fixture across every PWA sharing an origin, not just a source regex.
+
+**Next opportunity:** Begin the first reversible Android UsageStats slice:
+declare usage access, expose permission status/settings and bounded local
+aggregate reads through a thin Capacitor plugin, require both tutorial consent
+and OS grant, and keep enforcement out of scope. Workspace next: rotate to the
+GitHub profile repository.
 
 ### Cycle 21 — Run meaningful Android shell tests in CI (2026-08-11)
 
