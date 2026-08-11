@@ -1084,7 +1084,8 @@ function renderReview() {
     ${
       pending.length
         ? `<div class="row">
-             <button type="button" data-action="review-all-noimpact">Mark all remaining no-impact</button>
+             <button type="button" data-action="review-all-done-metric">All done + metric</button>
+             <button type="button" data-action="review-all-noimpact">All no-impact</button>
            </div>`
         : ""
     }
@@ -1380,6 +1381,12 @@ function renderSetup() {
         <label class="chk"><input type="checkbox" id="setup-reduce-motion" ${state.ui.reduceMotion ? "checked" : ""} /> Reduce motion</label>
         <button type="button" data-action="save-display">Save display</button>
       </div>
+      ${
+        Date.now() < (state.ui.intentionSkipUntil || 0) || skipIntentionThisSession
+          ? `<p class="muted">Intention checks are paused.
+               <button type="button" data-action="resume-intention-checks">Resume now</button></p>`
+          : ""
+      }
     </div>
     <div class="card">
       <h2>Permissions</h2>
@@ -1471,10 +1478,12 @@ function friendlyAuditTool(tool) {
     "ui.display": "Saved display prefs",
     "audit.clear": "Cleared activity log",
     "audit.export": "Exported audit TSV",
+    "intention.resume": "Resumed intention checks",
     "notify.test": "Test notification",
     "plan.clone_yesterday": "Cloned yesterday’s plan",
     "plan.hide_done": "Hid completed items",
     "review.bulk_no_impact": "Bulk no-impact close",
+    "review.bulk_metric": "Bulk done + metric",
   };
   return map[tool] || tool;
 }
@@ -2347,6 +2356,13 @@ document.addEventListener("click", (e) => {
       showToast("Intention checks paused for a few hours.", "ok");
     }
   }
+  if (action === "resume-intention-checks") {
+    skipIntentionThisSession = false;
+    state.ui.intentionSkipUntil = 0;
+    appendAudit(state, "intention.resume", "ok");
+    persist();
+    showToast("Intention checks resumed.", "ok");
+  }
   if (action === "done-commit") {
     const c = state.commitments.find((x) => x.id === id);
     if (!c) return;
@@ -2607,13 +2623,47 @@ document.addEventListener("click", (e) => {
     if (!confirm(`Close ${open.length} remaining item${open.length === 1 ? "" : "s"} as no-impact?`)) {
       return;
     }
+    pushUndo({
+      type: "hide-done",
+      payload: open.map((c) => ({ id: c.id, prevStatus: c.status })),
+    });
     for (const c of open) {
       c.status = "done";
       c.noImpactReason = "bulk_close";
     }
     appendAudit(state, "review.bulk_no_impact", `${open.length}`);
     persist();
-    showToast(`Closed ${open.length} as no-impact.`, "ok");
+    showToast(`Closed ${open.length} as no-impact. Z undoes.`, "ok");
+  }
+  if (action === "review-all-done-metric") {
+    const d = todayISO();
+    const open = (state.commitments || []).filter((c) => c.planDate === d && c.status === "pending");
+    if (!open.length) return;
+    if (
+      !confirm(
+        `Mark ${open.length} remaining item${open.length === 1 ? "" : "s"} done + metric bump each?`
+      )
+    ) {
+      return;
+    }
+    pushUndo({
+      type: "hide-done",
+      payload: open.map((c) => ({ id: c.id, prevStatus: c.status })),
+    });
+    for (const c of open) {
+      c.status = "done";
+      c.metricDelta = true;
+      const t = state.targets.find((x) => x.id === c.targetId);
+      if (t?.metrics?.[0] && t.status === "active") {
+        const m = t.metrics[0];
+        const step = m.minMeaningfulDelta || 1;
+        if (m.target >= m.baseline) m.current = Math.min(m.target, m.current + step);
+        else m.current = Math.max(m.target, m.current - step);
+      }
+    }
+    appendAudit(state, "review.bulk_metric", `${open.length}`);
+    persist();
+    showToast(`Closed ${open.length} with metrics. Z undoes status only.`, "ok", 4500);
   }
   if (action === "grant-usage") {
     state.tutorial.permissions.usage = true;
