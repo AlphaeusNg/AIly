@@ -5,6 +5,7 @@ import {
   checkPlanAccept,
   replanToday,
   dailySoftCapMinutes,
+  snapEstimateMin,
 } from "../apps/web/js/capacity.js";
 
 function assert(cond, msg) {
@@ -108,3 +109,8 @@ assert(dailySoftCapMinutes(10, 4) === 150, "daily soft cap 10h/4n = 150m");
 }
 
 console.log("test-capacity.mjs: ok");
+
+assert(snapEstimateMin(10) === 15, "snap floor");
+assert(snapEstimateMin(22) === 15, "snap 22");
+assert(snapEstimateMin(23) === 30, "snap 23");
+assert(snapEstimateMin(30) === 30, "snap exact");

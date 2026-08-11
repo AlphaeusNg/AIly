@@ -16,6 +16,7 @@ import {
   replanToday,
   errorLabel,
   dailySoftCapMinutes,
+  snapEstimateMin,
 } from "./capacity.js";
 import { CHAPTERS, canArmBlocks, isReady, chapterStatus } from "./tutorial.js";
 import {
@@ -2131,7 +2132,7 @@ document.addEventListener("click", (e) => {
       showToast("Estimate must be at least 15 minutes.", "error");
       return;
     }
-    estimateMin = Math.max(15, Math.round(estimateMin / 15) * 15);
+    estimateMin = snapEstimateMin(estimateMin);
     if ($("#new-commit-min")) $("#new-commit-min").value = String(estimateMin);
     const payload = { text, targetId, estimateMin, mustKeep: !!mustKeep };
     if (shouldAskIntention(estimateMin)) {
@@ -2182,7 +2183,7 @@ document.addEventListener("click", (e) => {
       showToast("Estimate must be at least 15 minutes.", "error");
       return;
     }
-    mins = Math.max(15, Math.round(mins / 15) * 15);
+    mins = snapEstimateMin(mins);
     const activeTargets = state.targets.filter((t) => t.status === "active");
     if (activeTargets.length) {
       const labels = activeTargets.map((t, i) => `${i + 1}. ${t.title}`).join("\n");

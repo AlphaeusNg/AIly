@@ -60,6 +60,12 @@ export function checkPlanAccept({
 
 const FLOOR = 15;
 
+/** Snap estimate minutes to the domain floor / 15m grid. */
+export function snapEstimateMin(mins, floor = FLOOR) {
+  if (!Number.isFinite(mins) || mins < floor) return floor;
+  return Math.max(floor, Math.round(mins / 15) * 15);
+}
+
 /** Deterministic replan matching aily-core::replan_today */
 export function replanToday({
   weeklyCapacityHours,
