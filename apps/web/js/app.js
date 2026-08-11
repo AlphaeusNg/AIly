@@ -40,6 +40,7 @@ import {
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
+import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 
 let state = loadState();
 {
@@ -67,6 +68,10 @@ const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
 let lastHiddenAt = 0;
+const usageBackend = selectUsageBackend();
+/** @type {Array<{ type: string, payload: any }>} */
+let undoStack = [];
+const MAX_UNDO = 12;
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -101,6 +106,40 @@ function updateSaveStatus() {
   el.hidden = false;
   el.className = "save-status is-error";
   el.textContent = "Save failed — storage full or blocked";
+}
+
+function pushUndo(entry) {
+  undoStack.unshift(entry);
+  undoStack = undoStack.slice(0, MAX_UNDO);
+}
+
+function undoLast() {
+  const entry = undoStack.shift();
+  if (!entry) {
+    showToast("Nothing to undo.", "ok");
+    return;
+  }
+  if (entry.type === "drop-commit") {
+    const c = state.commitments.find((x) => x.id === entry.payload.id);
+    if (c) {
+      c.status = entry.payload.prevStatus || "pending";
+      appendAudit(state, "undo.drop", c.text);
+      persist();
+      showToast("Restored dropped commitment.", "ok");
+      return;
+    }
+  }
+  if (entry.type === "hide-done") {
+    for (const item of entry.payload || []) {
+      const c = state.commitments.find((x) => x.id === item.id);
+      if (c) c.status = item.prevStatus || "done";
+    }
+    appendAudit(state, "undo.hide_done", `${(entry.payload || []).length}`);
+    persist();
+    showToast("Restored completed items on Today.", "ok");
+    return;
+  }
+  showToast("Could not undo that action.", "error");
 }
 
 function showToast(message, kind = "ok", ms = 3200) {
@@ -887,9 +926,11 @@ function renderTargets() {
               ${
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
+                     <button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
                      <button type="button" data-action="pause-target" data-id="${t.id}">Pause</button>
                      <button type="button" data-action="complete-target" data-id="${t.id}">Complete</button>`
-                  : `<button type="button" data-action="activate-target" data-id="${t.id}">Reactivate</button>`
+                  : `<button type="button" data-action="rename-target" data-id="${t.id}">Rename</button>
+                     <button type="button" data-action="activate-target" data-id="${t.id}">Reactivate</button>`
               }
             </div>
           </li>`;
@@ -983,8 +1024,9 @@ function renderUsage() {
   el.innerHTML = `
     <header class="panel-head">
       <h1>Usage</h1>
-      <p class="muted">Attention map — local only. AIly auto-logs time in this app when permission is on; add other apps manually until OS hooks ship.</p>
+      <p class="muted">${escapeHtml(usageBackendHonesty(usageBackend))}</p>
     </header>
+    <p class="muted">Backend: <strong>${escapeHtml(usageBackend.label)}</strong> · <code>${escapeHtml(usageBackend.id)}</code></p>
     ${
       granted
         ? `<div class="banner ok">Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
@@ -1276,6 +1318,10 @@ function friendlyAuditTool(tool) {
     "target.pause": "Paused target",
     "target.complete": "Completed target",
     "target.activate": "Reactivated target",
+    "target.rename": "Renamed target",
+    "undo.drop": "Undid drop",
+    "undo.hide_done": "Undid hide-done",
+    // keep labels in sync with pushUndo types
     "checkin.save": "Daily intention",
     "checkin.skip": "Skipped check-in",
     "focus.start": "Focus started",
@@ -2031,10 +2077,14 @@ document.addEventListener("click", (e) => {
     ) {
       return;
     }
+    pushUndo({
+      type: "hide-done",
+      payload: done.map((c) => ({ id: c.id, prevStatus: c.status })),
+    });
     for (const c of done) c.status = "dropped";
     appendAudit(state, "plan.hide_done", `${done.length}`);
     persist();
-    showToast("Completed items removed from Today.", "ok");
+    showToast("Completed items removed. Press Z to undo.", "ok");
   }
   if (action === "ally-clear") {
     allyProposal = null;
@@ -2179,9 +2229,14 @@ document.addEventListener("click", (e) => {
     const c = state.commitments.find((x) => x.id === id);
     if (!c) return;
     if (c.mustKeep && !confirm(`“${c.text}” is must-keep. Drop it anyway?`)) return;
+    pushUndo({ type: "drop-commit", payload: { id: c.id, prevStatus: c.status } });
     c.status = "dropped";
     appendAudit(state, "commitment.drop", c.text);
     persist();
+    showToast("Dropped. Press Z to undo.", "ok");
+  }
+  if (action === "undo") {
+    undoLast();
   }
   if (action === "discard-invalid-commitments") {
     const count = state.recovery?.invalidCommitments?.length || 0;
@@ -2276,6 +2331,22 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "target.activate", t.title);
     persist();
     showToast("Target active again.", "ok");
+  }
+  if (action === "rename-target") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t) return;
+    const next = prompt("Rename target", t.title);
+    if (next == null) return;
+    const title = next.trim().slice(0, 120);
+    if (!title) {
+      showToast("Title cannot be empty.", "error");
+      return;
+    }
+    const prev = t.title;
+    t.title = title;
+    appendAudit(state, "target.rename", `${prev}→${title}`);
+    persist();
+    showToast("Target renamed.", "ok");
   }
   if (action === "review-done") {
     const c = state.commitments.find((x) => x.id === id);
@@ -2650,8 +2721,17 @@ window.addEventListener("focus", () => usageTracker?.onVisibilityOrFocus());
 window.addEventListener("blur", () => usageTracker?.onVisibilityOrFocus());
 window.addEventListener("pagehide", () => usageTracker?.flush());
 
-// Refresh session clock on Today occasionally while tab is visible
+// Focus tray tick (1s) when a session is active
 window.setInterval(() => {
+  if (document.visibilityState !== "visible") return;
+  if (!focusRemainingLabel()) return;
+  $("#tray-status").textContent = trayLabel();
+  if (state.ui.tab === "today" && !state.ui.tutorialOpen) {
+    // Light update: only tray is required every second; full today every 5s via other timer
+  }
+  if (state.ui.tab === "blocks" && !state.ui.tutorialOpen) {
+    // keep blocks focus banner roughly current without full re-render thrash
+  }
   const ended = endFocusSessionIfNeeded();
   if (ended) {
     persist();
@@ -2671,13 +2751,17 @@ window.setInterval(() => {
         });
       }
     } catch {
-      /* ignore notification failures */
+      /* ignore */
     }
-    return;
   }
+}, 1000);
+
+// Refresh session clock on Today occasionally while tab is visible
+window.setInterval(() => {
   if (document.visibilityState === "visible" && !state.ui.tutorialOpen) {
     if (state.ui.tab === "today") renderToday();
     if (state.ui.tab === "usage" && state.tutorial.permissions.usage) renderUsage();
+    if (state.ui.tab === "blocks") renderBlocks();
     $("#tray-status").textContent = trayLabel();
     renderNav();
   }
@@ -2740,5 +2824,8 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "?" && !state.ui.tutorialOpen) {
     helpOpen = true;
     renderHelpModal();
+  }
+  if ((e.key === "z" || e.key === "Z") && !e.shiftKey) {
+    undoLast();
   }
 });

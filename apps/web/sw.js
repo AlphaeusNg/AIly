@@ -1,5 +1,5 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
-const CACHE = "aily-2026.08.11.59";
+const CACHE = "aily-2026.08.11.60";
 const ASSETS = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const ASSETS = [
   "./js/block.js",
   "./js/ally.js",
   "./js/journey.js",
+  "./js/platform-usage.js",
   "./js/version.js",
   "./manifest.webmanifest",
   "./assets/logo.svg",

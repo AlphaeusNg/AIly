@@ -32,6 +32,7 @@ check(gate, /cargo fmt --all -- --check/, "local gate enforces Rust formatting")
 check(gate, /cargo clippy --all-targets --all-features -- -D warnings/, "local gate enforces strict Clippy");
 check(gate, /cargo test/, "local gate runs Rust tests");
 check(gate, /node tools\/test-usage\.mjs/, "local gate runs usage helper tests");
+check(gate, /node tools\/test-platform-usage\.mjs/, "local gate runs platform usage adapter tests");
 check(gate, /node tools\/test-block\.mjs/, "local gate runs block helper tests");
 check(gate, /node tools\/test-ally\.mjs/, "local gate runs ally propose tests");
 check(gate, /node tools\/test-ally-rust-contract\.mjs/, "local gate runs ally shared contract tests");

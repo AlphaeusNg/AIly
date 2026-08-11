@@ -75,6 +75,8 @@ assert.match(app, /prefers-reduced-motion|reduceMotion|reduce-motion/, "motion p
 assert.match(app, /seedDemoJourney|seed-demo/, "sample journey seeder exists");
 assert.match(app, /upsertBlockRule/, "block upsert is wired");
 assert.match(app, /attentionMismatchNote/, "attention mismatch note is wired");
+assert.match(app, /platform-usage|selectUsageBackend/, "platform usage backend is wired");
+assert.match(app, /undoLast|pushUndo/, "session undo is wired");
 
 const offline = read("offline.html");
 assert.match(offline, /offline/i, "offline page mentions offline");
