@@ -36,6 +36,10 @@ rejects anything that fails `checkPlanAccept`. The user must accept each item
 | `platform-usage.js` | usage backend select + honesty |
 | `version.js` | deploy stamp |
 
+The PWA worker owns only its installed AIly path and current `aily-*` cache.
+Sibling projects on the shared GitHub Pages origin bypass it, and runtime cache
+writes remain inside the fetch event lifetime.
+
 ## Next
 
 See `platform-hooks.md` for adapter plan.

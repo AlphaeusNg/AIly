@@ -71,9 +71,9 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.11.114`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.11.115`):
 
-- Boot splash + brand assets, PWA install/update banners, offline page  
+- Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  
 - Daily intention check-in + focus sessions (soft-arm / auto-disarm)  
 - **Local propose-only ally planner** (JS + Rust) — Ask AIly to propose a plan  

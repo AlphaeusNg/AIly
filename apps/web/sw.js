@@ -1,6 +1,7 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
 const CACHE_PREFIX = "aily-";
-const CACHE = "aily-2026.08.11.114";
+const CACHE = "aily-2026.08.11.115";
+const SCOPE_URL = new URL(self.registration.scope);
 const ASSETS = [
   "./",
   "./index.html",
@@ -76,24 +77,35 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // The GitHub Pages origin hosts several projects. Do not intercept or cache
+  // requests outside this installed AIly scope, even when they share an origin.
+  if (
+    url.origin !== SCOPE_URL.origin ||
+    !url.pathname.startsWith(SCOPE_URL.pathname)
+  ) {
+    return;
+  }
+
   const accept = req.headers.get("accept") || "";
   const navigate = req.mode === "navigate" || accept.includes("text/html");
-  event.respondWith(
-    caches.match(req).then((hit) => {
-      const net = fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          if (res.ok && new URL(req.url).origin === self.location.origin) {
-            caches.open(CACHE).then((c) => c.put(req, copy));
+  const cachePromise = caches.open(CACHE);
+  const cachedPromise = cachePromise.then((cache) => cache.match(req));
+  const networkPromise = Promise.all([cachePromise, cachedPromise]).then(
+    ([cache, cached]) => fetch(req)
+      .then(async (response) => {
+        if (response?.ok) {
+          try {
+            await cache.put(req, response.clone());
+          } catch {
+            // A quota/policy failure must not discard a valid network response.
           }
-          return res;
-        })
-        .catch(() => {
-          if (hit) return hit;
-          if (navigate) return caches.match("./offline.html");
-          return hit;
-        });
-      return hit || net;
-    })
+        }
+        return response;
+      })
+      .catch(() => cached || (navigate ? cache.match("./offline.html") : undefined))
   );
+  event.respondWith(cachedPromise.then((cached) => cached || networkPromise));
+  event.waitUntil(networkPromise.then(() => undefined));
 });

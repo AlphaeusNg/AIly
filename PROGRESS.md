@@ -4,17 +4,20 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (workspace Cycle 130; AIly Cycle 23)
+Last updated: 2026-08-11 (workspace Cycle 139; AIly Cycle 24)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.11.114`.
+- Deployment version: `2026.08.11.115`.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
+- Service-worker execution covers activation cleanup, installed-scope bypass,
+  current-cache ownership, fetch lifetime, offline navigation, and cache-write
+  failure isolation.
 - Continuous improve loop on `main` (100+ commits since executable shell).
 
 ## Opportunity backlog
@@ -22,8 +25,10 @@ Last updated: 2026-08-11 (workspace Cycle 130; AIly Cycle 23)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
-| 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
-| 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
+| 2 | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium: malformed native rows can consume the valid-sample quota and hide later totals | Small / low | Red adapter contract reproduced the issue before this cycle pivoted to critical cache isolation | Backlog |
+| 3 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
+| 4 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
+| — | Restrict service-worker fetches to AIly scope/current cache and own their lifetime | Correctness / isolation | Critical: the worker could intercept sibling requests, read foreign caches, and detach writes | Small-medium / low | Behavioral scope, ownership, lifetime, fallback, and write-failure fixture | Completed in Cycle 24 |
 | — | Add a consent-gated Android UsageStats adapter | Product spine / privacy | High: Capacitor APK can show real current-day app totals without background collection | Medium / low | Native plugin, dual grants, bounded live results, adapter/JVM contracts | Completed in Cycle 23 |
 | — | Protect foreign same-origin caches during service-worker activation | Correctness / isolation | Critical: activating AIly could evict offline data owned by other GitHub Pages projects | Small / low | Behavioral worker fixture with AIly, ChristoDay, and foreign cache names | Completed in Cycle 22 |
 | — | Wire Android unit tests into CI with explicit Node/JDK setup | Test / DX | Medium | Small / low | Three compiled-shell tests plus 16 CI policy contracts | Completed in Cycle 21 |
@@ -44,6 +49,70 @@ Last updated: 2026-08-11 (workspace Cycle 130; AIly Cycle 23)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 24 — Isolate runtime caching and own fetch lifetimes (2026-08-11)
+
+**Why this won:** The attached-device check confirmed that the planned physical
+Android UsageStats journey remains externally blocked. Adapter review found a
+small malformed-row cap defect, but version/cache inspection then exposed a
+critical shared-origin issue: activation cleanup was safe while fetch handling
+still intercepted sibling-project traffic, searched every origin cache, and
+launched cache writes outside the fetch event lifetime. That new evidence
+outranked the smaller adapter fix, which was reverted before shipping and
+recorded in the backlog.
+
+**Plan and success criteria**
+
+1. Execute the checked-in worker under its production-like `/AIly/` scope.
+2. Prove sibling paths are bypassed and only the current AIly cache can answer
+   an AIly request, even when a foreign cache has a conflicting response.
+3. Bind network refresh/cache writes to `event.waitUntil()` while preserving
+   owned offline navigation and usable network responses when `cache.put` fails.
+
+**Changes**
+
+- Derived an explicit runtime boundary from `self.registration.scope` and
+  bypassed cross-origin plus same-origin out-of-scope requests.
+- Replaced origin-global `caches.match()` with reads from the current versioned
+  AIly cache only.
+- Shared one network/update promise between response logic and
+  `event.waitUntil()`, with cache-write failure isolated from network delivery.
+- Expanded the service-worker VM from activation-only coverage to executable
+  activation, scope, cache-conflict, lifetime, offline-fallback, and denied-write
+  scenarios.
+- Documented cache ownership and bumped the coupled site/cache version to
+  `2026.08.11.115`.
+
+**Verification evidence**
+
+- Test-first: the old worker registered a response for
+  `/ChristoDay/js/app.js`, failing the out-of-scope contract with 1 interception
+  instead of 0 before reaching the foreign-cache and lifetime assertions.
+- The final focused worker suite passes every activation/runtime scenario;
+  self-review added an owned-cache offline-navigation contract after the main
+  fix was green.
+- The complete Rust/browser/native, audit, syntax, JSON, diff, hosted CI, Pages,
+  and live-version results are recorded in the workspace Cycle 139 summary.
+- Correctness/reliability: 3/10 → 10/10 (only owned scope/cache data can answer).
+- Verifiability: 4/10 → 10/10 (the real handler now executes across six failure
+  and ownership boundaries).
+- Maintainability: 7/10 → 9/10 (scope, cache, and lifetime ownership are one
+  explicit policy shared with the repository's activation namespace).
+- Performance/resources: 6/10 → 9/10 (sibling traffic bypasses AIly and runtime
+  writes have a bounded browser lifetime).
+- Security/isolation: 3/10 → 10/10 (foreign cache data cannot contaminate AIly
+  responses and AIly cannot absorb sibling resources).
+
+**Lesson / process improvement:** Reprioritize immediately when new destructive
+evidence outranks an unshipped small fix, and revert the smaller experiment
+cleanly rather than bundling unrelated work. Cache-prefix-safe activation does
+not imply fetch isolation: every shared-origin PWA needs executable checks for
+scope, current-cache reads, and event-owned writes.
+
+**Next opportunity:** A physical Android permission/read journey remains the
+product-spine priority when hardware is attached. The next local adapter fix is
+to make invalid native rows stop consuming the 50-valid-sample JavaScript quota.
+Workspace next: skip another zero-delta profile audit and rotate to VerseKeep.
 
 ### Cycle 23 — Read Android daily usage behind dual consent (2026-08-11)
 
