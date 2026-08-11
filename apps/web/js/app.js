@@ -1668,7 +1668,21 @@ function cloneYesterday() {
     return;
   }
   let n = 0;
+  let skipped = 0;
   for (const c of yItems) {
+    const active = state.targets.some((t) => t.id === c.targetId && t.status === "active");
+    if (!active) {
+      skipped += 1;
+      continue;
+    }
+    const dup = findSameDayDuplicate(state.commitments || [], {
+      planDate: today,
+      text: c.text,
+    });
+    if (dup.duplicate) {
+      skipped += 1;
+      continue;
+    }
     state.commitments.push({
       id: uid(),
       targetId: c.targetId,
@@ -1681,9 +1695,25 @@ function cloneYesterday() {
     });
     n += 1;
   }
-  appendAudit(state, "plan.clone_yesterday", `${n} from ${y}`);
+  if (!n) {
+    showToast(
+      skipped
+        ? "Nothing new to clone (inactive targets or already on today)."
+        : "Nothing on yesterday’s plan to clone.",
+      "error",
+      4500
+    );
+    return;
+  }
+  appendAudit(state, "plan.clone_yesterday", `${n} from ${y} skip:${skipped}`);
   persist();
-  showToast(`Cloned ${n} item${n === 1 ? "" : "s"} from yesterday. Replan if over capacity.`, "ok", 4500);
+  showToast(
+    skipped
+      ? `Cloned ${n}; skipped ${skipped}. Replan if over capacity.`
+      : `Cloned ${n} item${n === 1 ? "" : "s"} from yesterday. Replan if over capacity.`,
+    "ok",
+    4500
+  );
 }
 
 function runAllyPropose() {
