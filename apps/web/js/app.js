@@ -2705,13 +2705,20 @@ document.addEventListener("click", (e) => {
         showToast("Complete Attention map + Ally admin first.", "error");
         return;
       }
+      if (!(r.appKeys || []).length) {
+        showToast("Rule has no app keys.", "error");
+        return;
+      }
       r.armed = true;
       appendAudit(state, "block.arm", r.appKeys.join(","));
+      persist();
+      showToast(`Armed ${r.appKeys.join(", ")}.`, "ok");
     } else {
       r.armed = false;
       appendAudit(state, "block.disarm", r.appKeys.join(","));
+      persist();
+      showToast(`Disarmed ${r.appKeys.join(", ")}.`, "ok");
     }
-    persist();
   }
   if (action === "break-glass") {
     const r = state.blockRules.find((x) => x.id === id);
