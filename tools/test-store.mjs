@@ -238,8 +238,14 @@ assert.equal(defaultState().ui.lastCheckInDate, "", "default has no check-in day
 assert.equal(typeof defaultState().ui.focusSessionEndsAt, "number", "focus session end is numeric");
 
 const sw = readFileSync(new URL("../apps/web/sw.js", import.meta.url), "utf8");
+const versionSource = readFileSync(new URL("../apps/web/js/version.js", import.meta.url), "utf8");
+const versionId = /\bid:\s*"([^"]+)"/.exec(versionSource)?.[1];
 assert.match(sw, /assets\/logo\.svg/, "service worker caches logo");
-assert.match(sw, /aily-2026\.08\.1[01]/, "service worker cache id is bumped for this ship");
+assert.match(versionId || "", /^\d{4}\.\d{2}\.\d{2}\.\d+$/, "site version has deploy-stamp format");
+assert.ok(
+  sw.includes(`const CACHE = "aily-${versionId}";`),
+  "service worker cache id exactly matches the site version",
+);
 
 assert.equal(
   defaultState().ui.installBannerDismissed,

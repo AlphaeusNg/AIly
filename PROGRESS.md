@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-11 (workspace Cycle 139; AIly Cycle 24)
+Last updated: 2026-08-14 (workspace Cycle 148; AIly Cycle 25)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.11.115`.
+- Deployment version: `2026.08.14.1`.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
@@ -25,9 +25,9 @@ Last updated: 2026-08-11 (workspace Cycle 139; AIly Cycle 24)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
-| 2 | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium: malformed native rows can consume the valid-sample quota and hide later totals | Small / low | Red adapter contract reproduced the issue before this cycle pivoted to critical cache isolation | Backlog |
-| 3 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
-| 4 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
+| — | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium | Small / low | Invalid prefixes, valid output ordering, and the independent 50-sample bound are directly covered | Completed in Cycle 25 |
+| 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
+| 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
 | — | Restrict service-worker fetches to AIly scope/current cache and own their lifetime | Correctness / isolation | Critical: the worker could intercept sibling requests, read foreign caches, and detach writes | Small-medium / low | Behavioral scope, ownership, lifetime, fallback, and write-failure fixture | Completed in Cycle 24 |
 | — | Add a consent-gated Android UsageStats adapter | Product spine / privacy | High: Capacitor APK can show real current-day app totals without background collection | Medium / low | Native plugin, dual grants, bounded live results, adapter/JVM contracts | Completed in Cycle 23 |
 | — | Protect foreign same-origin caches during service-worker activation | Correctness / isolation | Critical: activating AIly could evict offline data owned by other GitHub Pages projects | Small / low | Behavioral worker fixture with AIly, ChristoDay, and foreign cache names | Completed in Cycle 22 |
@@ -49,6 +49,69 @@ Last updated: 2026-08-11 (workspace Cycle 139; AIly Cycle 24)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 25 — Cap valid Android usage samples (2026-08-14)
+
+**Why this won:** The higher-level physical Android UsageStats journey remained
+blocked with no attached device. The top executable local defect was already
+reproduced in the backlog: the JavaScript adapter sliced the first 50 native
+rows before validation, so malformed rows could consume the quota and hide
+later valid daily totals.
+
+**Plan and success criteria**
+
+1. Put 50 invalid rows before 55 valid rows and reproduce missing output.
+2. Preserve native ordering while returning the first 50 valid samples only.
+3. Keep consent, permission, normalization, and bounded-resource contracts green.
+
+**Changes**
+
+- Moved the Android adapter's output bound after row validation using an
+  early-exit loop, so invalid rows do not consume valid-sample capacity and the
+  adapter stops as soon as 50 valid results are collected.
+- Extended the usage sample type contract with the existing optional Android
+  package identity field.
+- Added a regression fixture with 50 invalid prefix rows and 55 valid rows,
+  asserting exact first/last retained package order and a 50-sample result.
+- Replaced two stale date-specific release assertions with a deploy-format
+  check and exact site-version/service-worker-cache parity, so future dates do
+  not require weakening or manually extending the gate.
+- Bumped the coupled site/cache version and README stamp to `2026.08.14.1`.
+
+**Verification evidence**
+
+- Test-first: the adapter returned 0 samples instead of 50 because the invalid
+  prefix exhausted the pre-validation slice.
+- The focused adapter contract passes after the bounded early-exit fix.
+- The first full gate exposed August 10–11 date regexes in two release tests;
+  both now enforce stable format/parity invariants, and the canonical gate
+  passes on the August 14 stamp.
+- The complete Rust/web/native, dependency, syntax, JSON, diff, hosted CI,
+  Pages, and live-version results are recorded in the workspace Cycle 148
+  completion summary.
+- Correctness/reliability: 4/10 → 10/10 (valid totals cannot be crowded out by
+  malformed native rows).
+- Verifiability: 5/10 → 10/10 (invalid-prefix behavior, ordering, and cap are
+  directly asserted).
+- Maintainability: 7/10 → 9/10 (one explicit loop owns validation and bounded
+  collection; the sample type matches its returned shape).
+- Performance/resources: 6/10 → 9/10 (collection stops at 50 valid samples
+  instead of transforming all remaining rows).
+- Privacy/safety: 9/10 → 9/10 (dual consent and local-only behavior are
+  unchanged).
+- User experience: 5/10 → 9/10 (valid Android totals remain visible despite
+  malformed neighbors).
+
+**Lesson / process improvement:** Apply caps to accepted domain values rather
+than raw transport positions. When moving a cap after validation, use bounded
+iteration instead of normalizing the complete untrusted envelope and slicing
+later; correctness and resource control should improve together. Release tests
+should validate timeless format and cross-artifact parity rather than encode a
+short-lived calendar allowlist.
+
+**Next opportunity:** Run the physical Android permission/read/revocation and
+local-midnight journey when hardware is attached. Workspace next: rotate to
+VerseKeep, continuing to skip the profile repo after repeated zero-delta audits.
 
 ### Cycle 24 — Isolate runtime caching and own fetch lifetimes (2026-08-11)
 

@@ -4,7 +4,7 @@
  * OS backends plug in behind the same shape — never invent cloud exfil.
  */
 
-/** @typedef {{ app: string, mins: number, ts: string, source?: string }} UsageSample */
+/** @typedef {{ app: string, mins: number, ts: string, source?: string, packageName?: string }} UsageSample */
 
 /**
  * @returns {{
@@ -90,23 +90,24 @@ export function createAndroidUsageBackend(plugin) {
       const day = /^\d{4}-\d{2}-\d{2}$/.test(result.day || "")
         ? result.day
         : new Date().toLocaleDateString("en-CA");
-      return result.samples
-        .slice(0, 50)
-        .flatMap((row) => {
-          const packageName = String(row?.packageName || "").trim().slice(0, 200);
-          const app = String(row?.label || "").trim().slice(0, 120);
-          const foregroundMs = Number(row?.foregroundMs);
-          if (!packageName || !app || !Number.isFinite(foregroundMs) || foregroundMs <= 0) {
-            return [];
-          }
-          return [{
-            app,
-            mins: Math.max(1, Math.round(foregroundMs / 60000)),
-            ts: `${day}T12:00:00`,
-            source: "android-usagestats",
-            packageName,
-          }];
+      const samples = [];
+      for (const row of result.samples) {
+        const packageName = String(row?.packageName || "").trim().slice(0, 200);
+        const app = String(row?.label || "").trim().slice(0, 120);
+        const foregroundMs = Number(row?.foregroundMs);
+        if (!packageName || !app || !Number.isFinite(foregroundMs) || foregroundMs <= 0) {
+          continue;
+        }
+        samples.push({
+          app,
+          mins: Math.max(1, Math.round(foregroundMs / 60000)),
+          ts: `${day}T12:00:00`,
+          source: "android-usagestats",
+          packageName,
         });
+        if (samples.length === 50) break;
+      }
+      return samples;
     },
   };
 }

@@ -62,7 +62,7 @@ assert.match(sw, /target\.js/, "SW caches target progress module");
 
 const version = read("js/version.js");
 assert.match(version, /SITE_VERSION/, "version module exports SITE_VERSION");
-assert.match(version, /2026\.08\.11\.\d+/, "version stamp is current series");
+assert.match(version, /\bid:\s*"\d{4}\.\d{2}\.\d{2}\.\d+"/, "version stamp uses deploy format");
 
 const manifest = JSON.parse(read("manifest.webmanifest"));
 assert.equal(manifest.display, "standalone");

@@ -99,6 +99,31 @@ assert.equal(
   "the JavaScript boundary independently caps native rows",
 );
 
+const validSampleCap = createAndroidUsageBackend({
+  async listTodayUsage() {
+    return {
+      permission: "granted",
+      day: "2026-08-11",
+      samples: [
+        ...Array.from({ length: 50 }, (_, i) => ({
+          packageName: `invalid.zero${i}`,
+          label: `Invalid ${i}`,
+          foregroundMs: 0,
+        })),
+        ...Array.from({ length: 55 }, (_, i) => ({
+          packageName: `com.example.valid${i}`,
+          label: `Valid ${i}`,
+          foregroundMs: 60_000,
+        })),
+      ],
+    };
+  },
+});
+const validSamples = await validSampleCap.listTodaySamples({ consented: true });
+assert.equal(validSamples.length, 50, "malformed rows do not consume the valid-sample cap");
+assert.equal(validSamples[0].packageName, "com.example.valid0");
+assert.equal(validSamples[49].packageName, "com.example.valid49");
+
 assert.equal(selectUsageBackend({ isNative: false }).id, "web-session");
 assert.equal(
   selectUsageBackend({ isNative: true, platform: "android", plugin: null }).id,
