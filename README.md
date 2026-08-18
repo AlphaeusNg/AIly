@@ -20,9 +20,11 @@ Full guide: **[docs/install-windows-android.md](docs/install-windows-android.md)
 
 ### Windows (fastest)
 
+There is no native `.exe` / `.msi` installer yet. Install the hosted PWA:
+
 1. After deploy: open **Edge/Chrome** → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/)
-2. **Install app** (PWA) → runs in its own window.
-3. Or clone on Windows and double-click `tools\serve-windows.bat` (needs Python or Node).
+2. **Install app** (PWA) → runs in its own window, scoped to `/AIly/`.
+3. Or clone on Windows and double-click `tools\serve-windows.bat` for a local preview (needs Python or Node).
 
 ### Android
 
@@ -71,7 +73,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.14.1`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.18.1`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  

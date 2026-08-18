@@ -68,6 +68,7 @@ check(gate, /node tools\/test-ally-rust-contract\.mjs/, "local gate runs ally sh
 check(gate, /node tools\/test-journey\.mjs/, "local gate runs journey helper tests");
 check(gate, /node tools\/test-service-worker\.mjs/, "local gate runs service-worker ownership tests");
 check(gate, /node tools\/test-shell\.mjs/, "local gate runs shell integrity tests");
+check(gate, /node tools\/test-serve-static\.mjs/, "local gate runs the Windows static-server tests");
 check(gate, /node tools\/test-workflows\.mjs/, "local gate enforces workflow policy");
 check(gate, /find apps\/web\/js[\s\S]*node --check/, "local gate syntax-checks every web module");
 check(gate, /find tools[\s\S]*node --check/, "local gate syntax-checks every test tool");

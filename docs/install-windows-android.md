@@ -8,6 +8,10 @@ Brand: **AIly** — *Your AI Ally*
 
 ## Windows (recommended first)
 
+There is **no native Windows installer** (no `.exe`, `.msi`, or `.msix`) yet. The
+desktop shell is still future work. “Install on Windows” means installing the
+hosted **Progressive Web App** in Edge or Chrome.
+
 ### Option A — Install as app from GitHub Pages (easiest)
 
 After this repo is on GitHub Pages:
@@ -17,7 +21,11 @@ After this repo is on GitHub Pages:
 3. Click **Install** / **App available** / ⋮ → **Install AIly**.
 4. AIly opens in its own window (standalone PWA). Data stays in that browser profile (localStorage).
 
+The installed app identity is scoped to `/AIly/`, not the portfolio site root.
+
 ### Option B — Run from a local clone on Windows
+
+This starts a **local preview server**. It is not a packaged installer.
 
 1. Clone the repo on Windows (not only WSL), or copy the `apps/web` folder out of WSL:
    ```text

@@ -68,6 +68,27 @@ const manifest = JSON.parse(read("manifest.webmanifest"));
 assert.equal(manifest.display, "standalone");
 assert.ok(manifest.icons?.length >= 3, "manifest has icons");
 assert.match(manifest.name || "", /AIly/i);
+assert.equal(manifest.id, "./", "PWA identity stays relative to the AIly scope");
+assert.notEqual(manifest.id, "/", "PWA identity must not collide with the portfolio origin root");
+assert.equal(manifest.start_url, "./index.html");
+assert.equal(manifest.scope, "./");
+
+const launcherPath = join(root, "tools/serve-windows.ps1");
+const launcherBytes = readFileSync(launcherPath);
+assert.ok(
+  [...launcherBytes].every((byte) => byte < 0x80),
+  "Windows launcher stays ASCII so Windows PowerShell 5.1 can parse it without a UTF-8 BOM",
+);
+const launcher = launcherBytes.toString("ascii");
+assert.doesNotMatch(launcher, /node\s+-e/, "Windows launcher must not embed a node -e one-liner");
+assert.match(launcher, /serve-static\.mjs/, "Windows launcher uses the extracted static server");
+assert.match(launcher, /not a native Windows installer/, "Windows launcher states it is not a native installer");
+assert.ok(
+  launcher.split(/\r?\n/).every((line) => line.length <= 220),
+  "Windows launcher lines stay short enough to parse reliably",
+);
+const bat = readFileSync(join(root, "tools/serve-windows.bat"), "utf8");
+assert.match(bat, /serve-windows\.ps1/, "batch wrapper invokes the PowerShell launcher");
 
 const app = read("js/app.js");
 assert.match(app, /proposeDayPlan/, "app wires ally propose");

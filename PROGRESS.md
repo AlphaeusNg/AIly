@@ -4,14 +4,16 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-14 (workspace Cycle 148; AIly Cycle 25)
+Last updated: 2026-08-18 (workspace Cycle 151; AIly Cycle 26)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.14.1`.
+- Deployment version: `2026.08.18.1`.
+- Windows delivery is a scoped Edge/Chrome PWA plus a local preview launcher.
+  There is still no native `.exe` / `.msi` / `.msix` installer.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
@@ -25,6 +27,7 @@ Last updated: 2026-08-14 (workspace Cycle 148; AIly Cycle 25)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Make the Windows preview launcher parse and keep the PWA identity scoped | Correctness / packaging | High: Windows PowerShell could not parse the launcher; `id: "/"` collided with the portfolio origin | Small / low | ASCII launcher, extracted static server, relative manifest id, and 19 server assertions | Completed in Cycle 26 |
 | — | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium | Small / low | Invalid prefixes, valid output ordering, and the independent 50-sample bound are directly covered | Completed in Cycle 25 |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
@@ -49,6 +52,69 @@ Last updated: 2026-08-14 (workspace Cycle 148; AIly Cycle 25)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 26 — Fix Windows preview launch and PWA identity (2026-08-18)
+
+**Why this won:** The last human request asked to verify a Windows install.
+There is still no native installer, but the verification found two executable
+local defects: `tools/serve-windows.ps1` failed to parse under Windows
+PowerShell, and `manifest.webmanifest` used `"id": "/"`, so Edge identified the
+app as the portfolio origin rather than `/AIly/`. Those outranked the still
+blocked physical Android journey.
+
+**Plan and success criteria**
+
+1. Reproduce the PowerShell parse failure and the root-id collision.
+2. Replace the quoted `node -e` fallback with a tested static server and keep
+   the launcher ASCII so Windows PowerShell 5.1 can parse it without a BOM.
+3. Scope the PWA identity to `./` and document that Windows install is a PWA,
+   not a packaged `.exe` / `.msi`.
+
+**Changes**
+
+- Extracted `tools/serve-static.mjs` with argument parsing, path-safe resolution,
+  and loopback serving.
+- Rewrote `tools/serve-windows.ps1` to call that server, stay ASCII, and say it
+  is not a native installer.
+- Changed the manifest `id` from `/` to `./` so hosted identity stays under
+  `/AIly/` and localhost preview stays on its own origin.
+- Added shell and HTTP contracts for the launcher and static server.
+- Documented the missing native installer and bumped the coupled site/cache
+  version to `2026.08.18.1`.
+
+**Verification evidence**
+
+- Test-first: the previous launcher failed Windows PowerShell parse (`string is
+  missing the terminator`) because of the `node -e` one-liner and a UTF-8 em
+  dash that Windows-1252 reads as a closing quote.
+- After the ASCII rewrite, `Parser::ParseFile` returned `PARSE_OK`.
+- `node tools/test-serve-static.mjs`: 19 passed, including 403 on backslash
+  traversal and correct `application/manifest+json`.
+- Live preview on `127.0.0.1:8766` served `index.html` and the scoped
+  manifest (`id: "./"`), returned 403/404 on traversal/missing paths.
+- `npm test`: complete Rust/web/native gate passed, including the new server
+  test and 56 CI/Pages policy assertions.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 3/10 | 9/10 | Launcher parses; PWA id no longer claims `/` |
+| Test coverage / verifiability | 2/10 | 9/10 | ASCII, no `node -e`, path safety, and HTTP contracts |
+| Maintainability | 4/10 | 9/10 | One extracted server instead of a quoted one-liner |
+| Performance / resources | 8/10 | 8/10 | Loopback preview only |
+| Security / robustness | 5/10 | 9/10 | Traversal rejected; server binds 127.0.0.1 |
+| Developer / user experience | 4/10 | 8/10 | Docs now distinguish PWA install from a native package |
+
+**Lesson / process improvement:** Treat Windows PowerShell 5.1 as an ANSI
+parser. Keep `.ps1` files ASCII (or UTF-8 with BOM) and never embed a second
+language in a double-quoted command. Manifest `id` must be scope-relative;
+`"/"` is the origin root on GitHub Pages.
+
+**Next opportunity:** Run the physical Android permission/read/revocation and
+local-midnight journey when hardware is attached. A packaged Windows artifact
+(Tauri or signed MSIX) remains future work. Workspace next: rotate to the
+portfolio, the oldest remaining non-profile backlog.
 
 ### Cycle 25 — Cap valid Android usage samples (2026-08-14)
 

@@ -2,7 +2,7 @@
   "name": "AIly — Your AI Ally",
   "short_name": "AIly",
   "description": "Your AI Ally for the targets you set. Local-first productivity companion.",
-  "id": "/",
+  "id": "./",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
