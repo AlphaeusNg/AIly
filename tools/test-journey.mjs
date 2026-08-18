@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
@@ -202,5 +205,20 @@ assert.equal(
   false,
   "dropped items are not duplicates"
 );
+
+const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../apps/web");
+const html = readFileSync(join(webRoot, "index.html"), "utf8");
+const appSource = readFileSync(join(webRoot, "js/app.js"), "utf8");
+const navOrder = [...html.matchAll(/data-nav="(today|targets|review|usage|blocks|setup|activity)"/g)].map(
+  (m) => m[1]
+);
+assert.deepEqual(
+  [...new Set(navOrder)].slice(0, 4),
+  ["today", "targets", "review", "usage"],
+  "primary nav order stays Today / Targets / Review / Usage"
+);
+assert.ok(html.includes('data-action="open-more"'), "phone More tab exists for Blocks/Setup/Activity");
+assert.match(appSource, /today-notices/, "journey notices on Today fold unless danger");
+assert.match(appSource, /pull-stale-today/, "stale-commitment recovery remains reachable");
 
 console.log("test-journey.mjs: week stats and streak helpers passed");

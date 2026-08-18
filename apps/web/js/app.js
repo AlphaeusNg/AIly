@@ -96,6 +96,8 @@ let deferredInstall = null;
 let swRegistration = null;
 let updateBannerDismissed = false;
 let helpOpen = false;
+let moreOpen = false;
+const MORE_TABS = new Set(["blocks", "setup", "activity"]);
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
 let usageTracker = null;
@@ -112,6 +114,7 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
 function persist() {
+  moreOpen = false;
   lastSave = saveState(state);
   render();
   if (lastSave && !lastSave.ok) {
@@ -545,6 +548,7 @@ function render() {
   renderBreakGlassModal();
   renderCheckInModal();
   renderHelpModal();
+  renderMoreSheet();
   syncUsageTracker();
   maybeOfferCheckIn();
   updateSaveStatus();
@@ -554,6 +558,20 @@ function renderHelpModal() {
   const modal = $("#help-modal");
   if (!modal) return;
   modal.classList.toggle("hidden", !helpOpen);
+}
+
+function renderMoreSheet() {
+  const modal = $("#more-sheet");
+  if (!modal) return;
+  modal.classList.toggle("hidden", !moreOpen);
+  const trigger = $("[data-action='open-more']");
+  if (trigger) trigger.setAttribute("aria-expanded", moreOpen ? "true" : "false");
+}
+
+function closeMoreSheet() {
+  if (!moreOpen) return;
+  moreOpen = false;
+  renderMoreSheet();
 }
 
 function maybeOfferCheckIn() {
@@ -855,8 +873,13 @@ function renderNav() {
       setNavCount(btn, n, n > 0 && isReady(state));
     }
   });
-  const badge = $("#setup-badge");
-  if (badge) badge.classList.toggle("hidden", isReady(state));
+  $$(".setup-badge").forEach((badge) => badge.classList.toggle("hidden", isReady(state)));
+  const moreBtn = $("[data-action='open-more']");
+  if (moreBtn) {
+    moreBtn.classList.toggle("active", MORE_TABS.has(state.ui.tab));
+    const armed = (state.blockRules || []).filter((r) => r.armed).length;
+    setNavCount(moreBtn, armed, armed > 0);
+  }
 }
 
 function seedDemoJourney(opts = {}) {
@@ -1051,57 +1074,72 @@ function renderToday() {
       }
     </div>
     ${
-      state.blockRules.some((r) => r.armed)
-        ? `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. <button type="button" data-action="goto-blocks">Manage blocks</button></div>`
+      !check.ok
+        ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
         : ""
     }
-    ${!isReady(state) ? `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>` : ""}
-    ${invalidCommitments.length ? `<div class="banner warn">
+    ${
+      (() => {
+        const notices = [];
+        if (state.blockRules.some((r) => r.armed)) {
+          notices.push(
+            `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. <button type="button" data-action="goto-blocks">Manage blocks</button></div>`
+          );
+        }
+        if (!isReady(state)) {
+          notices.push(
+            `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>`
+          );
+        }
+        if (invalidCommitments.length) {
+          notices.push(`<div class="banner warn">
       <strong>AIly quarantined ${invalidCommitments.length} invalid saved commitment${invalidCommitments.length === 1 ? "" : "s"}.</strong>
       They cannot block today’s plan. Recreate anything you still need, then remove these damaged records.
       <ul>${invalidCommitments.slice(0, 3).map((item) => `<li><strong>${escapeHtml(item.text)}</strong> — ${escapeHtml(item.reason)}</li>`).join("")}</ul>
       ${invalidCommitments.length > 3 ? `<p>And ${invalidCommitments.length - 3} more.</p>` : ""}
       <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
-    </div>` : ""}
-    ${
-      !check.ok
-        ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
-        : `<div class="banner ok">Plan fits capacity · <strong>${Math.max(0, Math.round(daily - used))}m</strong> soft room left today.</div>`
-    }
-    ${
-      (() => {
+    </div>`);
+        }
+        if (check.ok) {
+          notices.push(
+            `<div class="banner ok">Plan fits capacity · <strong>${Math.max(0, Math.round(daily - used))}m</strong> soft room left today.</div>`
+          );
+        }
         const stale = stalePendingCommitments(state.commitments || [], todayISO());
-        if (!stale.length) return "";
-        const mins = stale.reduce(
-          (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
-          0
-        );
-        return `<div class="banner warn"><strong>${stale.length}</strong> open item${
-          stale.length === 1 ? "" : "s"
-        } from earlier days (~${mins|0}m). Recover with honesty — not guilt.
+        if (stale.length) {
+          const mins = stale.reduce(
+            (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+            0
+          );
+          notices.push(`<div class="banner warn"><strong>${stale.length}</strong> open item${
+            stale.length === 1 ? "" : "s"
+          } from earlier days (~${mins|0}m). Recover with honesty — not guilt.
           <button type="button" class="primary" data-action="pull-stale-today">Pull to today</button>
           <button type="button" data-action="drop-stale">Drop stale</button>
-        </div>`;
-      })()
-    }
-    ${
-      (() => {
+        </div>`);
+        }
         const overs = softCapOverTargets();
-        if (!overs.length || !check.ok) return "";
-        return `<div class="banner warn">Soft-cap pressure: ${overs
-          .map((o) => escapeHtml(o.title))
-          .join(", ")} at/over weekly soft hours. Consider replan or drop optional work.</div>`;
+        if (overs.length && check.ok) {
+          notices.push(`<div class="banner warn">Soft-cap pressure: ${overs
+            .map((o) => escapeHtml(o.title))
+            .join(", ")} at/over weekly soft hours. Consider replan or drop optional work.</div>`);
+        }
+        if (isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()) {
+          notices.push(
+            `<div class="banner warn">Morning pause — set today’s intention before the day runs you. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
+          );
+        }
+        if (isEveningLocal() && pendingReviewCount() > 0) {
+          notices.push(
+            `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
+          );
+        }
+        if (!notices.length) return "";
+        return `<details class="today-notices">
+          <summary>${notices.length} notice${notices.length === 1 ? "" : "s"}</summary>
+          ${notices.join("")}
+        </details>`;
       })()
-    }
-    ${
-      isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()
-        ? `<div class="banner warn">Morning pause — set today’s intention before the day runs you. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
-        : ""
-    }
-    ${
-      isEveningLocal() && pendingReviewCount() > 0
-        ? `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
-        : ""
     }
     <div class="row">
       <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
@@ -1172,27 +1210,39 @@ function renderToday() {
         })
         .map((c) => {
           const t = state.targets.find((x) => x.id === c.targetId);
-          return `<li>
-            <strong>${escapeHtml(c.text)}</strong>
-            <span class="muted">${c.estimateMin}m · ${escapeHtml(t?.title || "?")}${c.mustKeep ? " · must-keep" : ""}${c.status === "done" ? " · done" : ""} · p${c.priority|0}</span>
+          return `<li class="commit-row${c.mustKeep ? " is-must-keep" : ""}${c.status === "done" ? " is-done" : ""}">
+            <div class="commit-main">
+              <strong>${escapeHtml(c.text)}</strong>
+              <span class="muted">${c.estimateMin}m${c.status === "done" ? " · done" : ""}</span>
+            </div>
             ${
               c.status !== "done"
-                ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>
-                   <button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
-                   <button type="button" data-action="estimate-minus" data-id="${c.id}" title="−15 minutes">−15m</button>
-                   <button type="button" data-action="estimate-plus" data-id="${c.id}" title="+15 minutes">+15m</button>
-                   <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
-                   <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
-                   <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
-                   ${
-                     c.status === "pending"
-                       ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>
-                          <button type="button" data-action="copy-one-tomorrow" data-id="${c.id}" title="Copy to tomorrow">+tmr</button>`
-                       : ""
-                   }`
+                ? `<button type="button" data-action="done-commit" data-id="${c.id}">Done</button>`
                 : ""
             }
-            <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
+            <details class="commit-overflow">
+              <summary aria-label="More actions">⋯</summary>
+              <div class="commit-overflow-menu">
+                ${
+                  c.status !== "done"
+                    ? `<button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
+                       <button type="button" data-action="estimate-minus" data-id="${c.id}" title="−15 minutes">−15m</button>
+                       <button type="button" data-action="estimate-plus" data-id="${c.id}" title="+15 minutes">+15m</button>
+                       <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
+                       <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
+                       <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
+                       ${
+                         c.status === "pending"
+                           ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>
+                              <button type="button" data-action="copy-one-tomorrow" data-id="${c.id}" title="Copy to tomorrow">+tmr</button>`
+                           : ""
+                       }`
+                    : ""
+                }
+                <span class="muted">${escapeHtml(t?.title || "?")} · p${c.priority|0}</span>
+                <button type="button" data-action="drop-commit" data-id="${c.id}">Drop</button>
+              </div>
+            </details>
           </li>`;
         })
         .join("") || emptyTodayCta()}
@@ -1203,6 +1253,14 @@ function renderToday() {
       e.preventDefault();
       document.querySelector('[data-action="add-commit"]')?.click();
     }
+  });
+  el.querySelectorAll(".commit-overflow").forEach((rowMenu) => {
+    rowMenu.addEventListener("toggle", () => {
+      if (!rowMenu.open) return;
+      el.querySelectorAll(".commit-overflow[open]").forEach((other) => {
+        if (other !== rowMenu) other.open = false;
+      });
+    });
   });
 }
 
@@ -2480,6 +2538,10 @@ async function initNativeShell() {
           persist();
           return;
         }
+        if (moreOpen) {
+          closeMoreSheet();
+          return;
+        }
         if (state.ui.tab !== "today") {
           state.ui.tab = "today";
           persist();
@@ -2640,9 +2702,18 @@ function markdownLite(s) {
 
 // Events
 document.addEventListener("click", (e) => {
+  const openOverflow = e.target.closest(".commit-overflow");
+  $$(".commit-overflow[open]").forEach((menu) => {
+    if (menu !== openOverflow) menu.open = false;
+  });
+  if (e.target.id === "more-sheet") {
+    closeMoreSheet();
+    return;
+  }
   const nav = e.target.closest("[data-nav]");
-  if (nav) {
+  if (nav && nav.dataset.nav) {
     state.ui.tab = nav.dataset.nav;
+    moreOpen = false;
     persist();
     return;
   }
@@ -2650,6 +2721,16 @@ document.addEventListener("click", (e) => {
   if (!act) return;
   const action = act.dataset.action;
   const id = act.dataset.id;
+
+  if (action === "open-more") {
+    moreOpen = true;
+    renderMoreSheet();
+    return;
+  }
+  if (action === "close-more") {
+    closeMoreSheet();
+    return;
+  }
 
   if (action === "goto-blocks") {
     state.ui.tab = "blocks";
@@ -4279,6 +4360,10 @@ document.addEventListener("keydown", (e) => {
       renderHelpModal();
       return;
     }
+    if (moreOpen) {
+      closeMoreSheet();
+      return;
+    }
     if (allyProposal) {
       allyProposal = null;
       render();
@@ -4297,6 +4382,7 @@ document.addEventListener("keydown", (e) => {
   };
   if (map[e.key]) {
     state.ui.tab = map[e.key];
+    moreOpen = false;
     persist();
   }
   if (e.key === "f" || e.key === "F") {

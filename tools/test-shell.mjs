@@ -48,10 +48,28 @@ for (const id of [
   "checkin-modal",
   "breakglass-modal",
   "help-modal",
+  "more-sheet",
   "toast-host",
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `index has #${id}`);
 }
+
+for (const tab of ["today", "targets", "review", "usage", "blocks", "setup", "activity"]) {
+  assert.match(html, new RegExp(`data-nav="${tab}"`), `index still exposes ${tab} navigation`);
+}
+assert.match(html, /data-action="open-more"/, "phone nav exposes a More trigger");
+assert.match(html, /class="nav-more-item"/, "Blocks/Setup/Activity are overflow nav items");
+assert.match(html, /Fewer checks/, "intention modal hides snooze/skip under Fewer checks");
+assert.match(
+  html,
+  /data-action="intention-confirm"[\s\S]*data-action="intention-cancel"[\s\S]*intention-fewer/,
+  "intention primary/secondary stay outside the Fewer checks disclosure",
+);
+
+const css = read("css/app.css");
+assert.match(css, /grid-template-columns:\s*repeat\(5,\s*1fr\)/, "phone bar is a 5-column grid");
+assert.match(css, /nav-more-trigger/, "CSS hides More on desktop and shows it on phones");
+assert.match(css, /\.commit-row\.is-must-keep/, "must-keep rows use a left accent");
 
 const sw = read("sw.js");
 assert.match(sw, /offline\.html/, "SW caches offline page");
@@ -108,6 +126,10 @@ assert.match(
   "revoking usage immediately clears in-memory native totals",
 );
 assert.match(app, /undoLast|pushUndo/, "session undo is wired");
+assert.match(app, /"1": "today"[\s\S]*"7": "activity"/, "keyboard 1–7 still maps all seven tabs");
+assert.match(app, /today-notices/, "non-danger Today banners fold into one disclosure");
+assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");
+assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
 
 const androidManifest = readFileSync(join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
 assert.match(

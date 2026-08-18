@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-18 (workspace Cycle 151; AIly Cycle 26)
+Last updated: 2026-08-18 (workspace Cycle 151; AIly Cycle 27)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.18.1`.
+- Deployment version: `2026.08.18.2`.
 - Windows delivery is a scoped Edge/Chrome PWA plus a local preview launcher.
   There is still no native `.exe` / `.msi` / `.msix` installer.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
@@ -27,6 +27,7 @@ Last updated: 2026-08-18 (workspace Cycle 151; AIly Cycle 26)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Collapse the phone tab bar and calm Today / intention density | Ally UX | High: 7 cramped tabs and action-dump rows hid the pause | Small / low | 5-tab + More sheet, row overflow, folded notices, Fewer checks | Completed in Cycle 27 |
 | — | Make the Windows preview launcher parse and keep the PWA identity scoped | Correctness / packaging | High: Windows PowerShell could not parse the launcher; `id: "/"` collided with the portfolio origin | Small / low | ASCII launcher, extracted static server, relative manifest id, and 19 server assertions | Completed in Cycle 26 |
 | — | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium | Small / low | Invalid prefixes, valid output ordering, and the independent 50-sample bound are directly covered | Completed in Cycle 25 |
 | 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
@@ -52,6 +53,58 @@ Last updated: 2026-08-18 (workspace Cycle 151; AIly Cycle 26)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 27 — Calm the phone shell and Today pause (2026-08-18)
+
+**Why this won:** The web PWA is the dogfood surface, and the phone bar still
+showed all seven tabs in a wrapping 4-column grid. Today rows dumped eight
+actions beside the title, extra banners stacked above the list, and the
+intention modal put snooze/skip next to the only real choice. Those were
+visible UX wins that did not need Android hardware.
+
+**Plan and success criteria**
+
+1. Collapse the phone bar to Today / Targets / Review / Usage + More, with
+   Blocks, Setup, and Activity in a bottom sheet. Keep keyboard 1–7.
+2. Today rows show title, minutes, and Done; the rest lives behind ⋯.
+   Must-keep uses a left accent. Extra banners fold unless they are danger.
+3. Intention modal: “Yes — protect this time” stays the only primary,
+   “Not now” is secondary, snooze/skip sit under “Fewer checks”.
+4. Couple `SITE_VERSION` and the service-worker cache at `2026.08.18.2`.
+
+**Changes**
+
+- Phone nav is a 5-column grid; desktop keeps the full side list.
+- More sheet reuses `modal-backdrop` and docks to the bottom on small screens.
+- Commitment overflow menu + `today-notices` disclosure + must-keep accent.
+- Intention snooze/skip moved under a muted disclosure.
+- Shell and journey tests lock the 5+More contract and 1–7 shortcuts.
+
+**Verification evidence**
+
+- `npm test` is the gate (Rust + JS + workflow). Android `assembleDebug`
+  skipped because these changes are web-only.
+- Tests assert nav order, More trigger, 5-column phone grid, overflow menu,
+  folded notices, Fewer checks, and keyboard 1–7.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 8/10 | 8/10 | Same tabs and actions; 1–7 unchanged |
+| Test coverage / verifiability | 6/10 | 9/10 | Shell + journey lock nav, overflow, intention |
+| Maintainability | 7/10 | 8/10 | Overflow/more reuse existing modal + details |
+| Performance / resources | 8/10 | 8/10 | No new network or native work |
+| Security / robustness | 8/10 | 8/10 | Local-only; no plugin or cloud change |
+| Developer / user experience | 4/10 | 8/10 | Phone bar, rows, and intention are quieter |
+
+**Lesson / process improvement:** Phone chrome should keep four daily verbs
+visible and park setup-grade destinations under More. A pause screen must
+not present skip as a peer of the protected-time choice.
+
+**Next opportunity:** Device-dogfood Android UsageStats and real hard-block
+OS enforcement. On the web side, a first-run Today empty state that is as
+quiet as this hierarchy.
 
 ### Cycle 26 — Fix Windows preview launch and PWA identity (2026-08-18)
 

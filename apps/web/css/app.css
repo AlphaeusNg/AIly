@@ -858,6 +858,123 @@ button.version-btn:hover {
   opacity: 0.85;
 }
 
+.nav-more-trigger {
+  display: none;
+}
+
+.more-sheet-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.more-sheet-nav button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  align-items: center;
+  gap: 0.6rem;
+  background: #1c2430;
+}
+
+.more-sheet-nav button.active {
+  background: #1e2a3d;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.more-sheet-nav .nav-ico {
+  display: inline-block;
+}
+
+.intention-fewer {
+  margin-top: 0.85rem;
+}
+
+.intention-fewer > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  list-style: none;
+}
+
+.intention-fewer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.intention-fewer[open] > summary {
+  margin-bottom: 0.15rem;
+}
+
+.commit-row.is-must-keep {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.commit-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 8rem;
+}
+
+.commit-overflow {
+  position: relative;
+  margin-left: auto;
+}
+
+.commit-overflow > summary {
+  list-style: none;
+  cursor: pointer;
+  min-width: 2.1rem;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.commit-overflow > summary::-webkit-details-marker {
+  display: none;
+}
+
+.commit-overflow-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 8;
+  min-width: 10.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.today-notices {
+  margin: 0.75rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 0.2rem 0.85rem 0.35rem;
+}
+
+.today-notices > summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0.45rem 0;
+  list-style: none;
+}
+
+.today-notices > summary::-webkit-details-marker {
+  display: none;
+}
+
+.today-notices .banner {
+  margin: 0.45rem 0;
+}
+
 @media (max-width: 720px) {
   .layout {
     grid-template-columns: 1fr;
@@ -874,7 +991,7 @@ button.version-btn:hover {
     bottom: 0;
     z-index: 12;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 0.15rem;
     border-right: 0;
     border-top: 1px solid var(--border);
@@ -908,10 +1025,20 @@ button.version-btn:hover {
   nav.side button {
     position: relative;
   }
-  /* Keep primary 4 + overflow setup/activity still reachable */
-  nav.side button[data-nav="activity"],
-  nav.side button[data-nav="setup"] {
-    grid-column: span 1;
+  nav.side button.nav-more-item {
+    display: none;
+  }
+  nav.side button.nav-more-trigger {
+    display: flex;
+  }
+  #more-sheet {
+    align-items: flex-end;
+    padding: 0;
+  }
+  #more-sheet .more-sheet {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: max(1.1rem, var(--safe-bottom));
   }
   .topbar {
     padding: 0.65rem 0.85rem;
