@@ -70,6 +70,18 @@ const css = read("css/app.css");
 assert.match(css, /grid-template-columns:\s*repeat\(5,\s*1fr\)/, "phone bar is a 5-column grid");
 assert.match(css, /nav-more-trigger/, "CSS hides More on desktop and shows it on phones");
 assert.match(css, /\.commit-row\.is-must-keep/, "must-keep rows use a left accent");
+assert.match(
+  css,
+  /@media \(max-width:\s*720px\)[\s\S]*#tray-status[\s\S]*display:\s*none/,
+  "phone hides tray status without removing the node",
+);
+assert.match(
+  css,
+  /@media \(max-width:\s*720px\)[\s\S]*#net-status[\s\S]*display:\s*none/,
+  "phone hides the network pill so Today leads",
+);
+assert.match(html, /id="tray-status"/, "tray status node remains for JS writes");
+assert.match(html, /id="net-status"/, "net status node remains for JS writes");
 
 const sw = read("sw.js");
 assert.match(sw, /offline\.html/, "SW caches offline page");

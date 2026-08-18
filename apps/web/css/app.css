@@ -1043,7 +1043,9 @@ button.version-btn:hover {
   .topbar {
     padding: 0.65rem 0.85rem;
   }
-  .tagline {
+  .tagline,
+  #tray-status,
+  #net-status {
     display: none;
   }
   .brand-logo {
