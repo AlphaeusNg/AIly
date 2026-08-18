@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "AIly desktop capabilities — local UI only, no shell.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

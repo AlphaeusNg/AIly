@@ -4,6 +4,7 @@
  */
 
 import { checkPlanAccept, dailySoftCapMinutes } from "./capacity.js";
+import { findSameDayDuplicate } from "./journey.js";
 import { metricProgressRatio } from "./target.js";
 
 const FLOOR = 15;
@@ -304,7 +305,116 @@ export function proposeDayPlan(input) {
 }
 
 /**
- * Lightweight return-from-away check-in copy.
+ * Preview what accept-all would add or skip — never mutates.
+ * Reasons: inactive | duplicate | capacity error from checkPlanAccept.
+ *
+ * @param {{
+ *   proposals: Array,
+ *   existingToday?: Array,
+ *   allCommitments?: Array,
+ *   targets: Array,
+ *   weeklyCapacityHours: number,
+ *   nightsPerWeek: number,
+ *   softCaps?: Array,
+ *   planDate: string,
+ * }} input
+ * @returns {{
+ *   added: Array,
+ *   skipped: Array<{ text?: string, targetId?: string, estimateMin?: number, reason: string }>,
+ *   addedMin: number,
+ *   remainingMin: number,
+ *   dailyCapMin: number,
+ * }}
+ */
+export function previewAcceptAll(input) {
+  const proposals = Array.isArray(input?.proposals) ? input.proposals : [];
+  const targets = Array.isArray(input?.targets) ? input.targets : [];
+  const existingToday = Array.isArray(input?.existingToday) ? input.existingToday : [];
+  const planDate = typeof input?.planDate === "string" ? input.planDate : "";
+  const working = existingToday
+    .filter((c) => c && c.status !== "dropped")
+    .map((c) => ({
+      id: c.id,
+      targetId: c.targetId,
+      estimateMin: c.estimateMin,
+      mustKeep: !!c.mustKeep,
+    }));
+  const seen = Array.isArray(input?.allCommitments) ? input.allCommitments.slice() : existingToday.slice();
+  const added = [];
+  const skipped = [];
+
+  for (const p of proposals) {
+    if (!p) {
+      skipped.push({ reason: "inactive" });
+      continue;
+    }
+    const active = targets.some((t) => t && t.id === p.targetId && t.status === "active");
+    if (!active) {
+      skipped.push({ ...p, reason: "inactive" });
+      continue;
+    }
+    const dup = findSameDayDuplicate(seen.concat(added), {
+      planDate,
+      text: p.text,
+    });
+    if (dup.duplicate) {
+      skipped.push({ ...p, reason: "duplicate" });
+      continue;
+    }
+    const draft = {
+      id: `preview-${added.length}`,
+      targetId: p.targetId,
+      estimateMin: p.estimateMin,
+      mustKeep: !!p.mustKeep,
+      text: p.text,
+      status: "pending",
+      planDate,
+    };
+    const check = checkPlanAccept({
+      weeklyCapacityHours: input?.weeklyCapacityHours,
+      nightsPerWeek: input?.nightsPerWeek,
+      softCaps: Array.isArray(input?.softCaps) ? input.softCaps : [],
+      weekOther: [],
+      today: [
+        ...working,
+        ...added.map((c) => ({
+          id: c.id,
+          targetId: c.targetId,
+          estimateMin: c.estimateMin,
+          mustKeep: !!c.mustKeep,
+        })),
+        {
+          id: draft.id,
+          targetId: draft.targetId,
+          estimateMin: draft.estimateMin,
+          mustKeep: draft.mustKeep,
+        },
+      ],
+    });
+    if (!check.ok) {
+      skipped.push({ ...p, reason: check.error || "capacity" });
+      continue;
+    }
+    added.push(draft);
+  }
+
+  const used = working.concat(added).reduce(
+    (a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0),
+    0
+  );
+  const dailyCapMin = dailySoftCapMinutes(input?.weeklyCapacityHours, input?.nightsPerWeek);
+  return {
+    added,
+    skipped,
+    addedMin: added.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0),
+    remainingMin: Math.max(0, dailyCapMin - used),
+    dailyCapMin,
+  };
+}
+
+/**
+ * Return-from-away check-in. A real question the UI can answer, plus
+ * a single `text` line for logs / tests.
  * @param {{
  *   awayMin: number,
  *   intention?: string,
@@ -312,6 +422,18 @@ export function proposeDayPlan(input) {
  *   openPending?: number,
  *   plannedMin?: number,
  * }} ctx
+ * @returns {null | {
+ *   question: string,
+ *   text: string,
+ *   awayMin: number,
+ *   intention: string,
+ *   focusActive: boolean,
+ *   openPending: number,
+ *   plannedMin: number,
+ *   stillYes: string,
+ *   stillNo: string,
+ *   chooseNext: string,
+ * }}
  */
 export function returnNudge(ctx) {
   const away = Number.isFinite(ctx?.awayMin) ? ctx.awayMin : 0;
@@ -319,18 +441,36 @@ export function returnNudge(ctx) {
   const intention = typeof ctx?.intention === "string" ? ctx.intention.trim() : "";
   const open = Number.isFinite(ctx?.openPending) ? Math.max(0, Math.floor(ctx.openPending)) : 0;
   const planned = Number.isFinite(ctx?.plannedMin) ? Math.max(0, Math.round(ctx.plannedMin)) : 0;
+  const awayRounded = Math.round(away);
   const planHint =
     open > 0
       ? ` You still have ${open} open item${open === 1 ? "" : "s"}${planned > 0 ? ` (~${planned}m planned)` : ""}.`
       : "";
+  const question = intention
+    ? `Still protecting ${intention.slice(0, 80)}?`
+    : ctx?.focusActive
+      ? "Is this still what you want to focus on?"
+      : "What do you want the next stretch to be for?";
+  let text;
   if (ctx?.focusActive) {
-    return `Welcome back (${Math.round(away)}m away). Focus is still on — is this still what you want?${planHint}`;
+    text = `Welcome back (${awayRounded}m away). Focus is still on — is this still what you want?${planHint}`;
+  } else if (intention) {
+    text = `Welcome back (${awayRounded}m away). Your intention was “${intention.slice(0, 80)}”. Still true?${planHint}`;
+  } else if (open > 0) {
+    text = `Welcome back (${awayRounded}m away).${planHint} Pause — re-choose the next stretch intentionally.`;
+  } else {
+    text = `Welcome back (${awayRounded}m away). Pause — what do you want the next stretch to be for?`;
   }
-  if (intention) {
-    return `Welcome back (${Math.round(away)}m away). Your intention was “${intention.slice(0, 80)}”. Still true?${planHint}`;
-  }
-  if (open > 0) {
-    return `Welcome back (${Math.round(away)}m away).${planHint} Pause — re-choose the next stretch intentionally.`;
-  }
-  return `Welcome back (${Math.round(away)}m away). Pause — what do you want the next stretch to be for?`;
+  return {
+    question,
+    text,
+    awayMin: awayRounded,
+    intention,
+    focusActive: !!ctx?.focusActive,
+    openPending: open,
+    plannedMin: planned,
+    stillYes: intention ? "Yes — still this" : "Yes — keep going",
+    stillNo: "No — change intention",
+    chooseNext: "I'll choose next",
+  };
 }

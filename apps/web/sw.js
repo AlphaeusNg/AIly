@@ -1,6 +1,6 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
 const CACHE_PREFIX = "aily-";
-const CACHE = "aily-2026.08.18.4";
+const CACHE = "aily-2026.08.18.6";
 const SCOPE_URL = new URL(self.registration.scope);
 const ASSETS = [
   "./",

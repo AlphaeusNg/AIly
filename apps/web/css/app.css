@@ -933,6 +933,39 @@ button.version-btn:hover {
   font-size: 1.08rem;
 }
 
+.one-thing-checkin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.15rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.one-thing-checkin .form-label {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+
+.one-thing-checkin input {
+  width: 7rem;
+}
+
+.ally-accept-preview {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
+}
+
+.install-banner a.primary {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .today-rest {
   opacity: 0.78;
 }

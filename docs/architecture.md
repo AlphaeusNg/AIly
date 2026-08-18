@@ -11,7 +11,7 @@ See north-star: `../../plans/aily-heavy-plan.md`.
 | Ally propose | Pure JS `ally.js` — deterministic, local, no cloud / no model |
 | Usage dogfood | Web visibility/manual samples + consent-gated Android daily UsageStats |
 | Blocks dogfood | Arm + try-open sim + break-glass countdown UI |
-| Desktop | Tauri planned when WebKit GTK available |
+| Desktop | Tauri 2 in `src-tauri/` (Windows NSIS). Not a workspace member so Linux CI stays WebKit-free. |
 
 ## Ally propose (local only)
 
@@ -44,7 +44,8 @@ writes remain inside the fetch event lifetime.
 
 See `platform-hooks.md` for adapter plan.
 
+- Device-test the Windows NSIS package (`AIly-setup.exe`) and keep PWA vs package vs OS-enforcement copy honest
 - Device-test and extend OS usage tracking hooks beyond Android daily reads
-- Real hard-block OS enforcement
+- Real hard-block OS enforcement (Ship C — after a real Windows process exists)
 - Optional on-device model for richer propose (still propose-only)
-- Tauri shell wrapping the same UI + Rust core commands
+- Wire `aily-core` as Tauri commands once the unsigned installer is dogfooded

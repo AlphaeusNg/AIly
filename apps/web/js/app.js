@@ -45,7 +45,7 @@ import {
   upsertBlockRule,
   validateBreakGlassComplete,
 } from "./block.js";
-import { pickNextCommitment, proposeDayPlan, rankCommitments, returnNudge } from "./ally.js";
+import { pickNextCommitment, previewAcceptAll, proposeDayPlan, rankCommitments, returnNudge } from "./ally.js";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
@@ -61,6 +61,9 @@ import {
   weekReflection,
 } from "./journey.js";
 import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
+
+const WINDOWS_DOWNLOAD_URL = "https://github.com/AlphaeusNg/AIly/releases/latest";
+const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 let state = loadState();
 const usageBackend = selectUsageBackend();
@@ -107,6 +110,8 @@ let platformUsageStatus = usesNativeUsage ? "checking" : "unsupported";
 let lastPlatformUsageRefreshAt = 0;
 let lastHiddenAt = 0;
 let lastReturnNudgeAt = 0;
+/** @type {null | ReturnType<typeof returnNudge>} */
+let activeReturnNudge = null;
 /** @type {Array<{ type: string, payload: any }>} */
 let undoStack = [];
 const MAX_UNDO = 12;
@@ -551,6 +556,7 @@ function render() {
   renderIntentionModal();
   renderBreakGlassModal();
   renderCheckInModal();
+  renderReturnNudgeModal();
   renderHelpModal();
   renderMoreSheet();
   syncUsageTracker();
@@ -794,15 +800,70 @@ function renderNetStatus() {
     : "Offline — cached shell; your data is still local";
 }
 
+function isTauriShell() {
+  return !!(
+    typeof window !== "undefined" &&
+    (window.__TAURI_INTERNALS__ || window.__TAURI__)
+  );
+}
+
+function isStandaloneApp() {
+  return (
+    isTauriShell() ||
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // @ts-expect-error iOS Safari
+    window.navigator.standalone === true
+  );
+}
+
+function backupIsStale() {
+  const raw = state.ui.lastExportAt;
+  if (!raw) return true;
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return true;
+  return Date.now() - t > BACKUP_STALE_MS;
+}
+
+function acceptAllPreviewFromState(proposals) {
+  return previewAcceptAll({
+    proposals: proposals || [],
+    existingToday: todayCommitments(),
+    allCommitments: state.commitments || [],
+    targets: state.targets || [],
+    weeklyCapacityHours: state.user.weeklyCapacityHours,
+    nightsPerWeek: state.user.nightsPerWeek,
+    softCaps: softCaps(),
+    planDate: todayISO(),
+  });
+}
+
+function skipReasonLabel(reason) {
+  if (reason === "duplicate") return "already on today";
+  if (reason === "inactive") return "target inactive";
+  if (reason === "daily_over") return "would overflow today’s soft cap";
+  if (reason === "global_over") return "would overflow the week";
+  if (reason === "goal_soft_over") return "would overflow a target soft cap";
+  if (reason === "soft_sum_over") return "soft caps exceed the week";
+  if (reason === "invalid_input") return "invalid estimate";
+  return reason || "skipped";
+}
+
 function renderInstallBanner() {
   const banner = $("#install-banner");
   if (!banner) return;
-  const standalone =
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // @ts-expect-error iOS Safari
-    window.navigator.standalone === true;
-  const canPrompt = !!deferredInstall && !state.ui.installBannerDismissed && !standalone;
-  banner.classList.toggle("hidden", !canPrompt);
+  const standalone = isStandaloneApp();
+  const dismissed = !!state.ui.installBannerDismissed;
+  const show = !standalone && !dismissed;
+  banner.classList.toggle("hidden", !show);
+  const pwaBtn = $("#install-pwa-btn");
+  if (pwaBtn) {
+    pwaBtn.disabled = !deferredInstall;
+    pwaBtn.title = deferredInstall
+      ? "Install the browser PWA — no OS admin, no app blocks"
+      : "This browser has not offered a PWA install prompt yet";
+  }
+  const win = $("#install-windows-link");
+  if (win) win.href = WINDOWS_DOWNLOAD_URL;
   const update = $("#update-banner");
   if (update) {
     const waiting = !!(swRegistration && swRegistration.waiting && !updateBannerDismissed);
@@ -1039,16 +1100,34 @@ function renderToday() {
     </header>
     ${
       nextThing
-        ? `<section class="one-thing" aria-label="Next commitment">
+        ? (() => {
+            const nextTarget = state.targets.find((t) => t.id === nextThing.targetId);
+            const metric = nextTarget?.metrics?.[0];
+            const canCheckIn = nextTarget && nextTarget.status === "active" && metric;
+            return `<section class="one-thing" aria-label="Next commitment">
           <p class="one-thing-label">One thing</p>
           <div class="one-thing-card">
             <div class="commit-main">
               <strong>${escapeHtml(nextThing.text)}</strong>
-              <span class="muted">${nextThing.estimateMin}m</span>
+              <span class="muted">${nextThing.estimateMin}m${
+                nextTarget ? ` · ${escapeHtml(nextTarget.title)}` : ""
+              }</span>
             </div>
             <button type="button" class="primary" data-action="done-commit" data-id="${nextThing.id}">Done</button>
           </div>
-        </section>`
+          ${
+            canCheckIn
+              ? `<div class="one-thing-checkin">
+              <label class="form-label">Log ${escapeHtml(metric.name || "progress")} (${escapeHtml(metric.unit || "")})
+                <input id="today-metric-value" type="number" step="any" value="${Number.isFinite(metric.current) ? metric.current : ""}" />
+              </label>
+              <p class="muted">Now ${Number.isFinite(metric.current) ? metric.current : "—"} → ${Number.isFinite(metric.target) ? metric.target : "—"} · ~${metricProgressPct(metric)}%</p>
+              <button type="button" data-action="today-log-metric" data-id="${nextTarget.id}">Log check-in</button>
+            </div>`
+              : ""
+          }
+        </section>`;
+          })()
         : ""
     }
     <div class="capacity-card">
@@ -1153,6 +1232,11 @@ function renderToday() {
             `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
           );
         }
+        if (backupIsStale()) {
+          notices.push(
+            `<div class="banner warn">Take AIly with you — export a backup so this journey isn’t only in this browser. <button type="button" class="primary" data-action="export-backup">Export backup</button></div>`
+          );
+        }
         if (!notices.length) return "";
         return `<details class="today-notices">
           <summary>${notices.length} notice${notices.length === 1 ? "" : "s"}</summary>
@@ -1188,7 +1272,28 @@ function renderToday() {
              </ul>
              ${
                allyProposal.proposals.length
-                 ? `<button type="button" class="primary" data-action="ally-accept-all">Add all that fit</button>`
+                 ? (() => {
+                     const preview = acceptAllPreviewFromState(allyProposal.proposals);
+                     const skipBits = preview.skipped.length
+                       ? preview.skipped
+                           .map(
+                             (s) =>
+                               `${escapeHtml((s.text || "item").slice(0, 48))} — ${escapeHtml(skipReasonLabel(s.reason))}`
+                           )
+                           .join("; ")
+                       : "";
+                     return `<div class="ally-accept-preview">
+                       <p class="ally-line">Accepting all would add <strong>${preview.added.length}</strong> (~${preview.addedMin}m)${
+                         preview.skipped.length
+                           ? `; skip <strong>${preview.skipped.length}</strong>`
+                           : ""
+                       }. After: ~${Math.round(preview.remainingMin)}m room left.</p>
+                       ${skipBits ? `<p class="muted">Would skip: ${skipBits}</p>` : ""}
+                       <button type="button" class="primary" data-action="ally-accept-all" ${
+                         preview.added.length ? "" : "disabled"
+                       }>Add ${preview.added.length} that fit</button>
+                     </div>`;
+                   })()
                  : ""
              }
            </div>`
@@ -1262,6 +1367,12 @@ function renderToday() {
     if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector('[data-action="add-commit"]')?.click();
+    }
+  });
+  $("#today-metric-value")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.querySelector('[data-action="today-log-metric"]')?.click();
     }
   });
   el.querySelectorAll(".commit-overflow").forEach((rowMenu) => {
@@ -1754,19 +1865,27 @@ function renderSetup() {
       }).join("")}
     </ul>
     <div class="card">
-      <h2>App install</h2>
+      <h2>Get AIly on this device</h2>
       <p class="muted">${
-        standalone
-          ? "Running as an installed app."
-          : deferredInstall
-            ? "Install available — use the banner or button below."
-            : "Use your browser’s Install / Add to Home Screen when offered."
+        isTauriShell()
+          ? "You’re in the Windows package. Data lives in this app’s profile, not a random browser. OS app blocks are not in this build."
+          : standalone
+            ? "Running as an installed PWA. This is a browser app — not OS admin, and not AIly-setup.exe."
+            : "Two different installs: a browser PWA now, or the Windows package (AIly-setup.exe) from GitHub Releases. Neither can hard-block apps yet."
       }</p>
-      ${
-        !standalone && deferredInstall
-          ? `<button type="button" class="primary" data-action="install-app">Install AIly</button>`
-          : ""
-      }
+      <div class="row">
+        ${
+          !standalone && deferredInstall
+            ? `<button type="button" class="primary" data-action="install-app">Install PWA</button>`
+            : ""
+        }
+        ${
+          isTauriShell()
+            ? ""
+            : `<a class="primary" href="${WINDOWS_DOWNLOAD_URL}" target="_blank" rel="noopener">Download Windows package</a>`
+        }
+      </div>
+      <p class="muted">PWA stays in this browser profile. The Windows package is unsigned dogfood until a later signed MSIX. Auto-start stays off.</p>
     </div>
     <div class="card form">
       <h2>You</h2>
@@ -1811,8 +1930,12 @@ function renderSetup() {
       </div>
     </div>
     <div class="card">
-      <h2>Local backup</h2>
-      <p class="muted">Export stays on this device until you save the file. Import replaces current local state after confirmation.</p>
+      <h2>Take AIly with you</h2>
+      <p class="muted">${
+        backupIsStale()
+          ? "No recent backup on this device. Export a file before you switch browsers or install the Windows package — the PWA and the .exe do not share storage."
+          : "Export stays on this device until you save the file. Import replaces current local state after confirmation."
+      }</p>
       <div class="row">
         <button type="button" class="primary" data-action="export-backup">Export backup</button>
         <label class="chk file-pick">
@@ -2241,24 +2364,10 @@ function acceptAllyProposal(index) {
 
 function acceptAllAllyProposals() {
   if (!allyProposal?.proposals?.length) return;
-  const list = allyProposal.proposals.slice();
+  const preview = acceptAllPreviewFromState(allyProposal.proposals);
   allyProposal = null;
   let n = 0;
-  let skipped = 0;
-  for (const p of list) {
-    const active = state.targets.some((t) => t.id === p.targetId && t.status === "active");
-    if (!active) {
-      skipped += 1;
-      continue;
-    }
-    const dup = findSameDayDuplicate(state.commitments || [], {
-      planDate: todayISO(),
-      text: p.text,
-    });
-    if (dup.duplicate) {
-      skipped += 1;
-      continue;
-    }
+  for (const p of preview.added) {
     const draft = {
       id: uid(),
       targetId: p.targetId,
@@ -2269,36 +2378,10 @@ function acceptAllAllyProposals() {
       priority: 0,
       status: "pending",
     };
-    // Capacity-check with this draft added before mutating.
-    const preview = todayCommitments()
-      .filter((c) => c.status !== "dropped")
-      .map((c) => ({
-        id: c.id,
-        targetId: c.targetId,
-        estimateMin: c.estimateMin,
-        mustKeep: !!c.mustKeep,
-      }));
-    preview.push({
-      id: draft.id,
-      targetId: draft.targetId,
-      estimateMin: draft.estimateMin,
-      mustKeep: draft.mustKeep,
-    });
-    const check = checkPlanAccept({
-      weeklyCapacityHours: state.user.weeklyCapacityHours,
-      nightsPerWeek: state.user.nightsPerWeek,
-      softCaps: softCaps(),
-      weekOther: [],
-      today: preview,
-    });
-    if (!check.ok) {
-      skipped += 1;
-      continue;
-    }
-    // Skip intention gate for bulk accept — user already reviewed the list.
     state.commitments.push(draft);
     n += 1;
   }
+  const skipped = preview.skipped.length;
   appendAudit(state, "ally.accept_all", `${n} commitments${skipped ? ` skip:${skipped}` : ""}`);
   persist();
   if (!n) {
@@ -2530,6 +2613,10 @@ async function initNativeShell() {
     if (App?.addListener) {
       // Hardware back: close modals first, then navigate toward Today, then minimize.
       await App.addListener("backButton", ({ canGoBack }) => {
+        if (activeReturnNudge) {
+          dismissReturnNudge();
+          return;
+        }
         if (pendingBreakGlass) {
           cancelBreakGlass();
           return;
@@ -2596,14 +2683,40 @@ function buildReturnNudgeCtx(awayMin) {
   };
 }
 
-/** Toast welcome-back at most once per 2 minutes of session thrash. */
+function renderReturnNudgeModal() {
+  const modal = $("#return-nudge-modal");
+  if (!modal) return;
+  const show = !!activeReturnNudge;
+  modal.classList.toggle("hidden", !show);
+  if (!show) return;
+  const title = $("#return-nudge-title");
+  const body = $("#return-nudge-body");
+  const yes = $("#return-nudge-yes");
+  const no = $("#return-nudge-no");
+  const next = $("#return-nudge-next");
+  if (title) title.textContent = activeReturnNudge.question;
+  if (body) body.textContent = activeReturnNudge.text;
+  if (yes) yes.textContent = activeReturnNudge.stillYes;
+  if (no) no.textContent = activeReturnNudge.stillNo;
+  if (next) next.textContent = activeReturnNudge.chooseNext;
+}
+
+function dismissReturnNudge() {
+  activeReturnNudge = null;
+  renderReturnNudgeModal();
+}
+
+/** Ask the return question at most once per 2 minutes of session thrash. */
 function maybeReturnNudge(awayMin) {
   const now = Date.now();
   if (now - lastReturnNudgeAt < 120_000) return;
-  const msg = returnNudge(buildReturnNudgeCtx(awayMin));
-  if (!msg) return;
+  if (activeReturnNudge) return;
+  if (state.ui.tutorialOpen || state.ui.checkInOpen || pendingIntention || pendingBreakGlass) return;
+  const nudge = returnNudge(buildReturnNudgeCtx(awayMin));
+  if (!nudge) return;
   lastReturnNudgeAt = now;
-  showToast(msg, "ok", 5500);
+  activeReturnNudge = nudge;
+  renderReturnNudgeModal();
 }
 
 function onCreateTarget(e) {
@@ -3376,6 +3489,22 @@ document.addEventListener("click", (e) => {
     appendAudit(state, "commitment.estimate", `${c.text.slice(0, 40)}:${prev}→${next}`);
     persist();
     showToast(`Estimate ${next}m.`, "ok");
+  }
+  if (action === "today-log-metric") {
+    const t = state.targets.find((x) => x.id === id);
+    if (!t?.metrics?.[0] || t.status !== "active") return;
+    const m = t.metrics[0];
+    const raw = $("#today-metric-value")?.value;
+    const val = Number(raw);
+    if (!Number.isFinite(val)) {
+      showToast("Enter a number to check in.", "error");
+      return;
+    }
+    m.current = val;
+    appendAudit(state, "metric.set", `today:${t.title}:${val}`);
+    persist();
+    showToast(`Logged ${m.name} ${val}. · ~${metricProgressPct(m)}%`, "ok");
+    return;
   }
   if (action === "set-metric") {
     const t = state.targets.find((x) => x.id === id);
@@ -4183,6 +4312,41 @@ document.addEventListener("click", (e) => {
     state.ui.installBannerDismissed = true;
     persist();
   }
+  if (action === "return-still-yes") {
+    if (activeReturnNudge) {
+      appendAudit(
+        state,
+        "ally.return_still",
+        activeReturnNudge.intention || (activeReturnNudge.focusActive ? "focus" : "keep")
+      );
+      persist();
+      showToast("Still this. Protect the next stretch on purpose.", "ok");
+    }
+    dismissReturnNudge();
+    return;
+  }
+  if (action === "return-change") {
+    if (activeReturnNudge) {
+      appendAudit(state, "ally.return_change", activeReturnNudge.intention || "none");
+    }
+    dismissReturnNudge();
+    state.ui.checkInOpen = true;
+    persist();
+    requestAnimationFrame(() => $("#checkin-intention")?.focus());
+    return;
+  }
+  if (action === "return-choose-next") {
+    if (activeReturnNudge) {
+      appendAudit(state, "ally.return_choose", `${activeReturnNudge.openPending} open`);
+    }
+    dismissReturnNudge();
+    if (state.ui.tab !== "today") {
+      state.ui.tab = "today";
+      persist();
+    }
+    showToast("Choose the next stretch from Today.", "ok");
+    return;
+  }
   if (action === "dismiss-update") {
     updateBannerDismissed = true;
     renderInstallBanner();
@@ -4200,7 +4364,7 @@ document.addEventListener("click", (e) => {
   }
   if (action === "install-app") {
     if (!deferredInstall) {
-      showToast("Install isn’t available in this browser right now.", "error");
+      showToast("PWA install isn’t offered in this browser. Use Download Windows package, or Edge/Chrome’s Install menu.", "error", 5000);
       return;
     }
     deferredInstall
@@ -4257,7 +4421,7 @@ window.addEventListener("appinstalled", () => {
   state.ui.installBannerDismissed = true;
   appendAudit(state, "app.installed", SITE_VERSION.id);
   persist();
-  showToast("AIly installed. Open it from your home screen.", "ok", 4500);
+  showToast("PWA installed. This is not the Windows package and cannot hard-block apps.", "ok", 4500);
 });
 
 // First visit: open tutorial
@@ -4347,6 +4511,10 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape") {
+    if (activeReturnNudge) {
+      dismissReturnNudge();
+      return;
+    }
     if (pendingBreakGlass) {
       cancelBreakGlass();
       return;

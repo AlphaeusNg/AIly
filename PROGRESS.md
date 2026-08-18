@@ -4,16 +4,17 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 28)
+Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 29)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.18.4`.
-- Windows delivery is a scoped Edge/Chrome PWA plus a local preview launcher.
-  There is still no native `.exe` / `.msi` / `.msix` installer.
+- Deployment version: `2026.08.18.5`.
+- Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
+  Tauri 2 NSIS scaffold (`AIly-setup.exe`, unsigned). OS hard-blocks are not in
+  this build.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
@@ -27,6 +28,7 @@ Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 28)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, Tauri NSIS scaffold | Completed in Cycle 29 |
 | — | Today one-thing + capacity in clock hours | Ally UX | High: next action and planned time were still a list and raw minutes | Small / low | Existing ranking + formatClockHours | Completed in Cycle 28 |
 | — | Collapse the phone tab bar and calm Today / intention density | Ally UX | High: 7 cramped tabs and action-dump rows hid the pause | Small / low | 5-tab + More sheet, row overflow, folded notices, Fewer checks | Completed in Cycle 27 |
 | — | Make the Windows preview launcher parse and keep the PWA identity scoped | Correctness / packaging | High: Windows PowerShell could not parse the launcher; `id: "/"` collided with the portfolio origin | Small / low | ASCII launcher, extracted static server, relative manifest id, and 19 server assertions | Completed in Cycle 26 |
@@ -54,6 +56,32 @@ Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 28)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 29 — Companion questions and Windows package scaffold (2026-08-18)
+
+**Why this won:** Coming back was a toast. Accept-all could silently skip
+items. “Install” claimed more than a PWA. The owner wants a downloadable
+companion, not a GitHub Pages demo.
+
+**Plan and success criteria**
+
+1. Return-from-away asks “Still protecting {intention}?” with yes / change / choose next.
+2. Accept-all shows what would add, skip, and remaining room before mutating.
+3. Today can log the next target’s metric without leaving the page.
+4. Install banner and Setup name PWA vs `AIly-setup.exe` vs OS blocks separately.
+5. Scaffold Tauri 2 + NSIS CI without adding WebKit to Linux `npm test`.
+6. Couple `SITE_VERSION` and the service-worker cache at `2026.08.18.5`.
+
+**Changes**
+
+- `returnNudge` is now a structured question; `previewAcceptAll` is pure.
+- Return-nudge modal, Today check-in, backup reminder, honest install copy.
+- `src-tauri/` (not a workspace member) + `windows-installer.yml` → `AIly-setup.exe`.
+- Docs and README distinguish PWA, Windows package, and preview launcher.
+
+**Verification evidence**
+
+- `npm test` (includes `test-desktop.mjs` and updated ally/shell/workflow contracts).
 
 ### Cycle 28 — One thing and clock-time capacity (2026-08-18)
 

@@ -19,11 +19,12 @@
 | Path | Role |
 |---|---|
 | `crates/aily-core` | Domain: targets, capacity, replan, tutorial state, block rules model |
-| `apps/web` | Phase 0 UI dogfood (static HTML/CSS/JS) |
+| `apps/web` | Phase 0 UI dogfood (static HTML/CSS/JS) — also the Tauri frontend |
+| `src-tauri/` | Tauri 2 Windows NSIS shell (`AIly-setup.exe`). Not a workspace member. |
 | `docs/` | Architecture, tutorial, privacy, blocking |
 | `packages/*` | Placeholders for usage/block/tutorial services |
 
-Tauri desktop shell lands when WebKit GTK deps are available; core logic stays in Rust.
+Do not add `src-tauri` to the Cargo workspace — Linux `npm test` must stay WebKit-free. Core logic stays in Rust.
 
 ## Rules
 

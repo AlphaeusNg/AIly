@@ -46,6 +46,7 @@ for (const id of [
   "tutorial-modal",
   "intention-modal",
   "checkin-modal",
+  "return-nudge-modal",
   "breakglass-modal",
   "help-modal",
   "more-sheet",
@@ -142,6 +143,16 @@ assert.match(app, /"1": "today"[\s\S]*"7": "activity"/, "keyboard 1–7 still ma
 assert.match(app, /today-notices/, "non-danger Today banners fold into one disclosure");
 assert.match(app, /pickNextCommitment/, "Today picks one next commitment with existing ranking");
 assert.match(app, /one-thing/, "Today surfaces a one-thing card");
+assert.match(app, /previewAcceptAll/, "accept-all uses a capacity preview");
+assert.match(app, /today-log-metric/, "Today can log a target check-in");
+assert.match(app, /return-still-yes/, "return nudge is a real yes/no question");
+assert.match(app, /WINDOWS_DOWNLOAD_URL/, "install copy points at the Windows package");
+assert.match(app, /Install PWA/, "PWA install is named separately from the Windows package");
+const tutorial = read("js/tutorial.js");
+assert.match(tutorial, /AIly-setup.exe/, "tutorial names the Windows package");
+assert.match(tutorial, /Auto-start stays/, "tutorial says auto-start stays off");
+assert.match(html, /Windows package/, "install banner offers the Windows package");
+assert.match(html, /id="return-nudge-title"/, "return-nudge modal has a question title");
 assert.match(app, /formatClockHours/, "capacity copy can speak clock hours");
 assert.match(app, /of a <strong>\$\{formatClockHours\(dailyCap\)\}<\/strong> day/, "time-consciousness states planned hours of a day");
 assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");

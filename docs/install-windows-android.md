@@ -4,26 +4,48 @@ Your Ubuntu box is **WSL** — native desktop GUI apps (and some browser PWA ins
 
 Brand: **AIly** — *Your AI Ally*
 
+These three paths are **not the same product surface**. Copy and UI must keep them distinct.
+
+| Path | Installs as | Data | OS usage / hard blocks |
+|---|---|---|---|
+| Browser **PWA** | Edge/Chrome app, scoped to `/AIly/` | That browser profile (`localStorage`) | No |
+| **AIly-setup.exe** (Tauri / NSIS) | Start Menu + desktop shortcut | WebView2 profile under the app’s data dir | Not in this build |
+| `tools\serve-windows.bat` | Nothing — local preview server | Temporary localhost origin | No |
+
 ---
 
-## Windows (recommended first)
+## Windows
 
-There is **no native Windows installer** (no `.exe`, `.msi`, or `.msix`) yet. The
-desktop shell is still future work. “Install on Windows” means installing the
-hosted **Progressive Web App** in Edge or Chrome.
+### Option A — Download `AIly-setup.exe` (packaged app)
 
-### Option A — Install as app from GitHub Pages (easiest)
+1. On **Windows**, open [the latest GitHub Release](https://github.com/AlphaeusNg/AIly/releases/latest).
+2. Download **`AIly-setup.exe`**. First dogfood builds are **unsigned** — SmartScreen / “Windows protected your PC” is expected. Use **More info → Run anyway** only if you built or trust this repo.
+3. Install per-user (no admin required). Auto-start is **off**.
+4. Launch **AIly** from the Start Menu. Same tutorial / Today / propose loop as the web app.
 
-After this repo is on GitHub Pages:
+This is **not** OS enforcement. Break-glass and block rules still simulate until Ship C.
+
+Build it yourself on Windows (not WSL):
+
+```text
+cd AIly
+npm ci
+npx --yes @tauri-apps/cli@2 build --bundles nsis
+# Artifact: src-tauri/target/release/bundle/nsis/*-setup.exe
+```
+
+`src-tauri` is **not** a Cargo workspace member so Linux `npm test` does not need WebKit GTK.
+
+### Option B — Install as a PWA from GitHub Pages
 
 1. On **Windows**, open **Edge** or **Chrome**.
 2. Go to: `https://alphaeusng.github.io/AIly/`
-3. Click **Install** / **App available** / ⋮ → **Install AIly**.
-4. AIly opens in its own window (standalone PWA). Data stays in that browser profile (localStorage).
+3. Click **Install PWA** in the banner, or ⋮ → **Install AIly**.
+4. AIly opens in its own window. Data stays in that browser profile.
 
 The installed app identity is scoped to `/AIly/`, not the portfolio site root.
 
-### Option B — Run from a local clone on Windows
+### Option C — Run from a local clone on Windows
 
 This starts a **local preview server**. It is not a packaged installer.
 
@@ -34,11 +56,11 @@ This starts a **local preview server**. It is not a packaged installer.
 2. Double-click `tools\serve-windows.bat`  
    (needs **Python 3** or **Node** on Windows PATH)
 3. Browser opens `http://127.0.0.1:8765/`
-4. Install as PWA same as Option A (localhost works for install in Chromium).
+4. Install as PWA same as Option B (localhost works for install in Chromium).
 
-### Option C — Static open (limited)
+### Option D — Static open (limited)
 
-Opening `index.html` via `file://` may break the service worker. Prefer A or B.
+Opening `index.html` via `file://` may break the service worker. Prefer A, B, or C.
 
 ---
 
@@ -77,20 +99,20 @@ are present. Revoking either turns the integration off.
 
 WSL can **develop** and **build** artifacts; **daily product testing** should be on:
 
-- Windows browser/PWA, or  
+- Windows package (`AIly-setup.exe`) or Windows browser/PWA, or
 - Physical Android device against the hosted URL / APK.
 
 ---
 
 ## What works today vs later
 
-| Feature | Windows PWA | Android PWA | Capacitor APK |
-|---|---|---|---|
-| Tutorial, targets, Today, Review | yes | yes | yes |
-| Local data (localStorage) | yes | yes | yes |
-| OS app usage tracking | not yet | not yet | current-day foreground totals (consent + Usage Access) |
-| OS hard app blocks | not yet | not yet | Phase 2 |
+| Feature | Windows PWA | Windows package | Android PWA | Capacitor APK |
+|---|---|---|---|---|
+| Tutorial, targets, Today, Review | yes | yes | yes | yes |
+| Local data | browser profile | app data dir | browser profile | app storage |
+| OS app usage tracking | not yet | not yet | not yet | current-day foreground totals (consent + Usage Access) |
+| OS hard app blocks | not yet | not yet | not yet | Phase 2 / Ship C |
 
-The web/PWA remains a local dogfood shell. The Capacitor APK adds the first
-read-only native hook; background collection and hard enforcement remain later
-phases.
+The web/PWA remains a complete companion loop. The Windows package wraps that
+same UI. The Capacitor APK adds the first read-only native hook. Background
+collection and hard enforcement remain later phases.

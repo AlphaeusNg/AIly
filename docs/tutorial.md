@@ -23,3 +23,5 @@ On **Today**:
 - **Clone yesterday** to restart a familiar plan, then replan if over capacity.
 
 Review shows weekly honesty stats + reflection (not shame).
+
+**Install honesty:** PWA, `AIly-setup.exe`, and OS enforcement are three different things. Auto-start stays off. Blocks cannot arm without tutorial grants.

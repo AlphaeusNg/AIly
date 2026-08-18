@@ -11,7 +11,12 @@ I help you hit the **targets you set**. I'll walk you through setup on this comp
 
 I'll plan with you, notice where time goes (if you allow), and only block apps **you** put off-limits.
 
-My job is also to help you **pause** — so you stay conscious of the time you spend, and choose whether you really want to be doing this.`,
+My job is also to help you **pause** — so you stay conscious of the time you spend, and choose whether you really want to be doing this.
+
+**Three different installs** (do not collapse them):
+- **PWA** — browser “Install app”. Data stays in that browser profile.
+- **Windows package** — AIly-setup.exe from GitHub Releases (unsigned dogfood). Data lives in the app profile. Auto-start stays **off**.
+- **OS blocks** — not in this build. Break-glass still exists for the simulation.`,
   },
   {
     id: "first_target",
@@ -57,7 +62,9 @@ You can always **break glass** (unlock with a short delay + reason). AIly logs i
     id: "stay_in_touch",
     title: "Stay in touch",
     required: false,
-    body: `Allow notifications so AIly can nudge plan/review times with gentle, generic messages.`,
+    body: `Allow notifications so AIly can nudge plan/review times with gentle, generic messages.
+
+The Windows package does **not** auto-start. If you want AIly at login later, that will be an explicit Setup toggle — never silent.`,
     grant: "notifications",
   },
   {

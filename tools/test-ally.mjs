@@ -1,6 +1,6 @@
 /** Tests for local propose-only ally helpers. */
 import assert from "node:assert/strict";
-import { pickNextCommitment, proposeDayPlan, rankCommitments, returnNudge } from "../apps/web/js/ally.js";
+import { pickNextCommitment, previewAcceptAll, proposeDayPlan, rankCommitments, returnNudge } from "../apps/web/js/ally.js";
 
 const noTargets = proposeDayPlan({
   targets: [],
@@ -146,13 +146,54 @@ assert.equal(
 );
 
 assert.equal(returnNudge({ awayMin: 2 }), null);
-assert.match(returnNudge({ awayMin: 20, intention: "Deep work" }), /intention/i);
-assert.match(returnNudge({ awayMin: 20, focusActive: true }), /Focus/i);
+const deep = returnNudge({ awayMin: 20, intention: "Deep work" });
+assert.match(deep.question, /Still protecting Deep work/);
+assert.match(deep.text, /intention/i);
+assert.match(returnNudge({ awayMin: 20, focusActive: true }).text, /Focus/i);
 assert.match(
-  returnNudge({ awayMin: 15, openPending: 2, plannedMin: 40 }),
+  returnNudge({ awayMin: 15, openPending: 2, plannedMin: 40 }).text,
   /2 open/,
   "return nudge mentions open plan load"
 );
+
+const preview = previewAcceptAll({
+  proposals: [
+    { text: "Protect: Ship AIly hard part", targetId: "a", estimateMin: 45, mustKeep: true },
+    { text: "Progress: Health on sessions", targetId: "b", estimateMin: 30, mustKeep: false },
+    { text: "Protect: Ship AIly hard part", targetId: "a", estimateMin: 45, mustKeep: true },
+    { text: "Ghost", targetId: "missing", estimateMin: 15, mustKeep: false },
+  ],
+  existingToday: [],
+  targets,
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  softCaps: [
+    { targetId: "a", hours: 6 },
+    { targetId: "b", hours: 4 },
+  ],
+  planDate: "2026-08-18",
+});
+assert.equal(preview.added.length, 2, "preview adds the two unique active proposals");
+assert.equal(preview.addedMin, 75);
+assert.ok(
+  preview.skipped.some((s) => s.reason === "duplicate"),
+  "preview names the duplicate skip"
+);
+assert.ok(
+  preview.skipped.some((s) => s.reason === "inactive"),
+  "preview names the inactive-target skip"
+);
+
+const overflow = previewAcceptAll({
+  proposals: [{ text: "Too much", targetId: "a", estimateMin: 180, mustKeep: false }],
+  existingToday: [{ id: "x", targetId: "a", estimateMin: 90, status: "pending", mustKeep: false }],
+  targets,
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  planDate: "2026-08-18",
+});
+assert.equal(overflow.added.length, 0);
+assert.equal(overflow.skipped[0]?.reason, "daily_over");
 
 // Determinism
 const p1 = proposeDayPlan({

@@ -43,13 +43,14 @@
         <button type="button" class="primary" data-action="apply-update">Reload</button>
         <button type="button" data-action="dismiss-update" aria-label="Dismiss">✕</button>
       </div>
-      <div id="install-banner" class="install-banner hidden" role="region" aria-label="Install AIly">
+      <div id="install-banner" class="install-banner hidden" role="region" aria-label="Get AIly on this device">
         <img src="assets/logo.svg" width="36" height="36" alt="" />
         <div class="install-copy">
-          <strong>Install AIly</strong>
-          <span class="muted">Run as an app — faster open, offline shell, home-screen icon.</span>
+          <strong>Get AIly on this device</strong>
+          <span class="muted">PWA now (no OS admin). Windows package is AIly-setup.exe from Releases — unsigned dogfood, no app blocks yet.</span>
         </div>
-        <button type="button" class="primary" data-action="install-app">Install</button>
+        <button type="button" class="primary" id="install-pwa-btn" data-action="install-app">Install PWA</button>
+        <a class="primary" id="install-windows-link" href="https://github.com/AlphaeusNg/AIly/releases/latest" target="_blank" rel="noopener">Windows package</a>
         <button type="button" data-action="dismiss-install" aria-label="Dismiss">✕</button>
       </div>
 
@@ -154,6 +155,22 @@
     </div>
 
     <!-- Daily intentional check-in -->
+    <div id="return-nudge-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="return-nudge-title">
+      <div class="modal intention-modal">
+        <div class="modal-top">
+          <span class="muted">Welcome back</span>
+          <button type="button" data-action="return-choose-next" aria-label="Close">✕</button>
+        </div>
+        <h2 id="return-nudge-title">Still protecting this?</h2>
+        <p id="return-nudge-body" class="intention-body"></p>
+        <div class="modal-actions">
+          <button type="button" class="primary" id="return-nudge-yes" data-action="return-still-yes">Yes — still this</button>
+          <button type="button" id="return-nudge-no" data-action="return-change">No — change intention</button>
+          <button type="button" class="ghost" id="return-nudge-next" data-action="return-choose-next">I'll choose next</button>
+        </div>
+      </div>
+    </div>
+
     <div id="checkin-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="checkin-title">
       <div class="modal">
         <div class="modal-top">

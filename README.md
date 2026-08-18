@@ -18,13 +18,19 @@ Your Ubuntu environment is **WSL** — use **Windows host** and/or a **phone** f
 
 Full guide: **[docs/install-windows-android.md](docs/install-windows-android.md)**
 
-### Windows (fastest)
+### Windows
 
-There is no native `.exe` / `.msi` installer yet. Install the hosted PWA:
+These are **three different things**. Do not collapse them:
 
-1. After deploy: open **Edge/Chrome** → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/)
-2. **Install app** (PWA) → runs in its own window, scoped to `/AIly/`.
-3. Or clone on Windows and double-click `tools\serve-windows.bat` for a local preview (needs Python or Node).
+| Path | What you get | What you do not get |
+|---|---|---|
+| **PWA** | Edge/Chrome “Install app”, localStorage in that browser profile | OS admin, app blocks, a Start Menu `.exe` |
+| **AIly-setup.exe** | Start Menu / desktop app wrapping the same `apps/web` UI (unsigned dogfood) | SmartScreen reputation, OS hard-blocks |
+| **Preview launcher** | `tools\serve-windows.bat` for local web | An installer |
+
+1. **Download the Windows package** from [Releases](https://github.com/AlphaeusNg/AIly/releases/latest) (`AIly-setup.exe`). Unsigned; SmartScreen may warn. Auto-start stays off.
+2. **Or install the hosted PWA:** Edge/Chrome → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/) → **Install app**. Scoped to `/AIly/`.
+3. **Or preview:** clone on Windows and double-click `tools\serve-windows.bat` (needs Python or Node).
 
 ### Android
 
@@ -65,7 +71,8 @@ native-shell changes.
 
 | Path | Role |
 |---|---|
-| `apps/web` | PWA UI (tutorial, targets, Today, blocks…) |
+| `apps/web` | PWA UI (tutorial, targets, Today, blocks…) — also the Tauri frontend |
+| `src-tauri/` | Tauri 2 Windows shell (NSIS `AIly-setup.exe`); not a workspace member |
 | `android/` | Capacitor Android shell |
 | `crates/aily-core` | Rust domain (capacity, replan, tutorial gates) |
 | `docs/` | Architecture, install, privacy, blocking |
@@ -73,7 +80,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.18.1`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.18.6`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  
@@ -90,7 +97,10 @@ native-shell changes.
 - Setup → **Load sample journey** for instant dogfood  
 - Local web: `npm run web` · gate: `npm test`
 
-**Later:** background/desktop usage hooks + hard app blocking; sealed DB; optional local AI.
+- Return-from-away is a real question; accept-all shows drop/skip preview; Today can log a target number
+- Windows package scaffold (`src-tauri/`) builds `AIly-setup.exe` on `windows-latest` — unsigned, no OS blocks yet
+
+**Later:** OS usage/hard-blocks after a real Windows process exists (Ship C); sealed DB; optional local AI.
 
 ## Docs
 

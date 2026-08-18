@@ -1,6 +1,6 @@
 /** Bump on every ship: YYYY.MM.DD.N */
 export const SITE_VERSION = {
-  id: "2026.08.18.4",
+  id: "2026.08.18.6",
   name: "AIly",
   tagline: "Your AI Ally",
 };

@@ -1,7 +1,8 @@
 # Run AIly locally on Windows and open it for PWA install.
 # Usage: right-click -> Run with PowerShell, or:
 #   powershell -ExecutionPolicy Bypass -File tools\serve-windows.ps1
-# This is a local preview. There is no native .exe / .msi installer yet.
+# This is a local preview. It is not a native Windows installer.
+# Download AIly-setup.exe from GitHub Releases for the packaged app.
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -13,7 +14,8 @@ $port = 8765
 Write-Host "AIly - Your AI Ally"
 Write-Host "Serving $Web on http://127.0.0.1:$port/"
 Write-Host "This is a browser PWA preview, not a native Windows installer."
-Write-Host "Install as app: Edge/Chrome -> Install AIly / App available icon"
+Write-Host "Packaged app: download AIly-setup.exe from GitHub Releases (unsigned dogfood)."
+Write-Host "Install as PWA: Edge/Chrome -> Install AIly / App available icon"
 Write-Host "Ctrl+C to stop."
 Write-Host ""
 
