@@ -91,6 +91,17 @@ export function intentionStreak(state = {}, today = "") {
   return streak;
 }
 
+/** Speak capacity minutes as clock hours: 540 → "9h", 90 → "1h 30m". */
+export function formatClockHours(minutes) {
+  if (!Number.isFinite(minutes) || minutes < 0) return "0m";
+  const mins = Math.round(minutes);
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours === 0) return `${rest}m`;
+  if (rest === 0) return `${hours}h`;
+  return `${hours}h ${rest}m`;
+}
+
 export function previousDayISO(ymd) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
   if (!m) return ymd;

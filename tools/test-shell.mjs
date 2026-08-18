@@ -140,6 +140,10 @@ assert.match(
 assert.match(app, /undoLast|pushUndo/, "session undo is wired");
 assert.match(app, /"1": "today"[\s\S]*"7": "activity"/, "keyboard 1–7 still maps all seven tabs");
 assert.match(app, /today-notices/, "non-danger Today banners fold into one disclosure");
+assert.match(app, /pickNextCommitment/, "Today picks one next commitment with existing ranking");
+assert.match(app, /one-thing/, "Today surfaces a one-thing card");
+assert.match(app, /formatClockHours/, "capacity copy can speak clock hours");
+assert.match(app, /of a <strong>\$\{formatClockHours\(dailyCap\)\}<\/strong> day/, "time-consciousness states planned hours of a day");
 assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");
 assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
 

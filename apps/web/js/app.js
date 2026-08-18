@@ -45,10 +45,11 @@ import {
   upsertBlockRule,
   validateBreakGlassComplete,
 } from "./block.js";
-import { proposeDayPlan, returnNudge } from "./ally.js";
+import { pickNextCommitment, proposeDayPlan, rankCommitments, returnNudge } from "./ally.js";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
+  formatClockHours,
   formatDayPlanText,
   formatWeekHonestyText,
   intentionStreak,
@@ -481,6 +482,9 @@ function allyTimeMessage(dailyCap, planned, usage) {
   }
   parts.push(
     `You've planned <strong>${planned|0}m</strong> of about <strong>${dailyCap|0}m</strong> soft capacity today.`
+  );
+  parts.push(
+    `You've planned <strong>${formatClockHours(planned)}</strong> of a <strong>${formatClockHours(dailyCap)}</strong> day.`
   );
   if (usage > 0) {
     parts.push(`Logged attention samples: <strong>${usage|0}m</strong>.`);
@@ -999,6 +1003,7 @@ function renderToday() {
   const cap = state.user.weeklyCapacityHours;
   const daily = dailySoftCapMinutes(cap, state.user.nightsPerWeek);
   const today = todayCommitments();
+  const nextThing = pickNextCommitment(today);
   const invalidCommitments = state.recovery?.invalidCommitments || [];
   const used = plannedMinutes();
   const usage = dayUsageMinutes();
@@ -1032,6 +1037,20 @@ function renderToday() {
         })()
       }</p>
     </header>
+    ${
+      nextThing
+        ? `<section class="one-thing" aria-label="Next commitment">
+          <p class="one-thing-label">One thing</p>
+          <div class="one-thing-card">
+            <div class="commit-main">
+              <strong>${escapeHtml(nextThing.text)}</strong>
+              <span class="muted">${nextThing.estimateMin}m</span>
+            </div>
+            <button type="button" class="primary" data-action="done-commit" data-id="${nextThing.id}">Done</button>
+          </div>
+        </section>`
+        : ""
+    }
     <div class="capacity-card">
       <h2>Time consciousness</h2>
       <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${fillPct}" aria-label="Day plan fill">
@@ -1196,18 +1215,9 @@ function renderToday() {
       <label class="chk"><input type="checkbox" id="new-commit-keep" /> must-keep</label>
       <button type="button" class="primary" data-action="add-commit">Add</button>
     </div>
-    <ul class="list">
-      ${today
-        .slice()
-        .sort((a, b) => {
-          // must-keep first, then lower priority number (more important), then longer blocks
-          const mk = (b.mustKeep ? 1 : 0) - (a.mustKeep ? 1 : 0);
-          if (mk) return mk;
-          const pa = Number.isFinite(a.priority) ? a.priority : 0;
-          const pb = Number.isFinite(b.priority) ? b.priority : 0;
-          if (pa !== pb) return pa - pb;
-          return (b.estimateMin || 0) - (a.estimateMin || 0);
-        })
+    <ul class="list today-rest">
+      ${rankCommitments(today)
+        .filter((c) => !nextThing || c.id !== nextThing.id)
         .map((c) => {
           const t = state.targets.find((x) => x.id === c.targetId);
           return `<li class="commit-row${c.mustKeep ? " is-must-keep" : ""}${c.status === "done" ? " is-done" : ""}">
@@ -1245,7 +1255,7 @@ function renderToday() {
             </details>
           </li>`;
         })
-        .join("") || emptyTodayCta()}
+        .join("") || (nextThing ? "" : emptyTodayCta())}
     </ul>
   `;
   $("#new-commit-text")?.addEventListener("keydown", (e) => {

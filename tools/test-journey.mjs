@@ -16,6 +16,7 @@ import {
   weekJourneyStats,
   weekReflection,
   weekStartISO,
+  formatClockHours,
 } from "../apps/web/js/journey.js";
 
 // 2026-08-11 is a Tuesday → week starts Monday 2026-08-10
@@ -182,6 +183,12 @@ assert.equal(
   ),
   2
 );
+
+assert.equal(formatClockHours(540), "9h");
+assert.equal(formatClockHours(420), "7h");
+assert.equal(formatClockHours(90), "1h 30m");
+assert.equal(formatClockHours(45), "45m");
+assert.equal(formatClockHours(-10), "0m");
 
 assert.equal(attentionMismatchNote(10, 100), null, "ignores tiny plans");
 assert.match(attentionMismatchNote(60, 120), /above planned/i);

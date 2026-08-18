@@ -906,6 +906,41 @@ button.version-btn:hover {
   margin-bottom: 0.15rem;
 }
 
+.one-thing {
+  margin: 0 0 0.85rem;
+}
+
+.one-thing-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.one-thing-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, #1a2430 0%, #121820 100%);
+}
+
+.one-thing-card strong {
+  font-size: 1.08rem;
+}
+
+.today-rest {
+  opacity: 0.78;
+}
+
+.today-rest .commit-row {
+  background: transparent;
+}
+
 .commit-row.is-must-keep {
   box-shadow: inset 3px 0 0 var(--accent);
 }

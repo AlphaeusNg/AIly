@@ -140,6 +140,8 @@ assert.match(appSource, /discardInvalidCommitments\(state\)/, "UI uses the teste
 assert.match(appSource, /dismissBootSplash/, "boot splash is dismissed after first render");
 assert.match(appSource, /shouldAskIntention|intention-confirm/, "intentional commitment gate exists");
 assert.match(appSource, /Time consciousness/, "Today surfaces time consciousness");
+assert.match(appSource, /formatClockHours/, "time consciousness also speaks clock hours");
+assert.match(appSource, /one-thing/, "Today leads with one next commitment");
 assert.match(appSource, /ally-propose|proposeDayPlan/, "Today exposes local ally propose");
 assert.match(appSource, /backButton/, "native shell handles Android back button");
 assert.match(appSource, /weekJourneyStats/, "Review includes weekly journey stats");

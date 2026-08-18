@@ -1,6 +1,6 @@
 /** Tests for local propose-only ally helpers. */
 import assert from "node:assert/strict";
-import { proposeDayPlan, returnNudge } from "../apps/web/js/ally.js";
+import { pickNextCommitment, proposeDayPlan, rankCommitments, returnNudge } from "../apps/web/js/ally.js";
 
 const noTargets = proposeDayPlan({
   targets: [],
@@ -127,6 +127,22 @@ const skipDupText = proposeDayPlan({
 assert.ok(
   skipDupText.proposals.every((p) => !/Progress: Ship AIly/i.test(p.text) || /buffer|break/i.test(p.text)),
   "does not re-propose identical Progress text already on today",
+);
+
+const nextPick = pickNextCommitment([
+  { id: "done", text: "Already done", status: "done", mustKeep: true, priority: 0, estimateMin: 90 },
+  { id: "optional", text: "Optional", status: "pending", mustKeep: false, priority: 0, estimateMin: 60 },
+  { id: "keep", text: "Protect this", status: "pending", mustKeep: true, priority: 2, estimateMin: 30 },
+]);
+assert.equal(nextPick?.id, "keep", "ally picks the pending must-keep first");
+assert.equal(pickNextCommitment([]), null, "no next commitment when the day is empty");
+assert.equal(
+  rankCommitments([
+    { id: "long", priority: 1, estimateMin: 45 },
+    { id: "short-important", priority: 0, estimateMin: 15 },
+  ])[0].id,
+  "short-important",
+  "existing ranking prefers lower priority number before length"
 );
 
 assert.equal(returnNudge({ awayMin: 2 }), null);

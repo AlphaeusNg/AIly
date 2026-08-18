@@ -15,6 +15,32 @@ function clampEstimate(min) {
 }
 
 /**
+ * Existing Today ranking: must-keep first, then lower priority number,
+ * then longer blocks. Same order the list and propose-adjacent pick use.
+ */
+export function rankCommitments(items) {
+  return (Array.isArray(items) ? items : []).slice().sort((a, b) => {
+    const mk = Number(!!b?.mustKeep) - Number(!!a?.mustKeep);
+    if (mk) return mk;
+    const pa = Number.isFinite(a?.priority) ? a.priority : 0;
+    const pb = Number.isFinite(b?.priority) ? b.priority : 0;
+    if (pa !== pb) return pa - pb;
+    return (b?.estimateMin || 0) - (a?.estimateMin || 0);
+  });
+}
+
+/**
+ * Single next commitment the ally would start: first pending item
+ * under the existing ranking.
+ */
+export function pickNextCommitment(items) {
+  const pending = (Array.isArray(items) ? items : []).filter(
+    (c) => c && c.status === "pending"
+  );
+  return rankCommitments(pending)[0] || null;
+}
+
+/**
  * Propose a capacity-honest set of commitments for today.
  * Never mutates state — pure.
  *
