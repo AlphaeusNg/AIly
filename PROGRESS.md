@@ -116,6 +116,12 @@ stale hypothesis into evidence exposed a smaller honesty and verification gap.
   recursive syntax, and 63 CI/Pages policy assertions.
 - `npm audit --audit-level=high` found zero vulnerabilities; lockfile integrity
   and `git diff --check` passed.
+- Hosted CI run `32780421072` passed the Chromium-capable canonical gate in
+  56s and the Android JVM job in 41s; Pages run `32780421030` deployed the
+  live `2026.08.25.6` stamp.
+- Package run `32780421051` passed: Android built and verified in 46s, while
+  Windows produced the 1,928,762-byte NSIS installer and then installed,
+  launched, and uninstalled AIly 0.1.1 successfully in a 5m51s job.
 
 **Scores**
 
