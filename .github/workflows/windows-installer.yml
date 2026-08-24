@@ -1,4 +1,4 @@
-name: windows-installer
+name: packages
 
 on:
   workflow_dispatch:
@@ -11,6 +11,7 @@ on:
       - "apps/web/**"
       - "package.json"
       - "package-lock.json"
+      - "tools/test-windows-installer.ps1"
       - "tools/verify-android-apk.sh"
       - ".github/workflows/windows-installer.yml"
 
@@ -18,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: windows-installer-${{ github.workflow }}-${{ github.ref }}
+  group: packages-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

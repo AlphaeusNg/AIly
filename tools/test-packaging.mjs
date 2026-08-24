@@ -19,6 +19,17 @@ assert.equal(
 );
 assert.match(android, /versionCode\s+[1-9]\d*/, "Android versionCode is positive");
 
+assert.match(workflow, /^name:\s*packages\s*$/m, "the combined workflow has a package-wide identity");
+assert.match(
+  workflow,
+  /group:\s*packages-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}/,
+  "package runs share a package-wide stale-run group",
+);
+assert.match(
+  workflow,
+  /paths:[\s\S]*tools\/test-windows-installer\.ps1/,
+  "Windows lifecycle-probe changes trigger real package verification",
+);
 assert.match(workflow, /^\s{2}android-apk:\s*$/m, "packaging has an Android APK job");
 assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/, "packaging defaults to read-only access");
 assert.match(workflow, /android-apk:[\s\S]*timeout-minutes:\s*20/, "the APK job has a bounded timeout");
