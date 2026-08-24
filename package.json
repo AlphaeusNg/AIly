@@ -1,6 +1,6 @@
 {
   "name": "aily",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "AIly — Your AI Ally",
   "type": "module",
@@ -13,7 +13,7 @@
     "android:build": "cd android && ./gradlew assembleDebug",
     "android:test": "cd android && ./gradlew :app:testDebugUnitTest --no-daemon",
     "desktop:icons": "python3 tools/gen-tauri-icons.py",
-    "desktop:build": "npx --yes @tauri-apps/cli@2 build --bundles nsis",
+    "desktop:build": "npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis --ci",
     "icons": "bash tools/gen-icons.sh"
   },
   "dependencies": {
