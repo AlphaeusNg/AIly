@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 35)
+Last updated: 2026-08-25 (AIly Cycle 36)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.5`; Windows and Android package version `0.1.1`.
+- Deployment version: `2026.08.25.6`; Windows and Android package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
@@ -20,9 +20,10 @@ Last updated: 2026-08-25 (AIly Cycle 35)
   hosted artifact. Physical-device install and Usage Access dogfood remain.
 - Releases include one generated `SHA256SUMS.txt` for the tested Windows and
   Android artifacts, with platform-native verification instructions.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 58 CI
-  policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
-  separate cached JDK 21 hosted job.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell,
+  three real Chromium storage-failure journeys, and 63 CI policy assertions via
+  `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
+  21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
   current-cache ownership, fetch lifetime, offline navigation, and cache-write
   failure isolation.
@@ -33,6 +34,7 @@ Last updated: 2026-08-25 (AIly Cycle 35)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Browser-gate localStorage failure and label session-only recovery | Reliability / verification | High: in-memory changes worked but generic success copy obscured failed durability, and no browser gate covered the UI | Small-medium / low | Three mutation-backed Chromium journeys plus 63 CI policies | Completed in Cycle 36 |
 | — | Publish verifiable checksums for unsigned/debug packages | Packaging / security | High: users could download tested packages but not independently identify their bytes | Small / low | Generated two-package manifest, docs/contracts, and a byte-exact public v0.1.1 asset | Completed in Cycle 35 |
 | — | Ensure lifecycle-probe changes trigger the combined package gate | Packaging / process | High: the Windows verifier could change without exercising either installable artifact | Small / low | Package-wide workflow identity, path-filter contract, and green hosted Windows/Android jobs | Completed in Cycle 34 |
 | — | Publish and continuously verify an installable Android dogfood APK | Packaging / correctness | High: docs claimed a Releases APK, but no APK existed and native metadata said version 1.0 | Small-medium / low | Public direct asset, aligned 0.1.1 metadata, JVM/build/archive/identity/signature gates | Completed in Cycle 33 |
@@ -66,6 +68,75 @@ Last updated: 2026-08-25 (AIly Cycle 35)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 36 — Browser-gate failed durability and honest recovery (2026-08-25)
+
+**Why this won:** A workspace scan surfaced an old persistence follow-up even
+though `saveState()` and `persist()` already returned safe results. Mutation in
+a real browser confirmed target creation and quarantine recovery stayed usable
+when `localStorage.setItem` threw, but the actions still announced ordinary
+success and no installed-browser gate protected that behavior. Converting the
+stale hypothesis into evidence exposed a smaller honesty and verification gap.
+
+**Plan and success criteria**
+
+1. Force `QuotaExceededError` at the real browser storage boundary, not in a
+   source-text assertion.
+2. Prove target input and recovery remain usable in memory, show the persistent
+   failed-save state, and truthfully return to stored data after reload.
+3. Use the existing `persist()` result for action-specific durable/session-only
+   messages without changing successful behavior.
+4. Add the locked Chromium suite to the canonical local and hosted gates.
+
+**Changes**
+
+- Added exact Playwright 1.62.1 tooling and three Chromium journeys covering
+  target creation, quarantine discard, backup import, demo reset, and reload
+  truth under a forced browser storage-write failure.
+- Added `persistWithOutcome()` over the existing safe persistence result.
+  Successful writes keep their prior copy; failed target/recovery actions now
+  say explicitly that the change exists only for this session and what will
+  happen on refresh.
+- Made the canonical `npm test` gate run the browser suite. Hosted CI now installs
+  locked dependencies and Chromium under a bounded 15-minute job; five new
+  workflow contracts enforce the install/order/runtime and exact runner version.
+- Ignored browser artifacts, documented local Chromium setup, and bumped the web
+  and service-worker cache stamp to `2026.08.25.6`.
+
+**Verification evidence**
+
+- Pre-edit manual mutation proof: target creation produced two visible targets,
+  a persistent failed-save badge, and one stored target after reload; quarantine
+  removal worked in-session and the damaged record returned after reload.
+- Test-first: the first real journey saw generic failure plus `Target created.`
+  instead of the required session-only outcome. Its recovery fixture also taught
+  the test to open the product's collapsed notice group before interacting.
+- `npm ci --ignore-scripts && npm test` passed 18 Rust tests/contracts, every JS
+  domain/worker/shell/desktop/package/server gate, all 3 Chromium journeys,
+  recursive syntax, and 63 CI/Pages policy assertions.
+- `npm audit --audit-level=high` found zero vulnerabilities; lockfile integrity
+  and `git diff --check` passed.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 8/10 | 10/10 | Four recovery/input actions distinguish durable and session-only outcomes |
+| Test coverage / verifiability | 4/10 | 10/10 | Real Chromium mutates Storage and proves UI plus reload behavior in CI |
+| Maintainability | 7/10 | 9/10 | One outcome helper owns success/failure copy selection |
+| Performance / resources | 9/10 | 8/10 | Canonical CI adds one browser install and a ~4s three-journey suite |
+| Security / robustness | 8/10 | 9/10 | Storage denial is a first-class tested boundary, not a source claim |
+| Developer / user experience | 5/10 | 9/10 | Users know which changes disappear and the recovery action remains usable |
+
+**Lesson / process improvement:** Read the newest cycle's next opportunity, not
+the physical tail of a reverse-chronological log. When a stale hypothesis is
+already fixed, mutation-test it before editing; preserve the proven behavior
+and convert the remaining observability gap into the smallest verified change.
+
+**Next opportunity:** Install the exact released APK on a physical Android
+device and exercise first launch, Usage Access grant, bounded current-day reads,
+revocation, and uninstall. The local machine still has no attached target, so
+rotate repositories until that external dependency changes.
 
 ### Cycle 35 — Publish verifiable package checksums (2026-08-25)
 
