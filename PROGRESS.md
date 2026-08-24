@@ -4,18 +4,21 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 32)
+Last updated: 2026-08-25 (AIly Cycle 33)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.3`; Windows package version `0.1.1`.
+- Deployment version: `2026.08.25.4`; Windows and Android package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 57 CI
+- Android delivery includes a public, direct-download, debug-signed
+  `AIly-debug.apk`; package identity/version/signature and JVM tests gate each
+  hosted artifact. Physical-device install and Usage Access dogfood remain.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 58 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
@@ -28,6 +31,7 @@ Last updated: 2026-08-25 (AIly Cycle 32)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Publish and continuously verify an installable Android dogfood APK | Packaging / correctness | High: docs claimed a Releases APK, but no APK existed and native metadata said version 1.0 | Small-medium / low | Public direct asset, aligned 0.1.1 metadata, JVM/build/archive/identity/signature gates | Completed in Cycle 33 |
 | — | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe passed before artifact upload on `windows-latest` | Completed in Cycle 32 |
 | — | Make every Windows install CTA download the released package directly | Packaging / UX | Medium: package existed, but install CTAs added a release-page detour | Small / low | Stable latest-asset URL resolves to verified `AIly-setup.exe` | Completed in Cycle 31 |
 | — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, tested Tauri NSIS release | Completed in Cycles 29–30 |
@@ -58,6 +62,77 @@ Last updated: 2026-08-25 (AIly Cycle 32)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 33 — Publish a verified Android dogfood package (2026-08-25)
+
+**Why this won:** The README told Android users to install an
+`AIly-*-debug.apk` from Releases, but the latest release contained only the
+Windows executable. The native project also reported version `1.0` while every
+other package surface reported `0.1.1`. The first Android UsageStats slice was
+therefore documented as installable without an actual matching release asset.
+
+**Plan and success criteria**
+
+1. Align the packaged Android identity with version `0.1.1`.
+2. Test and assemble the APK from locked dependencies on a hosted JDK 21 runner.
+3. Reject malformed, wrong-package, wrong-version, or unsigned artifacts before
+   upload; make future tag releases depend on both Windows and Android packages.
+4. Publish the exact green hosted artifact and require the documented stable
+   latest-download URL to return the Android package.
+
+**Changes**
+
+- Set Android `versionName` to `0.1.1`, matching npm, Tauri, and the release.
+- Added an Android package job beside NSIS packaging. It synchronizes Capacitor,
+  runs the JVM suite and debug assembly together, verifies the archive entries,
+  application ID, version, and signature, then uploads `AIly-debug.apk`.
+- Made tag publication depend on both package jobs and attach both verified
+  assets with write permission isolated to the release job.
+- Added 17 package-delivery contracts to the canonical local gate and increased
+  workflow-policy coverage from 57 to 58 assertions.
+- Replaced the nonexistent Releases instruction with a stable direct APK link
+  plus explicit debug/unknown-source trust guidance.
+- Published `AIly-debug.apk` to v0.1.1 and bumped the web/cache stamp to
+  `2026.08.25.4`.
+
+**Verification evidence**
+
+- Test-first: the new package contract failed on Android `versionName "1.0"`
+  versus package version `0.1.1` before implementation.
+- Local Gradle ran five JVM tests and 104 tasks successfully. The resulting APK
+  is 4,210,142 bytes, package `com.alphaeusng.aily`, version `0.1.1`, min SDK 23,
+  target SDK 35, and verifies under Android debug signature schemes v1 and v2.
+- `npm test` passed 18 Rust tests/contracts, every browser-domain/worker/shell/
+  desktop/server suite, the new packaging contracts, recursive syntax, and 58
+  workflow assertions. `npm audit --audit-level=high` found zero vulnerabilities.
+- Hosted package run `32770633801` passed Android in 1m52s and the Windows
+  build/install/window/uninstall lifecycle in 5m19s. CI `32770633839` and Pages
+  `32770633833` also passed.
+- The published hosted artifact has SHA-256
+  `d5b201124a04edd8cfd8051a8d9c507f130ce9fd2d4483875fa2d958995e2b69`;
+  the stable latest URL returns HTTP 200,
+  `application/vnd.android.package-archive`, and the exact 4,210,142 bytes.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 3/10 | 9/10 | Advertised Android delivery now exists with matching native version identity |
+| Test coverage / verifiability | 4/10 | 10/10 | JVM, assembly, archive, identity, version, signature, and hosted upload are gated |
+| Maintainability | 6/10 | 9/10 | One stable asset name and one reusable verifier replace manual release assumptions |
+| Performance / resources | 8/10 | 8/10 | Packaging adds a bounded parallel hosted job; runtime is unchanged |
+| Security / robustness | 5/10 | 9/10 | Signature and exact app identity are checked; debug/unknown-source risk is explicit |
+| Developer / user experience | 2/10 | 9/10 | Android users now receive a direct real package instead of an empty release search |
+
+**Lesson / process improvement:** Documentation that names an artifact is a
+delivery contract. Audit the public release, align native metadata, validate the
+produced binary rather than only its build task, and publish the same artifact
+that passed hosted checks.
+
+**Next opportunity:** Install this exact APK on a physical Android device and
+exercise first launch, Usage Access grant, bounded current-day reads, revocation,
+and uninstall. Until a device is attached, rotate repositories rather than
+claiming emulator or static evidence as physical dogfood.
 
 ### Cycle 32 — Gate every Windows artifact with its installed lifecycle (2026-08-25)
 
