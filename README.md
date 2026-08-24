@@ -38,6 +38,8 @@ These are **three different things**. Do not collapse them:
 2. Or **[download `AIly-debug.apk`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk)** directly, or inspect [Releases](https://github.com/AlphaeusNg/AIly/releases) first. This is an unsigned debug build for dogfood, not a Play Store release.
    - Enable “Install unknown apps” for your file manager if needed, and install only if you trust this repository.
 
+For either package, download [`SHA256SUMS.txt`](https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt) and compare the file hash before opening it. The [install guide](docs/install-windows-android.md#verify-package-integrity) includes PowerShell and `sha256sum` commands.
+
 ### Local web (any OS)
 
 ```bash

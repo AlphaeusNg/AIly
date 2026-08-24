@@ -14,6 +14,32 @@ These three paths are **not the same product surface**. Copy and UI must keep th
 
 ---
 
+## Verify package integrity
+
+The Windows executable is unsigned and the Android APK is a debug build. After
+downloading either package, also download the release's
+[`SHA256SUMS.txt`](https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt)
+into the same folder and compare before opening or transferring it.
+
+Windows PowerShell (`AIly-setup.exe`):
+
+```powershell
+$expected = ((Select-String -Path .\SHA256SUMS.txt -Pattern '  AIly-setup.exe$').Line -split '\s+')[0]
+$actual = (Get-FileHash .\AIly-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw "AIly-setup.exe checksum mismatch" }
+```
+
+Linux/macOS/WSL (either or both downloaded packages):
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+Expect an `OK` result for every package present. A mismatch means do not install
+the file; delete it and download it again from the official AIly release.
+
+---
+
 ## Windows
 
 ### Option A — Download `AIly-setup.exe` (packaged app)

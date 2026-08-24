@@ -10,6 +10,7 @@ const android = read("android/app/build.gradle");
 const workflow = read(".github/workflows/windows-installer.yml");
 const readme = read("README.md");
 const installGuide = read("docs/install-windows-android.md");
+const checksumUrl = "https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt";
 
 const androidVersion = android.match(/versionName\s+["']([^"']+)["']/)?.[1];
 assert.equal(
@@ -58,6 +59,21 @@ assert.match(
   /release:[\s\S]*permissions:\s*\n\s+contents:\s*write/,
   "only the tag release job receives package publishing access",
 );
+assert.match(
+  workflow,
+  /working-directory:\s*dist[\s\S]*sha256sum AIly-setup\.exe AIly-debug\.apk > SHA256SUMS\.txt/,
+  "tag releases generate one checksum manifest from both tested packages",
+);
+assert.match(
+  workflow,
+  /files:[\s\S]*dist\/AIly-setup\.exe[\s\S]*dist\/AIly-debug\.apk[\s\S]*dist\/SHA256SUMS\.txt/,
+  "tag releases attach the checksum manifest beside both packages",
+);
+assert.ok(
+  workflow.indexOf("sha256sum AIly-setup.exe AIly-debug.apk")
+    < workflow.indexOf("softprops/action-gh-release@v3"),
+  "checksums are generated before release publication",
+);
 
 const verifier = read("tools/verify-android-apk.sh");
 assert.match(verifier, /unzip -tqq/, "APK verifier checks the archive");
@@ -76,6 +92,9 @@ for (const [label, source] of [
     `${label} offers the direct latest Android package`,
   );
   assert.match(source, /debug/i, `${label} identifies the APK as a debug build`);
+  assert.match(source, new RegExp(checksumUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `${label} links the published checksum manifest`);
 }
+assert.match(installGuide, /Get-FileHash[^\n]*AIly-setup\.exe[^\n]*SHA256/, "install guide verifies the Windows package with PowerShell");
+assert.match(installGuide, /sha256sum -c SHA256SUMS\.txt --ignore-missing/, "install guide verifies transferred packages with sha256sum");
 
 console.log("test-packaging.mjs: Android version, verified build, release, and docs contracts ok");
