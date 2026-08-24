@@ -119,19 +119,25 @@ const MAX_UNDO = 12;
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
-function persist() {
+function persist({ failureMessage = "" } = {}) {
   moreOpen = false;
   lastSave = saveState(state);
   render();
   if (lastSave && !lastSave.ok) {
     showToast(
-      `Could not save locally (${lastSave.error || "error"}). Your latest change may be lost on refresh.`,
+      failureMessage || `Could not save locally (${lastSave.error || "error"}). Your latest change may be lost on refresh.`,
       "error",
       6000
     );
   }
   updateSaveStatus();
   return lastSave;
+}
+
+function persistWithOutcome(successMessage, failureMessage, ms = 3200) {
+  const result = persist({ failureMessage });
+  if (result?.ok) showToast(successMessage, "ok", ms);
+  return result;
 }
 
 function updateSaveStatus() {
@@ -2530,9 +2536,12 @@ function onImportBackup(e) {
     pendingIntention = null;
     lastSave = null;
     appendAudit(state, "state.import", file.name || "backup");
-    persist();
+    persistWithOutcome(
+      "Backup imported.",
+      "Backup imported for this session only. Storage is blocked, so export a fresh backup before refresh.",
+      6500
+    );
     syncUsageTracker();
-    showToast("Backup imported.", "ok");
     e.target.value = "";
   };
   reader.onerror = () => showToast("Could not read backup file.", "error");
@@ -2804,8 +2813,11 @@ function onCreateTarget(e) {
     completeChapter("first_target");
   }
   appendAudit(state, "target.create", t.title);
-  persist();
-  showToast("Target created.", "ok");
+  persistWithOutcome(
+    "Target created.",
+    "Target created for this session only. Export a backup before refresh.",
+    6500
+  );
 }
 
 function escapeHtml(s) {
@@ -3172,8 +3184,11 @@ document.addEventListener("click", (e) => {
     }
     discardInvalidCommitments(state);
     appendAudit(state, "state.recovery_discard", `${count} invalid commitment(s)`);
-    persist();
-    showToast("Quarantined items removed.", "ok");
+    persistWithOutcome(
+      "Quarantined items removed.",
+      "Quarantined items removed for this session only. They will return on refresh unless storage is unblocked.",
+      7000
+    );
   }
   if (action === "replan") {
     const pending = todayCommitments().filter((c) => c.status === "pending");
@@ -4250,8 +4265,11 @@ document.addEventListener("click", (e) => {
       updateBannerDismissed = false;
       undoStack = [];
       document.title = "AIly — Your AI Ally";
-      persist();
-      showToast("Demo data reset.", "ok");
+      persistWithOutcome(
+        "Demo data reset.",
+        "Demo data reset for this session only. Stored data will return on refresh unless storage is unblocked.",
+        7000
+      );
     }
   }
   if (action === "seed-demo") {

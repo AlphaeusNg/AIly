@@ -21,10 +21,13 @@ check(ci, /^\s{2}pull_request:\s*$/m, "CI runs on pull requests");
 check(ci, /permissions:\s*\n\s+contents:\s*read/, "CI has read-only repository access");
 check(ci, /concurrency:[\s\S]*group:\s*ci-.*github\.workflow.*github\.ref/, "CI groups duplicate ref runs");
 check(ci, /cancel-in-progress:\s*true/, "CI cancels stale runs");
-check(ci, /timeout-minutes:\s*10/, "CI has a bounded timeout");
+check(ci, /test:[\s\S]*timeout-minutes:\s*15/, "CI has a bounded browser-capable timeout");
 check(ci, /uses:\s*actions\/checkout@v7/, "CI uses checkout v7");
 check(ci, /uses:\s*actions\/setup-node@v7/, "CI uses setup-node v7");
 check(ci, /node-version:\s*["']24["']/, "CI uses Node 24 LTS");
+check(ci, /test:[\s\S]*cache:\s*npm/, "CI caches locked npm dependencies");
+check(ci, /test:[\s\S]*run:\s*npm ci --ignore-scripts/, "CI installs locked browser dependencies");
+check(ci, /run:\s*npx playwright install --with-deps chromium/, "CI installs the locked Chromium runtime");
 check(ci, /uses:\s*dtolnay\/rust-toolchain@stable[\s\S]*components:\s*rustfmt,\s*clippy/, "CI installs rustfmt and Clippy");
 check(ci, /run:\s*npm test\b/, "CI runs the canonical local gate");
 
@@ -75,6 +78,13 @@ check(gate, /node tools\/test-workflows\.mjs/, "local gate enforces workflow pol
 check(gate, /find apps\/web\/js[\s\S]*node --check/, "local gate syntax-checks every web module");
 check(gate, /find tools[\s\S]*node --check/, "local gate syntax-checks every test tool");
 check(gate, /node --check apps\/web\/sw\.js/, "local gate syntax-checks the service worker");
+check(gate, /npm run test:browser/, "canonical local gate runs real-browser journeys");
+assert.equal(
+  packageJson.devDependencies?.["@playwright/test"],
+  "1.62.1",
+  "browser runner is exactly locked",
+);
+assertions += 1;
 
 check(pages, /^name:\s*pages\s*$/m, "Pages has a stable name");
 check(pages, /permissions:[\s\S]*contents:\s*read[\s\S]*pages:\s*write[\s\S]*id-token:\s*write/, "Pages has only required deploy permissions");

@@ -6,6 +6,8 @@ src-tauri/target/
 .env
 .env.*
 node_modules/
+playwright-report/
+test-results/
 dist/
 .idea/
 .vscode/

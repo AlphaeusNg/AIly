@@ -39,6 +39,8 @@ Do not add `src-tauri` to the Cargo workspace — Linux `npm test` must stay Web
 ```bash
 source "$HOME/.cargo/env"
 cd /home/alph/projects/AIly
+npm ci
+npx playwright install chromium
 npm test
 JAVA_HOME="$HOME/.local/jdk-21" npm run android:test
 python3 -m http.server 8765 --directory apps/web

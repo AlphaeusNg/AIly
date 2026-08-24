@@ -53,6 +53,7 @@ python3 -m http.server 8765
 ```bash
 source "$HOME/.cargo/env"   # if needed
 npm ci
+npx playwright install chromium
 npm test
 
 # Android (needs Android SDK + JDK)
@@ -64,8 +65,9 @@ cd android && ./gradlew assembleDebug
 ```
 
 The canonical `npm test` gate checks Rust formatting, strict Clippy warnings,
-Rust unit and shared-contract tests, browser-domain suites, CI/Pages policy,
-and recursive web, tool, and service-worker syntax. CI also runs
+Rust unit and shared-contract tests, browser-domain suites, real Chromium
+storage-failure journeys, CI/Pages policy, and recursive web, tool, and
+service-worker syntax. CI also runs
 `npm run android:test` in a separate cached Temurin 21 job; run it locally after
 native-shell changes.
 
