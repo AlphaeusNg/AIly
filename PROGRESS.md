@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 33)
+Last updated: 2026-08-25 (AIly Cycle 34)
 
 ## Current state
 
@@ -31,6 +31,7 @@ Last updated: 2026-08-25 (AIly Cycle 33)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Ensure lifecycle-probe changes trigger the combined package gate | Packaging / process | High: the Windows verifier could change without exercising either installable artifact | Small / low | Package-wide workflow identity, path-filter contract, and green hosted Windows/Android jobs | Completed in Cycle 34 |
 | — | Publish and continuously verify an installable Android dogfood APK | Packaging / correctness | High: docs claimed a Releases APK, but no APK existed and native metadata said version 1.0 | Small-medium / low | Public direct asset, aligned 0.1.1 metadata, JVM/build/archive/identity/signature gates | Completed in Cycle 33 |
 | — | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe passed before artifact upload on `windows-latest` | Completed in Cycle 32 |
 | — | Make every Windows install CTA download the released package directly | Packaging / UX | Medium: package existed, but install CTAs added a release-page detour | Small / low | Stable latest-asset URL resolves to verified `AIly-setup.exe` | Completed in Cycle 31 |
@@ -62,6 +63,63 @@ Last updated: 2026-08-25 (AIly Cycle 33)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 34 — Make package-verifier changes exercise both packages (2026-08-25)
+
+**Why this won:** AIly's hosted workflow now builds both Windows and Android,
+but it still presented itself as `windows-installer`. More importantly, its
+path filter did not include `tools/test-windows-installer.ps1`, so a regression
+in the real install/window/uninstall probe could merge without running the
+package workflow it protects.
+
+**Plan and success criteria**
+
+1. Give the combined workflow and its stale-run concurrency group a
+   package-wide identity.
+2. Require changes to the Windows lifecycle probe to trigger the package gate.
+3. Lock both policies into the canonical local suite.
+4. Prove the edited workflow still completes both hosted package jobs.
+
+**Changes**
+
+- Renamed the displayed workflow and concurrency group from Windows-only to
+  package-wide terminology while retaining the stable workflow filename.
+- Added the Windows lifecycle probe to the push path filter.
+- Added regression contracts for the workflow identity, concurrency grouping,
+  and lifecycle-probe trigger.
+
+**Verification evidence**
+
+- Test-first: the new packaging contract failed on the Windows-only workflow
+  name and the absent lifecycle-probe path before implementation.
+- `npm test` passed 18 Rust tests/contracts, every browser-domain/worker/shell/
+  desktop/packaging/server suite, recursive syntax, and 58 workflow assertions;
+  `git diff --check` also passed.
+- Hosted package run `32773059017` selected the renamed `packages` workflow.
+  Android test/build/archive/identity/version/signature verification passed in
+  53s; Windows NSIS build/install/window/uninstall verification passed in
+  5m10s. CI `32773058927` and Pages `32773058942` also passed.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | Changes to the install verifier now exercise the packages it protects |
+| Test coverage / verifiability | 7/10 | 10/10 | Local trigger policies and both real hosted package paths passed |
+| Maintainability | 7/10 | 9/10 | Workflow identity now describes its Windows and Android scope |
+| Performance / resources | 8/10 | 8/10 | Existing parallel bounded jobs are unchanged |
+| Security / robustness | 9/10 | 9/10 | Artifact validation and permissions are unchanged and remain gated |
+| Developer / user experience | 7/10 | 9/10 | Actions now exposes one accurately named package gate |
+
+**Lesson / process improvement:** A verifier is only protective when edits to
+the verifier retrigger the artifact lifecycle. Treat path filters and workflow
+identity as tested delivery behavior, especially after expanding a workflow's
+scope.
+
+**Next opportunity:** Install the exact released APK on a physical Android
+device and exercise first launch, Usage Access grant, bounded current-day
+reads, revocation, and uninstall. The local machine still has no attached
+Android target, so rotate repositories until that external dependency changes.
 
 ### Cycle 33 — Publish a verified Android dogfood package (2026-08-25)
 
