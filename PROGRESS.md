@@ -4,20 +4,22 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 34)
+Last updated: 2026-08-25 (AIly Cycle 35)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.4`; Windows and Android package version `0.1.1`.
+- Deployment version: `2026.08.25.5`; Windows and Android package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
 - Android delivery includes a public, direct-download, debug-signed
   `AIly-debug.apk`; package identity/version/signature and JVM tests gate each
   hosted artifact. Physical-device install and Usage Access dogfood remain.
+- Releases include one generated `SHA256SUMS.txt` for the tested Windows and
+  Android artifacts, with platform-native verification instructions.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 58 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
@@ -31,6 +33,7 @@ Last updated: 2026-08-25 (AIly Cycle 34)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Publish verifiable checksums for unsigned/debug packages | Packaging / security | High: users could download tested packages but not independently identify their bytes | Small / low | Generated two-package manifest, docs/contracts, and a byte-exact public v0.1.1 asset | Completed in Cycle 35 |
 | — | Ensure lifecycle-probe changes trigger the combined package gate | Packaging / process | High: the Windows verifier could change without exercising either installable artifact | Small / low | Package-wide workflow identity, path-filter contract, and green hosted Windows/Android jobs | Completed in Cycle 34 |
 | — | Publish and continuously verify an installable Android dogfood APK | Packaging / correctness | High: docs claimed a Releases APK, but no APK existed and native metadata said version 1.0 | Small-medium / low | Public direct asset, aligned 0.1.1 metadata, JVM/build/archive/identity/signature gates | Completed in Cycle 33 |
 | — | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe passed before artifact upload on `windows-latest` | Completed in Cycle 32 |
@@ -63,6 +66,73 @@ Last updated: 2026-08-25 (AIly Cycle 34)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 35 — Publish verifiable package checksums (2026-08-25)
+
+**Why this won:** Physical Android dogfood remains externally blocked. The
+newly discoverable Windows executable is unsigned and the APK is debug-signed,
+but the release contained no checksum file. Users could obtain the tested
+artifacts without a repository-published way to verify their bytes.
+
+**Plan and success criteria**
+
+1. Generate a deterministic manifest only from the Windows and Android
+   artifacts downloaded by the tag release job.
+2. Publish that manifest beside both packages and contract-lock its ordering.
+3. Give Windows and WSL/macOS users copy-paste verification commands.
+4. Backfill v0.1.1 from its exact hosted bytes and prove the stable latest URL
+   returns the byte-identical manifest.
+
+**Changes**
+
+- The tag release job now runs `sha256sum` over `AIly-setup.exe` and
+  `AIly-debug.apk` after both verified job artifacts are downloaded, then
+  attaches `SHA256SUMS.txt` with the packages.
+- Packaging contracts require manifest generation, pre-publication ordering,
+  release attachment, both documentation links, and both platform commands.
+- README and the install guide link the stable latest checksum asset. The guide
+  provides a fail-closed PowerShell comparison and `sha256sum -c` path.
+- Backfilled the existing v0.1.1 release with a 162-byte manifest generated
+  from its downloaded assets, not a local rebuild.
+- Bumped the PWA/service-worker cache stamp to `2026.08.25.5`.
+
+**Verification evidence**
+
+- Test-first: the focused package suite failed on the absent workflow manifest
+  before implementation and passes afterward.
+- `npm test` passed Rust formatting, strict Clippy, 18 Rust tests/contracts,
+  every browser/domain/worker/shell/desktop/package/server suite, recursive
+  syntax, and 58 CI/Pages workflow assertions. `npm audit --audit-level=high`
+  found zero vulnerabilities; whitespace checks passed.
+- Downloaded v0.1.1 assets were identified as a 1,926,333-byte NSIS executable
+  and a 4,210,142-byte signed APK. Their SHA-256 values are
+  `48adc9635ca2286a8b6a4229f79b539333b51d124bfd00cdc3a01d50d0faf24d`
+  and `d5b201124a04edd8cfd8051a8d9c507f130ce9fd2d4483875fa2d958995e2b69`.
+- `sha256sum -c SHA256SUMS.txt` returned `OK` for both. The stable latest URL
+  resolves to an attachment with HTTP 200, 162 bytes, and manifest SHA-256
+  `37956e1ac7e14c254ef4872cd28248bbca1633e4abd00e5adb5e23e74a9c2994`;
+  a byte comparison with the uploaded source passed.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | Future releases derive identity from the exact two tested artifacts |
+| Test coverage / verifiability | 5/10 | 10/10 | Workflow, attachment, docs, commands, and hosted bytes are all checked |
+| Maintainability | 8/10 | 9/10 | One stable manifest covers both packages and future versions |
+| Performance / resources | 9/10 | 9/10 | Hashing two small artifacts adds negligible release-only work |
+| Security / robustness | 5/10 | 9/10 | Users can detect corrupt or substituted package bytes before install |
+| Developer / user experience | 6/10 | 9/10 | Stable link plus native commands replace undocumented manual trust |
+
+**Lesson / process improvement:** Generate integrity metadata from the exact
+artifacts that crossed lifecycle/package verification, never from a rebuild.
+Test publication ordering and backfill the current public release so docs do
+not advertise a future-only safety control.
+
+**Next opportunity:** Install the exact released APK on a physical Android
+device and exercise first launch, Usage Access grant, bounded current-day
+reads, revocation, and uninstall. The local machine still has no attached
+target, so rotate repositories until that external dependency changes.
 
 ### Cycle 34 — Make package-verifier changes exercise both packages (2026-08-25)
 
