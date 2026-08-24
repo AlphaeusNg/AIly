@@ -37,6 +37,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $src.FullName "dist/AIly-setup.exe" -Force
           Get-Item "dist/AIly-setup.exe" | Format-List Name, Length, FullName
+      - name: Test installed AIly
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          ./tools/test-windows-installer.ps1 `
+            -InstallerPath "dist/AIly-setup.exe" `
+            -ExpectedVersion $version
       - uses: actions/upload-artifact@v7
         with:
           name: AIly-setup

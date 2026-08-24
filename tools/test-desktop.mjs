@@ -22,6 +22,7 @@ const required = [
   "src-tauri/icons/128x128.png",
   "src-tauri/icons/128x128@2x.png",
   "src-tauri/icons/icon.ico",
+  "tools/test-windows-installer.ps1",
   ".github/workflows/windows-installer.yml",
 ];
 for (const rel of required) {
@@ -99,6 +100,18 @@ assert.match(
 assert.match(workflow, /actions\/upload-artifact@v7/, "installer uses current artifact upload");
 assert.match(workflow, /actions\/download-artifact@v8/, "release downloads the verified installer artifact");
 assert.match(workflow, /softprops\/action-gh-release@v3/, "tag builds use current release publishing");
+assert.match(
+  workflow,
+  /Test installed AIly[\s\S]*tools\/test-windows-installer\.ps1[\s\S]*actions\/upload-artifact@v7/,
+  "Windows install, launch, and uninstall smoke runs before artifact upload",
+);
+
+const installerSmoke = read("tools/test-windows-installer.ps1");
+assert.match(installerSmoke, /InstallerPath/, "smoke receives the staged installer path");
+assert.match(installerSmoke, /ArgumentList\s+"\/S"/, "smoke runs the installer silently");
+assert.match(installerSmoke, /MainWindowTitle/, "smoke waits for a real AIly window");
+assert.match(installerSmoke, /UninstallString/, "smoke uses the installed app's own uninstaller");
+assert.match(installerSmoke, /Test-Path/, "smoke verifies installed files and cleanup");
 
 const readme = read("README.md");
 assert.match(readme, /AIly-setup\.exe/, "README names the Windows package");

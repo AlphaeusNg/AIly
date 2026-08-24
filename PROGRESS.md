@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 31)
+Last updated: 2026-08-25 (AIly Cycle 32)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.2`; Windows package version `0.1.1`.
+- Deployment version: `2026.08.25.3`; Windows package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
@@ -28,6 +28,7 @@ Last updated: 2026-08-25 (AIly Cycle 31)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| 1 | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe runs before artifact upload; hosted proof pending | In progress in Cycle 32 |
 | — | Make every Windows install CTA download the released package directly | Packaging / UX | Medium: package existed, but install CTAs added a release-page detour | Small / low | Stable latest-asset URL resolves to verified `AIly-setup.exe` | Completed in Cycle 31 |
 | — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, tested Tauri NSIS release | Completed in Cycles 29–30 |
 | — | Today one-thing + capacity in clock hours | Ally UX | High: next action and planned time were still a list and raw minutes | Small / low | Existing ranking + formatClockHours | Completed in Cycle 28 |
@@ -57,6 +58,60 @@ Last updated: 2026-08-25 (AIly Cycle 31)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 32 — Gate every Windows artifact with its installed lifecycle (2026-08-25)
+
+**Why this won:** v0.1.1 was installed, launched, and removed successfully on
+the Windows host, but that was a one-release manual proof. Future branch and
+tag builds could still upload an installer that compiles yet fails to install
+or start. Automating the lifecycle on the existing `windows-latest` runner is
+the highest-leverage follow-up to the user-requested install verification.
+
+**Plan and success criteria**
+
+1. Silently install the staged NSIS package into a clean current-user profile.
+2. Require exact versioned uninstall metadata and the installed desktop binary.
+3. Launch the installed binary and observe a real AIly-titled window.
+4. Stop it, invoke its own silent uninstaller, and prove registry/install-path
+   cleanup even when an earlier assertion fails.
+5. Run this before artifact upload and lock that ordering in the local gate.
+
+**Changes**
+
+- Added `tools/test-windows-installer.ps1`, a fail-closed lifecycle probe with
+  best-effort cleanup in `finally`.
+- Inserted the probe after staging and before upload in
+  `windows-installer.yml`; the expected version comes from `package.json`.
+- Extended desktop policy checks for the script, silent install, real window,
+  uninstall metadata, cleanup, and workflow ordering.
+- Coupled the web and service-worker cache stamp at `2026.08.25.3` for the
+  automatic Pages deployment created by this main-branch cycle.
+
+**Verification evidence**
+
+- Test-first: `test-desktop.mjs` failed on the missing lifecycle probe.
+- The focused desktop contract and Windows PowerShell 5.1 parser now pass.
+- Complete local and hosted Windows evidence follows in this cycle after the
+  release gates finish.
+
+**Scores (provisional until hosted execution)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 7/10 | 9/10 | Every staged package must exercise the installed lifecycle |
+| Test coverage / verifiability | 5/10 | 10/10 | Build-only verification becomes install/window/uninstall verification |
+| Maintainability | 8/10 | 9/10 | One reusable PowerShell probe owns Windows lifecycle checks |
+| Performance / resources | 8/10 | 8/10 | A short smoke step is added to the existing Windows runner |
+| Security / robustness | 8/10 | 9/10 | Clean baseline, exact version, own uninstaller, and cleanup are enforced |
+| Developer / user experience | 7/10 | 9/10 | Uploaded artifacts are tested the way a user actually runs them |
+
+**Lesson / process improvement:** Compile success is not install success.
+Package workflows should cross the install boundary before upload, then use
+the installed product's own metadata and uninstaller for cleanup.
+
+**Next opportunity:** Complete the physical Android UsageStats permission/read/
+revocation dogfood journey when a device is attached; otherwise rotate after
+the hosted Windows lifecycle is green.
 
 ### Cycle 31 — Make Windows install a direct download (2026-08-25)
 

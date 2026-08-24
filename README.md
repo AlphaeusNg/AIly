@@ -80,7 +80,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.25.2`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.25.3`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  
