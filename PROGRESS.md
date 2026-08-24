@@ -28,7 +28,7 @@ Last updated: 2026-08-25 (AIly Cycle 32)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
-| 1 | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe runs before artifact upload; hosted proof pending | In progress in Cycle 32 |
+| — | Run install, launch, and uninstall smoke on every Windows package build | Packaging / verification | High: prevents a buildable but unusable installer from being published | Small-medium / low | PowerShell lifecycle probe passed before artifact upload on `windows-latest` | Completed in Cycle 32 |
 | — | Make every Windows install CTA download the released package directly | Packaging / UX | Medium: package existed, but install CTAs added a release-page detour | Small / low | Stable latest-asset URL resolves to verified `AIly-setup.exe` | Completed in Cycle 31 |
 | — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, tested Tauri NSIS release | Completed in Cycles 29–30 |
 | — | Today one-thing + capacity in clock hours | Ally UX | High: next action and planned time were still a list and raw minutes | Small / low | Existing ranking + formatClockHours | Completed in Cycle 28 |
@@ -91,10 +91,19 @@ the highest-leverage follow-up to the user-requested install verification.
 
 - Test-first: `test-desktop.mjs` failed on the missing lifecycle probe.
 - The focused desktop contract and Windows PowerShell 5.1 parser now pass.
-- Complete local and hosted Windows evidence follows in this cycle after the
-  release gates finish.
+- `npm test` passed Rust formatting/strict Clippy, 18 Rust tests/contracts,
+  every browser-domain/worker/shell/desktop/server suite, recursive syntax,
+  and 57 CI/Pages policy assertions. Locked standalone desktop metadata,
+  PowerShell 5.1 parsing, diff whitespace, and the zero-vulnerability npm audit
+  also passed.
+- Windows run `32766220076` built a 1,927,366-byte installer, installed exact
+  version 0.1.1 to `C:\Users\runneradmin\AppData\Local\AIly`, launched an
+  AIly-titled window, removed it through its own uninstaller, and reported
+  clean lifecycle success before artifact upload. The job passed in 4m38s.
+- CI run `32766219847` (including Android JVM tests) and Pages run
+  `32766219823` also passed for commit `84f3b3a`.
 
-**Scores (provisional until hosted execution)**
+**Scores**
 
 | Dimension | Before | After | Evidence |
 |---|---:|---:|---|
