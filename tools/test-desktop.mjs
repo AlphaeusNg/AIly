@@ -43,6 +43,31 @@ assert.doesNotMatch(cargo, /aily-core/, "first installer does not compile aily-c
 
 const packageJson = JSON.parse(read("package.json"));
 assert.equal(confVersion(cargo), packageJson.version, "desktop and npm package versions match");
+assert.equal(
+  packageJson.scripts["desktop:icons"],
+  "python3 tools/gen-tauri-icons.py",
+  "desktop icons use the checked-in generator",
+);
+const iconGenerator = read("tools/gen-tauri-icons.py");
+assert.match(iconGenerator, /@tauri-apps\/cli@2\.11\.4/, "icon generation pins the Tauri CLI");
+assert.doesNotMatch(iconGenerator, /struct\.pack|write_bytes/, "icon generation does not hand-build ICO files");
+
+for (const [rel, width, height] of [
+  ["src-tauri/icons/32x32.png", 32, 32],
+  ["src-tauri/icons/128x128.png", 128, 128],
+  ["src-tauri/icons/128x128@2x.png", 256, 256],
+]) {
+  const meta = pngMeta(readFileSync(join(root, rel)));
+  assert.deepEqual(
+    meta,
+    { width, height, bitDepth: 8 },
+    `${rel} contains a correctly sized 8-bit PNG that Tauri can compile`,
+  );
+}
+const icoImages = icoPngMetas(readFileSync(join(root, "src-tauri/icons/icon.ico")));
+assert.ok(icoImages.length >= 1, "Windows ICO contains PNG images");
+assert.ok(icoImages.some(({ width, height }) => width === 256 && height === 256), "Windows ICO contains a 256px image");
+assert.ok(icoImages.every(({ bitDepth }) => bitDepth === 8), "every Windows ICO image uses Tauri-compatible 8-bit PNGs");
 
 const conf = JSON.parse(read("src-tauri/tauri.conf.json"));
 assert.equal(conf.productName, "AIly");
@@ -89,4 +114,26 @@ console.log("test-desktop.mjs: Tauri Windows scaffold contracts ok");
 
 function confVersion(cargoSource) {
   return cargoSource.match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
+}
+
+function pngMeta(bytes, offset = 0) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  assert.ok(bytes.subarray(offset, offset + signature.length).equals(signature), "asset contains a PNG payload");
+  assert.equal(bytes.subarray(offset + 12, offset + 16).toString("ascii"), "IHDR");
+  return {
+    width: bytes.readUInt32BE(offset + 16),
+    height: bytes.readUInt32BE(offset + 20),
+    bitDepth: bytes[offset + 24],
+  };
+}
+
+function icoPngMetas(bytes) {
+  assert.equal(bytes.readUInt16LE(0), 0, "ICO reserved header is zero");
+  assert.equal(bytes.readUInt16LE(2), 1, "asset is a Windows icon");
+  const count = bytes.readUInt16LE(4);
+  return Array.from({ length: count }, (_, index) => {
+    const entry = 6 + index * 16;
+    const payloadOffset = bytes.readUInt32LE(entry + 12);
+    return pngMeta(bytes, payloadOffset);
+  });
 }
