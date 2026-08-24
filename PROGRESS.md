@@ -4,18 +4,18 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 29)
+Last updated: 2026-08-25 (AIly Cycle 30)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.18.5`.
+- Deployment version: `2026.08.25.1`; Windows package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
-  Tauri 2 NSIS scaffold (`AIly-setup.exe`, unsigned). OS hard-blocks are not in
-  this build.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 55 CI
+  tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
+  not in this build.
+- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell + 57 CI
   policy assertions via `npm test`, plus five Android JVM shell/usage tests in a
   separate cached JDK 21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
@@ -28,7 +28,7 @@ Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 29)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
-| — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, Tauri NSIS scaffold | Completed in Cycle 29 |
+| — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, tested Tauri NSIS release | Completed in Cycles 29–30 |
 | — | Today one-thing + capacity in clock hours | Ally UX | High: next action and planned time were still a list and raw minutes | Small / low | Existing ranking + formatClockHours | Completed in Cycle 28 |
 | — | Collapse the phone tab bar and calm Today / intention density | Ally UX | High: 7 cramped tabs and action-dump rows hid the pause | Small / low | 5-tab + More sheet, row overflow, folded notices, Fewer checks | Completed in Cycle 27 |
 | — | Make the Windows preview launcher parse and keep the PWA identity scoped | Correctness / packaging | High: Windows PowerShell could not parse the launcher; `id: "/"` collided with the portfolio origin | Small / low | ASCII launcher, extracted static server, relative manifest id, and 19 server assertions | Completed in Cycle 26 |
@@ -56,6 +56,77 @@ Last updated: 2026-08-18 (workspace Cycle 152; AIly Cycle 29)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 30 — Repair, release, and install-test Windows packaging (2026-08-25)
+
+**Why this won:** The README promised `AIly-setup.exe`, but the only hosted
+Windows run had failed and the latest release had no Windows asset. A package
+that exists only as an unexecuted scaffold is a correctness and trust defect.
+
+**Plan and success criteria**
+
+1. Reproduce the hosted failure locally and make standalone Tauri Cargo
+   metadata deterministic.
+2. Build and upload NSIS on `windows-latest`, with write permission isolated to
+   the tag-only release job.
+3. Lock package/config/Cargo versions and binary icon constraints in tests.
+4. Publish `v0.1.1` only after a branch artifact passes.
+5. Download the public release asset on Windows; silently install, launch the
+   app window, uninstall, and prove cleanup.
+
+**Changes**
+
+- Explicitly excluded `src-tauri` from the Linux workspace, added its lockfile,
+  and aligned npm, Cargo, and Tauri versions at `0.1.1`.
+- Pinned Tauri CLI `2.11.4`, used `--bundles nsis --ci`, and upgraded artifact
+  actions. Repository contents are read-only by default; only the tag release
+  job receives write access.
+- Replaced the hand-built PNG-in-ICO with Tauri's generator, retaining only the
+  four Windows inputs. Desktop tests now parse PNG/ICO dimensions and bit depth.
+- Published release `v0.1.1` with public `AIly-setup.exe`; bumped the web/cache
+  deployment stamp to `2026.08.25.1`.
+
+**Verification evidence**
+
+- Test-first: standalone `cargo metadata` failed because `src-tauri` sat under
+  but outside the root workspace. After that fix, hosted run `32756225011`
+  reached compilation and exposed the second defect: the custom ICO embedded a
+  16-bit PNG unsupported by Tauri's Windows resource compiler.
+- Local `npm test` passes 16 Rust unit tests, two shared contracts, all JS/core/
+  worker/shell/desktop/server/workflow suites, 19 shell assets, and 57 workflow
+  assertions. `cargo metadata --locked`, Python compile, JSON parsing,
+  `npm audit --audit-level=high` (zero vulnerabilities), and a fresh Android
+  JVM run (`71` Gradle tasks) pass.
+- Branch Windows run `32757153170`, CI run `32757153216`, and Pages run
+  `32757153164` passed. Tag run `32758105722` rebuilt NSIS and attached the
+  artifact through the tag-only release job.
+- The public release asset is a 1,926,333-byte PE32 NSIS installer with SHA-256
+  `48adc9635ca2286a8b6a4229f79b539333b51d124bfd00cdc3a01d50d0faf24d`.
+  Windows reports `NotSigned`, matching the documented SmartScreen warning.
+- On Windows, the public package installed per-user as version `0.1.1`, launched
+  `aily-desktop.exe` with window title `AIly - Your AI Ally`, then its own silent
+  uninstaller removed the process, registry entry, install directory, and
+  shortcuts. Temporary test copies were removed.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 2/10 | 10/10 | Public package completes install, launch, and uninstall |
+| Test coverage / verifiability | 3/10 | 10/10 | Workspace, versions, workflow policy, PNG/ICO, hosted and Windows runtime proofs |
+| Maintainability | 5/10 | 9/10 | Locked standalone crate and official icon generator replace implicit/manual behavior |
+| Performance / resources | 8/10 | 8/10 | Runtime unchanged; reproducible cold release build is under seven minutes |
+| Security / robustness | 4/10 | 9/10 | Read-only default token; tag-only release write; unsigned state disclosed |
+| Developer / user experience | 3/10 | 9/10 | Latest release now contains the named one-click Windows package |
+
+**Lesson / process improvement:** A packaging scaffold is not delivery. Exercise
+Cargo's real workspace boundary, validate binary asset encodings, require a
+green branch artifact, then install the exact public release before advertising
+it. Hosted failures were retained as evidence and fixed rather than bypassed.
+
+**Next opportunity:** Rotate to CardFitSG for its official-source catalog review
+before `reviewBy` 2026-08-28. AIly's next hardware-dependent step remains a
+physical Android UsageStats permission/read dogfood run.
 
 ### Cycle 29 — Companion questions and Windows package scaffold (2026-08-18)
 
