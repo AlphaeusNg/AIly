@@ -95,6 +95,11 @@ packaging improvement.
 - `npm test` passed Rust format/strict Clippy, 18 Rust tests, shared fixtures,
   all browser-domain/worker/shell/desktop/server suites, recursive syntax, and
   57 CI/Pages policy assertions.
+- Hosted CI run `32761143347` passed both the Linux/Rust gate and Android JVM
+  job; Pages run `32761143351` deployed successfully, and the live site served
+  version `2026.08.25.2` plus the direct asset URL.
+- Windows run `32761143599` rebuilt and staged `AIly-setup.exe` successfully in
+  5m39s, proving the updated embedded frontend remains NSIS-bundleable.
 
 **Scores (change-specific)**
 
