@@ -7,7 +7,11 @@ on:
     branches: [main]
     paths:
       - "src-tauri/**"
+      - "android/**"
       - "apps/web/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tools/verify-android-apk.sh"
       - ".github/workflows/windows-installer.yml"
 
 permissions:
@@ -50,9 +54,45 @@ jobs:
           path: dist/AIly-setup.exe
           if-no-files-found: error
 
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/gradle/wrapper/gradle-wrapper.properties
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Synchronize Android shell
+        run: npx cap sync android
+      - name: Test and build debug APK
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon
+      - name: Stage and verify AIly-debug.apk
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/AIly-debug.apk
+          version="$(node -p "require('./package.json').version")"
+          bash tools/verify-android-apk.sh dist/AIly-debug.apk "$version"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AIly-android-debug
+          path: dist/AIly-debug.apk
+          if-no-files-found: error
+
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: nsis
+    needs: [nsis, android-apk]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -62,9 +102,15 @@ jobs:
         with:
           name: AIly-setup
           path: dist
-      - name: Attach installer to GitHub Release
+      - uses: actions/download-artifact@v8
+        with:
+          name: AIly-android-debug
+          path: dist
+      - name: Attach tested packages to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/AIly-setup.exe
+          files: |
+            dist/AIly-setup.exe
+            dist/AIly-debug.apk
           fail_on_unmatched_files: true
           generate_release_notes: true

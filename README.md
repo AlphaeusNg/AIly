@@ -35,8 +35,8 @@ These are **three different things**. Do not collapse them:
 ### Android
 
 1. Chrome → same GitHub Pages URL → **Install app** / Add to Home screen.  
-2. Or install the debug APK from [Releases](https://github.com/AlphaeusNg/AIly/releases) (`AIly-*-debug.apk`).  
-   - Enable “Install unknown apps” for your file manager if needed.
+2. Or **[download `AIly-debug.apk`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk)** directly, or inspect [Releases](https://github.com/AlphaeusNg/AIly/releases) first. This is an unsigned debug build for dogfood, not a Play Store release.
+   - Enable “Install unknown apps” for your file manager if needed, and install only if you trust this repository.
 
 ### Local web (any OS)
 

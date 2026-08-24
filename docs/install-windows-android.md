@@ -75,7 +75,9 @@ Opening `index.html` via `file://` may break the service worker. Prefer A, B, or
 
 ### Option B — Debug APK (Capacitor)
 
-Built when Android SDK is available (see `android/` after `npx cap add android`):
+On Android, [download **`AIly-debug.apk`** directly](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk), or inspect [the latest GitHub Release](https://github.com/AlphaeusNg/AIly/releases/latest) first. This is an unsigned debug build for dogfood, not a Play Store release. Enable **Install unknown apps** only if you trust this repository.
+
+To build the same debug package yourself with Android Studio / SDK:
 
 ```bash
 # On a machine with Android Studio / SDK:
