@@ -122,6 +122,7 @@ const bat = readFileSync(join(root, "tools/serve-windows.bat"), "utf8");
 assert.match(bat, /serve-windows\.ps1/, "batch wrapper invokes the PowerShell launcher");
 
 const app = read("js/app.js");
+const windowsDownloadUrl = "https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe";
 assert.match(app, /proposeDayPlan/, "app wires ally propose");
 assert.match(app, /metricProgressPct/, "app uses shared direction-aware target progress");
 assert.match(app, /cloneYesterday|clone-yesterday/, "app can clone yesterday");
@@ -147,6 +148,8 @@ assert.match(app, /previewAcceptAll/, "accept-all uses a capacity preview");
 assert.match(app, /today-log-metric/, "Today can log a target check-in");
 assert.match(app, /return-still-yes/, "return nudge is a real yes/no question");
 assert.match(app, /WINDOWS_DOWNLOAD_URL/, "install copy points at the Windows package");
+assert.ok(app.includes(windowsDownloadUrl), "app uses the direct latest Windows asset");
+assert.ok(html.includes(windowsDownloadUrl), "static install CTA works before JavaScript runs");
 assert.match(app, /Install PWA/, "PWA install is named separately from the Windows package");
 const tutorial = read("js/tutorial.js");
 assert.match(tutorial, /AIly-setup.exe/, "tutorial names the Windows package");

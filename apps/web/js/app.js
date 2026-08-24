@@ -62,7 +62,7 @@ import {
 } from "./journey.js";
 import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 
-const WINDOWS_DOWNLOAD_URL = "https://github.com/AlphaeusNg/AIly/releases/latest";
+const WINDOWS_DOWNLOAD_URL = "https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe";
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 let state = loadState();

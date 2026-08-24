@@ -102,11 +102,13 @@ assert.match(workflow, /softprops\/action-gh-release@v3/, "tag builds use curren
 
 const readme = read("README.md");
 assert.match(readme, /AIly-setup\.exe/, "README names the Windows package");
+assert.match(readme, /releases\/latest\/download\/AIly-setup\.exe/, "README offers the direct latest Windows asset");
 assert.match(readme, /unsigned/i, "README says the first package is unsigned");
 assert.match(readme, /PWA/, "README still documents the PWA path");
 
 const install = read("docs/install-windows-android.md");
 assert.match(install, /AIly-setup\.exe/, "install doc names the Windows package");
+assert.match(install, /releases\/latest\/download\/AIly-setup\.exe/, "install doc offers the direct latest Windows asset");
 assert.match(install, /not the same product surface/, "install doc keeps PWA / package / preview distinct");
 assert.match(install, /SmartScreen/, "install doc warns about unsigned SmartScreen");
 

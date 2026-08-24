@@ -28,7 +28,7 @@ These are **three different things**. Do not collapse them:
 | **AIly-setup.exe** | Start Menu / desktop app wrapping the same `apps/web` UI (unsigned dogfood) | SmartScreen reputation, OS hard-blocks |
 | **Preview launcher** | `tools\serve-windows.bat` for local web | An installer |
 
-1. **Download the Windows package** from [Releases](https://github.com/AlphaeusNg/AIly/releases/latest) (`AIly-setup.exe`). Unsigned; SmartScreen may warn. Auto-start stays off.
+1. **[Download `AIly-setup.exe`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe)** directly, or inspect the [latest release notes](https://github.com/AlphaeusNg/AIly/releases/latest) first. Unsigned; SmartScreen may warn. Auto-start stays off.
 2. **Or install the hosted PWA:** Edge/Chrome → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/) → **Install app**. Scoped to `/AIly/`.
 3. **Or preview:** clone on Windows and double-click `tools\serve-windows.bat` (needs Python or Node).
 
@@ -80,7 +80,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.25.1`):
+**Phase 0 dogfood shell + first Android usage slice** (`2026.08.25.2`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  

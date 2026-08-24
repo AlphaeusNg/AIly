@@ -4,14 +4,14 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 30)
+Last updated: 2026-08-25 (AIly Cycle 31)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
   usage slice; local ally propose (JS+Rust), full daily loop, and
   consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.1`; Windows package version `0.1.1`.
+- Deployment version: `2026.08.25.2`; Windows package version `0.1.1`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
@@ -28,6 +28,7 @@ Last updated: 2026-08-25 (AIly Cycle 30)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| — | Make every Windows install CTA download the released package directly | Packaging / UX | Medium: package existed, but install CTAs added a release-page detour | Small / low | Stable latest-asset URL resolves to verified `AIly-setup.exe` | Completed in Cycle 31 |
 | — | Companion loop + honest Windows package story | Ally UX / packaging | High: return was a toast; accept-all hid drops; Windows still read as “open a site” | Medium / low | Return-nudge modal, accept-all preview, Today metric check-in, tested Tauri NSIS release | Completed in Cycles 29–30 |
 | — | Today one-thing + capacity in clock hours | Ally UX | High: next action and planned time were still a list and raw minutes | Small / low | Existing ranking + formatClockHours | Completed in Cycle 28 |
 | — | Collapse the phone tab bar and calm Today / intention density | Ally UX | High: 7 cramped tabs and action-dump rows hid the pause | Small / low | 5-tab + More sheet, row overflow, folded notices, Fewer checks | Completed in Cycle 27 |
@@ -56,6 +57,63 @@ Last updated: 2026-08-25 (AIly Cycle 30)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 31 — Make Windows install a direct download (2026-08-25)
+
+**Why this won:** The Windows package was finally real and install-tested, but
+the in-app “Download Windows package” control still opened the release page and
+required the user to find the asset. With physical Android dogfood externally
+blocked, removing that avoidable install detour was the highest-impact local
+packaging improvement.
+
+**Plan and success criteria**
+
+1. Require the app, no-JavaScript banner, README, and install guide to expose
+   GitHub's stable `releases/latest/download/AIly-setup.exe` asset URL.
+2. Preserve the release-notes link and unsigned/SmartScreen disclosure.
+3. Verify the public URL resolves to an attachment for the released v0.1.1
+   asset, then run the complete project gate.
+
+**Changes**
+
+- Pointed both rendered Setup and install-banner CTAs directly at the latest
+  named Windows asset; the static HTML works even before JavaScript runs.
+- Made README and Windows install instructions offer the direct package first,
+  with the release page retained for inspection.
+- Strengthened shell and desktop documentation contracts to reject a return to
+  release-page-only install links.
+- Bumped the web and service-worker cache stamp to `2026.08.25.2`.
+
+**Verification evidence**
+
+- Test-first: shell and desktop suites both failed because app/HTML/docs lacked
+  the direct latest-asset URL.
+- The direct URL followed two redirects to HTTP 200 with
+  `application/octet-stream` attachment metadata for `AIly-setup.exe`.
+- GitHub release metadata confirms v0.1.1 is published (not draft/prerelease)
+  with one uploaded 1,926,333-byte `AIly-setup.exe` asset.
+- `npm test` passed Rust format/strict Clippy, 18 Rust tests, shared fixtures,
+  all browser-domain/worker/shell/desktop/server suites, recursive syntax, and
+  57 CI/Pages policy assertions.
+
+**Scores (change-specific)**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 8/10 | 10/10 | Every advertised download target resolves to the named released asset |
+| Test coverage / verifiability | 6/10 | 10/10 | App, pre-JS HTML, README, and install guide are contract-locked |
+| Maintainability | 8/10 | 9/10 | One stable latest-asset convention avoids per-release URL churn |
+| Performance / resources | 8/10 | 9/10 | One release-page navigation and click are removed |
+| Security / robustness | 9/10 | 9/10 | Official GitHub asset path and unsigned warning remain explicit |
+| Developer / user experience | 5/10 | 10/10 | “Download” now starts the actual installer download |
+
+**Lesson / process improvement:** Verify delivery from the user's CTA, not
+only from release metadata. A published artifact can still be unnecessarily
+hard to obtain if product surfaces link to its container instead of the asset.
+
+**Next opportunity:** Run the physical Android UsageStats permission/read/
+revocation dogfood journey when a device is attached. Until then, rotate to a
+different clean repository rather than simulating hardware evidence.
 
 ### Cycle 30 — Repair, release, and install-test Windows packaging (2026-08-25)
 

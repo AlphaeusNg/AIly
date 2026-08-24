@@ -18,8 +18,8 @@ These three paths are **not the same product surface**. Copy and UI must keep th
 
 ### Option A — Download `AIly-setup.exe` (packaged app)
 
-1. On **Windows**, open [the latest GitHub Release](https://github.com/AlphaeusNg/AIly/releases/latest).
-2. Download **`AIly-setup.exe`**. First dogfood builds are **unsigned** — SmartScreen / “Windows protected your PC” is expected. Use **More info → Run anyway** only if you built or trust this repo.
+1. On **Windows**, [download **`AIly-setup.exe`** directly](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe), or inspect [the latest GitHub Release](https://github.com/AlphaeusNg/AIly/releases/latest) first.
+2. First dogfood builds are **unsigned** — SmartScreen / “Windows protected your PC” is expected. Use **More info → Run anyway** only if you built or trust this repo.
 3. Install per-user (no admin required). Auto-start is **off**.
 4. Launch **AIly** from the Start Menu. Same tutorial / Today / propose loop as the web app.
 
