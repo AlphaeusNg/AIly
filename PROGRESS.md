@@ -112,6 +112,11 @@ artifacts without a repository-published way to verify their bytes.
   resolves to an attachment with HTTP 200, 162 bytes, and manifest SHA-256
   `37956e1ac7e14c254ef4872cd28248bbca1633e4abd00e5adb5e23e74a9c2994`;
   a byte comparison with the uploaded source passed.
+- Hosted CI run `32777585102` passed the canonical gate in 28 seconds and its
+  Android JVM job in 47 seconds; Pages run `32777585100` deployed `.5`.
+  Package run `32777585133` rebuilt/tested/verified Android in 46 seconds and
+  built, installed, window-checked, uninstalled, and uploaded Windows in 5m18s.
+  Its tag-only release job skipped on `main` as intended.
 
 **Scores**
 
