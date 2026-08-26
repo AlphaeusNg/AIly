@@ -19,8 +19,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: packages-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A clean Windows build takes several minutes. Duplicate delivery of the
+  # same push must queue, not repeatedly preempt the install lifecycle proof.
+  group: packages-complete-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   nsis:

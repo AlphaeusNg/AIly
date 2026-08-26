@@ -23,8 +23,13 @@ assert.match(android, /versionCode\s+[1-9]\d*/, "Android versionCode is positive
 assert.match(workflow, /^name:\s*packages\s*$/m, "the combined workflow has a package-wide identity");
 assert.match(
   workflow,
-  /group:\s*packages-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}/,
-  "package runs share a package-wide stale-run group",
+  /group:\s*packages-complete-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}-\$\{\{ github\.sha \}\}/,
+  "duplicate package runs for one commit share a non-preemptible group",
+);
+assert.match(
+  workflow,
+  /cancel-in-progress:\s*false/,
+  "a duplicate delivery cannot starve the Windows install lifecycle proof",
 );
 assert.match(
   workflow,
