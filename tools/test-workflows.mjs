@@ -16,6 +16,7 @@ function check(source, pattern, message) {
 }
 
 check(ci, /^name:\s*ci\s*$/m, "CI has a stable name");
+check(ci, /^\s{2}workflow_dispatch:\s*$/m, "CI can be recovered with a manual dispatch");
 check(ci, /push:\s*\n\s+branches:\s*\[main\]/, "CI runs on main pushes");
 check(ci, /^\s{2}pull_request:\s*$/m, "CI runs on pull requests");
 check(ci, /permissions:\s*\n\s+contents:\s*read/, "CI has read-only repository access");
