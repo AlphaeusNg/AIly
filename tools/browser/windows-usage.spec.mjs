@@ -29,6 +29,9 @@ test("starts, renders, and revokes honest Windows session usage", async ({ page 
       core: {
         invoke: async (command, args = {}) => {
           window.__windowsUsageCalls.push([command, args]);
+          if (command === "desktop_ready") {
+            return "AIly frontend ready";
+          }
           if (command === "windows_usage_status") {
             return { available: true, tracking: false, day };
           }
@@ -48,6 +51,7 @@ test("starts, renders, and revokes honest Windows session usage", async ({ page 
   }, { seed: state, day: todayLocal() });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveTitle("AIly — Ready");
   await expect(page.locator("#panel-usage")).toContainText("Windows foreground apps since AIly opened");
   await page.locator('[data-action="grant-usage"]').click();
   await expect(page.locator("#panel-usage")).toContainText("Editor");

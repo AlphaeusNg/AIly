@@ -272,14 +272,6 @@
     <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./sw.js").catch((err) => {
-            console.warn("AIly SW register failed", err);
-          });
-        });
-      }
-    </script>
+    <script src="js/register-sw.js" defer></script>
   </body>
 </html>

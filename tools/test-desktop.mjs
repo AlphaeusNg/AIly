@@ -81,6 +81,30 @@ assert.deepEqual(conf.bundle.targets, ["nsis"]);
 assert.equal(conf.app.windows[0].label, "main");
 assert.equal(conf.app.withGlobalTauri, true, "vanilla JS receives Tauri's documented global invoke bridge");
 assert.equal(conf.bundle.windows.nsis.installMode, "currentUser");
+assert.notEqual(
+  conf.app.windows[0].title,
+  "AIly — Ready",
+  "the configured fallback title cannot counterfeit frontend readiness",
+);
+const csp = Object.fromEntries(
+  String(conf.app.security.csp || "")
+    .split(";")
+    .map((directive) => directive.trim().split(/\s+/))
+    .filter(([name]) => name)
+    .map(([name, ...sources]) => [name, sources]),
+);
+assert.deepEqual(csp["default-src"], ["'self'"], "desktop content defaults to its packaged origin");
+assert.deepEqual(csp["script-src"], ["'self'"], "desktop scripts reject inline and remote execution");
+assert.deepEqual(
+  csp["connect-src"],
+  ["'self'", "ipc:", "http://ipc.localhost"],
+  "desktop connections are limited to packaged content and Tauri IPC",
+);
+assert.deepEqual(csp["object-src"], ["'none'"], "desktop plugins are disabled");
+assert.deepEqual(csp["frame-src"], ["'none'"], "desktop frames are disabled");
+assert.deepEqual(csp["base-uri"], ["'none'"], "desktop base URL rewriting is disabled");
+assert.deepEqual(csp["worker-src"], ["'self'"], "desktop workers stay on the packaged origin");
+assert.ok(!String(conf.app.security.csp).includes("'unsafe-eval'"), "desktop CSP never permits eval");
 
 const caps = JSON.parse(read("src-tauri/capabilities/default.json"));
 assert.deepEqual(caps.windows, ["main"]);
@@ -110,6 +134,11 @@ const desktopLib = read("src-tauri/src/lib.rs");
 assert.match(desktopLib, /WindowsUsageState/, "desktop manages native usage state");
 assert.match(desktopLib, /set_windows_usage_tracking/, "desktop registers the consent command");
 assert.match(desktopLib, /list_windows_session_usage/, "desktop registers the aggregate command");
+assert.match(desktopLib, /fn desktop_ready/, "desktop exposes a side-effect-free readiness handshake");
+assert.match(desktopLib, /AIly frontend ready/, "desktop readiness uses a fixed native acknowledgement");
+const desktopApp = read("apps/web/js/app.js");
+assert.match(desktopApp, /invoke\("desktop_ready"\)/, "frontend proves the native bridge is callable");
+assert.match(desktopApp, /document\.title\s*=\s*"AIly — Ready"/, "successful IPC marks the window ready");
 const windowsUsage = read("src-tauri/src/windows_usage.rs");
 assert.match(windowsUsage, /GetForegroundWindow/, "monitor samples only the foreground window");
 assert.match(windowsUsage, /QueryFullProcessImageNameW/, "monitor resolves the foreground process executable");
@@ -129,6 +158,11 @@ const installerSmoke = read("tools/test-windows-installer.ps1");
 assert.match(installerSmoke, /InstallerPath/, "smoke receives the staged installer path");
 assert.match(installerSmoke, /ArgumentList\s+"\/S"/, "smoke runs the installer silently");
 assert.match(installerSmoke, /MainWindowTitle/, "smoke waits for a real AIly window");
+assert.match(
+  installerSmoke,
+  /MainWindowTitle\s+-ne\s+"AIly — Ready"/,
+  "smoke requires the frontend-and-IPC readiness title",
+);
 assert.match(installerSmoke, /UninstallString/, "smoke uses the installed app's own uninstaller");
 assert.match(installerSmoke, /Test-Path/, "smoke verifies installed files and cleanup");
 

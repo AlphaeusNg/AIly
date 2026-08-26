@@ -24,6 +24,7 @@ const required = [
   "js/block.js",
   "js/ally.js",
   "js/journey.js",
+  "js/register-sw.js",
   "js/version.js",
   "sw.js",
   "manifest.webmanifest",
@@ -38,6 +39,12 @@ for (const rel of required) {
 }
 
 const html = read("index.html");
+assert.match(html, /<script[^>]+src="js\/register-sw\.js"/, "service-worker registration is externalized");
+assert.doesNotMatch(
+  html,
+  /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i,
+  "the app shell has no inline executable script",
+);
 for (const id of [
   "boot-splash",
   "app-shell",
@@ -90,6 +97,7 @@ assert.match(sw, /SKIP_WAITING/, "SW handles update message");
 assert.match(sw, /journey\.js/, "SW caches journey module");
 assert.match(sw, /ally\.js/, "SW caches ally module");
 assert.match(sw, /target\.js/, "SW caches target progress module");
+assert.match(sw, /register-sw\.js/, "SW caches its external registration script");
 
 const version = read("js/version.js");
 assert.match(version, /SITE_VERSION/, "version module exports SITE_VERSION");

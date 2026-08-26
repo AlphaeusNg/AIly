@@ -1,6 +1,6 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
 const CACHE_PREFIX = "aily-";
-const CACHE = "aily-2026.08.25.7";
+const CACHE = "aily-2026.08.27.1";
 const SCOPE_URL = new URL(self.registration.scope);
 const ASSETS = [
   "./",
@@ -17,6 +17,7 @@ const ASSETS = [
   "./js/ally.js",
   "./js/journey.js",
   "./js/platform-usage.js",
+  "./js/register-sw.js",
   "./js/version.js",
   "./manifest.webmanifest",
   "./assets/logo.svg",

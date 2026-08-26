@@ -69,7 +69,7 @@ try {
         Start-Sleep -Milliseconds 500
         $appProcess.Refresh()
     } while (-not $appProcess.HasExited -and
-        $appProcess.MainWindowHandle -eq 0 -and
+        $appProcess.MainWindowTitle -ne "AIly — Ready" -and
         (Get-Date) -lt $deadline)
     if ($appProcess.HasExited) {
         throw "Installed AIly exited before opening its window."
@@ -77,8 +77,8 @@ try {
     if ($appProcess.MainWindowHandle -eq 0) {
         throw "Installed AIly did not open a window within 30 seconds."
     }
-    if ($appProcess.MainWindowTitle -notlike "*AIly*") {
-        throw "Installed app window title was '$($appProcess.MainWindowTitle)', not AIly."
+    if ($appProcess.MainWindowTitle -ne "AIly — Ready") {
+        throw "Installed app window never reached the frontend-and-IPC ready state; title was '$($appProcess.MainWindowTitle)'."
     }
     Write-Host "Installed and launched AIly $ExpectedVersion from $installLocation"
 } catch {

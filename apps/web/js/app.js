@@ -65,6 +65,19 @@ import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 const WINDOWS_DOWNLOAD_URL = "https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe";
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
+async function markDesktopReady() {
+  const invoke = globalThis.__TAURI__?.core?.invoke;
+  if (typeof invoke !== "function") return;
+  try {
+    const acknowledgement = await invoke("desktop_ready");
+    if (acknowledgement === "AIly frontend ready") {
+      document.title = "AIly — Ready";
+    }
+  } catch (err) {
+    console.warn("AIly desktop readiness check failed", err);
+  }
+}
+
 let state = loadState();
 const usageBackend = selectUsageBackend();
 const usesAndroidUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
@@ -4482,6 +4495,7 @@ dismissBootSplash();
 initNativeShell();
 syncUsageTracker();
 watchServiceWorkerUpdates();
+void markDesktopReady();
 
 document.addEventListener("visibilitychange", () => {
   usageTracker?.onVisibilityOrFocus();
