@@ -36,6 +36,38 @@ assert.match(
   /paths:[\s\S]*tools\/test-windows-installer\.ps1/,
   "Windows lifecycle-probe changes trigger real package verification",
 );
+assert.match(workflow, /uses:\s*actions\/cache@v5/, "Windows Cargo caching uses the official Node 24 action");
+assert.match(
+  workflow,
+  /path:\s*\|\s*\n\s+~\/.cargo\/registry\s*\n\s+~\/.cargo\/git\s*\n\s+src-tauri\/target/,
+  "Windows caching covers Cargo downloads and compiled outputs",
+);
+assert.match(
+  workflow,
+  /key:\s*windows-tauri-v1-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ hashFiles\('src-tauri\/Cargo\.lock'\) \}\}/,
+  "the Windows cache is isolated by schema, OS, architecture, and exact dependency lock",
+);
+assert.match(
+  workflow,
+  /restore-keys:\s*\|\s*\n\s+windows-tauri-v1-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-/,
+  "dependency changes may reuse only same-platform Cargo work",
+);
+assert.doesNotMatch(workflow, /enableCrossOsArchive:\s*true/, "Windows build outputs never cross OS boundaries");
+assert.match(
+  workflow,
+  /Restore Windows Cargo cache[\s\S]*Clear cached final package outputs[\s\S]*Test Windows native contracts[\s\S]*Build NSIS installer/,
+  "cached final binaries are removed before unconditional native tests and rebuild",
+);
+assert.match(
+  workflow,
+  /Remove-Item[^\n]*release\/aily-desktop\.exe[\s\S]*Remove-Item[^\n]*release\/bundle/,
+  "cache reuse cannot supply the final executable or installer bundle",
+);
+assert.doesNotMatch(
+  workflow,
+  /if:\s*steps\.cargo-cache\.outputs\.cache-hit/,
+  "cache hits never skip verification or packaging",
+);
 assert.match(workflow, /^\s{2}android-apk:\s*$/m, "packaging has an Android APK job");
 assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/, "packaging defaults to read-only access");
 assert.match(workflow, /android-apk:[\s\S]*timeout-minutes:\s*20/, "the APK job has a bounded timeout");

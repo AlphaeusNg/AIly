@@ -31,6 +31,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      - name: Restore Windows Cargo cache
+        id: cargo-cache
+        uses: actions/cache@v5
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "3"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-tauri-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            windows-tauri-v1-${{ runner.os }}-${{ runner.arch }}-
+      - name: Clear cached final package outputs
+        shell: pwsh
+        run: |
+          Remove-Item "src-tauri/target/release/aily-desktop.exe" -Force -ErrorAction SilentlyContinue
+          Remove-Item "src-tauri/target/release/bundle" -Recurse -Force -ErrorAction SilentlyContinue
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
