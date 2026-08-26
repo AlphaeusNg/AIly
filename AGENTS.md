@@ -29,6 +29,8 @@ Do not add `src-tauri` to the Cargo workspace — Linux `npm test` must stay Web
 ## Rules
 
 - Do not invent cloud exfil of usage.  
+- Windows usage is foreground-process aggregation since the installed app
+  opened: consent first, process names only, no titles or full paths.
 - Blocks cannot arm without tutorial admin consent + usage grant.  
 - Break-glass always available for hard blocks.  
 - Bump `apps/web/js/version.js` `SITE_VERSION.id` on ship as `YYYY.MM.DD.N`.  
@@ -42,6 +44,7 @@ cd /home/alph/projects/AIly
 npm ci
 npx playwright install chromium
 npm test
+# On Windows: cargo test --manifest-path src-tauri/Cargo.toml --locked
 JAVA_HOME="$HOME/.local/jdk-21" npm run android:test
 python3 -m http.server 8765 --directory apps/web
 # open http://127.0.0.1:8765/

@@ -17,6 +17,7 @@ const required = [
   "src-tauri/build.rs",
   "src-tauri/src/main.rs",
   "src-tauri/src/lib.rs",
+  "src-tauri/src/windows_usage.rs",
   "src-tauri/capabilities/default.json",
   "src-tauri/icons/32x32.png",
   "src-tauri/icons/128x128.png",
@@ -40,6 +41,7 @@ assert.match(
 const cargo = read("src-tauri/Cargo.toml");
 assert.match(cargo, /name\s*=\s*"aily-desktop"/, "desktop package is named aily-desktop");
 assert.match(cargo, /tauri\s*=/, "desktop crate depends on Tauri");
+assert.match(cargo, /windows-sys\s*=/, "Windows foreground usage uses the checked-in Win32 binding");
 assert.doesNotMatch(cargo, /aily-core/, "first installer does not compile aily-core into the shell");
 
 const packageJson = JSON.parse(read("package.json"));
@@ -77,6 +79,7 @@ assert.equal(conf.identifier, "com.alphaeusng.aily");
 assert.equal(conf.build.frontendDist, "../apps/web");
 assert.deepEqual(conf.bundle.targets, ["nsis"]);
 assert.equal(conf.app.windows[0].label, "main");
+assert.equal(conf.app.withGlobalTauri, true, "vanilla JS receives Tauri's documented global invoke bridge");
 assert.equal(conf.bundle.windows.nsis.installMode, "currentUser");
 
 const caps = JSON.parse(read("src-tauri/capabilities/default.json"));
@@ -94,9 +97,25 @@ assert.match(workflow, /@tauri-apps\/cli@2\.11\.4/, "CI pins an exact Tauri CLI"
 assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/, "installer defaults to read-only repository access");
 assert.match(
   workflow,
+  /Test Windows native contracts[\s\S]*cargo test --manifest-path src-tauri\/Cargo\.toml[\s\S]*Build NSIS installer/,
+  "native unit tests run before the Windows installer build",
+);
+assert.match(
+  workflow,
   /release:[\s\S]*if:\s*startsWith\(github\.ref, 'refs\/tags\/'\)[\s\S]*permissions:\s*\n\s+contents:\s*write/,
   "only the tag release job receives contents write",
 );
+
+const desktopLib = read("src-tauri/src/lib.rs");
+assert.match(desktopLib, /WindowsUsageState/, "desktop manages native usage state");
+assert.match(desktopLib, /set_windows_usage_tracking/, "desktop registers the consent command");
+assert.match(desktopLib, /list_windows_session_usage/, "desktop registers the aggregate command");
+const windowsUsage = read("src-tauri/src/windows_usage.rs");
+assert.match(windowsUsage, /GetForegroundWindow/, "monitor samples only the foreground window");
+assert.match(windowsUsage, /QueryFullProcessImageNameW/, "monitor resolves the foreground process executable");
+assert.doesNotMatch(windowsUsage, /GetWindowText/, "monitor never collects window titles");
+assert.match(windowsUsage, /consented/, "native reads retain an explicit consent boundary");
+assert.match(windowsUsage, /MAX_SAMPLES:\s*usize\s*=\s*50/, "native output has a hard row cap");
 assert.match(workflow, /actions\/upload-artifact@v7/, "installer uses current artifact upload");
 assert.match(workflow, /actions\/download-artifact@v8/, "release downloads the verified installer artifact");
 assert.match(workflow, /softprops\/action-gh-release@v3/, "tag builds use current release publishing");
@@ -118,12 +137,20 @@ assert.match(readme, /AIly-setup\.exe/, "README names the Windows package");
 assert.match(readme, /releases\/latest\/download\/AIly-setup\.exe/, "README offers the direct latest Windows asset");
 assert.match(readme, /unsigned/i, "README says the first package is unsigned");
 assert.match(readme, /PWA/, "README still documents the PWA path");
+assert.match(readme, /process names only/i, "README bounds Windows usage data");
 
 const install = read("docs/install-windows-android.md");
 assert.match(install, /AIly-setup\.exe/, "install doc names the Windows package");
 assert.match(install, /releases\/latest\/download\/AIly-setup\.exe/, "install doc offers the direct latest Windows asset");
 assert.match(install, /not the same product surface/, "install doc keeps PWA / package / preview distinct");
 assert.match(install, /SmartScreen/, "install doc warns about unsigned SmartScreen");
+assert.match(install, /since (AIly opened|launch)/i, "install doc says Windows totals are session-scoped");
+assert.match(install, /never reads window titles/i, "install doc states the Windows privacy boundary");
+
+const privacy = read("docs/privacy.md");
+assert.match(privacy, /foreground process every five seconds/i, "privacy doc states the sample cadence");
+assert.match(privacy, /never window titles or full executable paths/i, "privacy doc states excluded Windows data");
+assert.match(privacy, /stops and clears native totals on revoke/i, "privacy doc states revocation behavior");
 
 console.log("test-desktop.mjs: Tauri Windows scaffold contracts ok");
 

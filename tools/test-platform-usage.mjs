@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   createAndroidUsageBackend,
   createAndroidUsageBackendStub,
+  createWindowsUsageBackend,
   createWebSessionBackend,
   selectUsageBackend,
   usageBackendHonesty,
@@ -77,6 +78,47 @@ assert.deepEqual(await native.listTodaySamples({ consented: true }), [
 ]);
 assert.equal(nativeReads, 1);
 
+const windowsCalls = [];
+const windowsInvoke = async (command, args = {}) => {
+  windowsCalls.push([command, args]);
+  if (command === "windows_usage_status") {
+    return { available: true, tracking: false, day: "2026-08-11" };
+  }
+  if (command === "set_windows_usage_tracking") {
+    return { available: true, tracking: args.consented, day: "2026-08-11" };
+  }
+  if (command === "list_windows_session_usage") {
+    return {
+      day: "2026-08-11",
+      samples: [
+        { processName: "editor.exe", label: "Editor", foregroundMs: 125_000 },
+        { processName: "short.exe", label: "Short", foregroundMs: 59_999 },
+        { processName: "", label: "Missing", foregroundMs: 120_000 },
+      ],
+    };
+  }
+  throw new Error(`unexpected Windows command: ${command}`);
+};
+const windows = createWindowsUsageBackend(windowsInvoke);
+assert.equal(windows.id, "windows-foreground-session");
+assert.equal(windows.available, true);
+assert.equal(windows.capabilities.perApp, true);
+assert.equal(await windows.permissionStatus(), "granted");
+assert.deepEqual(await windows.listTodaySamples(), [], "Windows reads require explicit consent");
+assert.equal(windowsCalls.some(([command]) => command === "list_windows_session_usage"), false);
+assert.equal(await windows.requestPermission(), "granted");
+assert.deepEqual(await windows.listTodaySamples({ consented: true }), [
+  {
+    app: "Editor",
+    mins: 2,
+    ts: "2026-08-11T12:00:00",
+    source: "windows-foreground-session",
+    processName: "editor.exe",
+  },
+]);
+await windows.revokePermission();
+assert.deepEqual(windowsCalls.at(-1), ["set_windows_usage_tracking", { consented: false }]);
+
 const capped = createAndroidUsageBackend({
   async getPermissionStatus() {
     return { granted: true };
@@ -135,9 +177,25 @@ assert.equal(
   "native Android selects the installed adapter",
 );
 assert.equal(selectUsageBackend({ isNative: true, platform: "ios" }).id, "web-session");
+assert.equal(
+  selectUsageBackend({ tauriInvoke: windowsInvoke }).id,
+  "windows-foreground-session",
+  "the installed Tauri shell selects native Windows usage",
+);
+assert.equal(
+  selectUsageBackend({
+    isNative: true,
+    platform: "android",
+    plugin: nativePlugin,
+    tauriInvoke: windowsInvoke,
+  }).id,
+  "android-usagestats",
+  "Android remains preferred inside the Capacitor shell",
+);
 
 assert.match(usageBackendHonesty(web), /tab only/i);
 assert.match(usageBackendHonesty(android), /not installed/i);
 assert.match(usageBackendHonesty(native), /local daily totals/i);
+assert.match(usageBackendHonesty(windows), /since AIly opened/i);
 
 console.log("test-platform-usage.mjs: usage backend boundary ok");

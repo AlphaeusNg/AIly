@@ -9,7 +9,7 @@ These three paths are **not the same product surface**. Copy and UI must keep th
 | Path | Installs as | Data | OS usage / hard blocks |
 |---|---|---|---|
 | Browser **PWA** | Edge/Chrome app, scoped to `/AIly/` | That browser profile (`localStorage`) | No |
-| **AIly-setup.exe** (Tauri / NSIS) | Start Menu + desktop shortcut | WebView2 profile under the app’s data dir | Not in this build |
+| **AIly-setup.exe** (Tauri / NSIS) | Start Menu + desktop shortcut | WebView2 profile under the app’s data dir | Foreground process totals since launch; no hard blocks |
 | `tools\serve-windows.bat` | Nothing — local preview server | Temporary localhost origin | No |
 
 ---
@@ -48,8 +48,13 @@ the file; delete it and download it again from the official AIly release.
 2. First dogfood builds are **unsigned** — SmartScreen / “Windows protected your PC” is expected. Use **More info → Run anyway** only if you built or trust this repo.
 3. Install per-user (no admin required). Auto-start is **off**.
 4. Launch **AIly** from the Start Menu. Same tutorial / Today / propose loop as the web app.
+5. In **Usage**, choose **Start Windows foreground tracking**. AIly then counts
+   foreground process names in five-second samples for this app session. It
+   never reads window titles or returns full executable paths; apps appear only
+   after one accumulated minute. Revoke in Setup to stop and clear native totals.
 
-This is **not** OS enforcement. Break-glass and block rules still simulate until Ship C.
+This is session-only usage evidence, not historical Windows activity or OS
+enforcement. Break-glass and block rules still simulate until Ship C.
 
 Build it yourself on Windows (not WSL):
 
@@ -138,9 +143,10 @@ WSL can **develop** and **build** artifacts; **daily product testing** should be
 |---|---|---|---|---|
 | Tutorial, targets, Today, Review | yes | yes | yes | yes |
 | Local data | browser profile | app data dir | browser profile | app storage |
-| OS app usage tracking | not yet | not yet | not yet | current-day foreground totals (consent + Usage Access) |
+| OS app usage tracking | not yet | foreground process totals since AIly opened (in-app consent) | not yet | current-day foreground totals (consent + Usage Access) |
 | OS hard app blocks | not yet | not yet | not yet | Phase 2 / Ship C |
 
-The web/PWA remains a complete companion loop. The Windows package wraps that
-same UI. The Capacitor APK adds the first read-only native hook. Background
-collection and hard enforcement remain later phases.
+The web/PWA remains a complete companion loop. The Windows package adds a
+read-only foreground-session monitor, and the Capacitor APK adds current-day
+UsageStats reads. Background desktop history and hard enforcement remain later
+phases.

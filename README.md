@@ -84,7 +84,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + first Android usage slice** (`2026.08.25.3`):
+**Phase 0 dogfood shell + native usage slices** (`2026.08.25.7`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  
@@ -93,6 +93,8 @@ native-shell changes.
 - Clone yesterday, must-keep / priority controls, target pause/complete  
 - In-app attention tracker + honesty prompt for off-limits app samples  
 - Capacitor Android: consent-gated local daily app totals via UsageStats
+- Tauri Windows: consent-gated foreground process totals since AIly opened;
+  process names only, with no window titles, full paths, or historical lookup
 - Break-glass countdown + configurable delay; try-open simulation  
 - Weekly journey stats + reflection; evening review badges  
 - Display density / reduce-motion; keyboard help (`?`, `Esc`, `1–7`)  
@@ -102,9 +104,9 @@ native-shell changes.
 - Local web: `npm run web` · gate: `npm test`
 
 - Return-from-away is a real question; accept-all shows drop/skip preview; Today can log a target number
-- Windows package scaffold (`src-tauri/`) builds `AIly-setup.exe` on `windows-latest` — unsigned, no OS blocks yet
+- Windows package (`src-tauri/`) builds `AIly-setup.exe` on `windows-latest` — unsigned, with session usage but no OS blocks yet
 
-**Later:** OS usage/hard-blocks after a real Windows process exists (Ship C); sealed DB; optional local AI.
+**Later:** persistent/background desktop usage and OS hard-blocks (Ship C); sealed DB; optional local AI.
 
 ## Docs
 

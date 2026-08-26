@@ -113,6 +113,76 @@ export function createAndroidUsageBackend(plugin) {
 }
 
 /**
+ * Bind the installed Tauri shell's consent-gated foreground-process monitor.
+ * It measures only this AIly process lifetime, never historical Windows usage.
+ * @param {(command: string, args?: object) => Promise<any>} invoke
+ */
+export function createWindowsUsageBackend(invoke) {
+  let tracking = false;
+  const setTracking = async (consented) => {
+    const result = await invoke("set_windows_usage_tracking", { consented });
+    tracking = result?.available === true && result?.tracking === true;
+    return result;
+  };
+  return {
+    id: "windows-foreground-session",
+    label: "Windows foreground apps since AIly opened",
+    available: typeof invoke === "function",
+    capabilities: { session: false, perApp: true, realtime: true },
+    async permissionStatus() {
+      if (typeof invoke !== "function") return "unsupported";
+      const result = await invoke("windows_usage_status");
+      tracking = result?.tracking === true;
+      return result?.available === true ? "granted" : "unsupported";
+    },
+    async requestPermission() {
+      if (await this.permissionStatus() === "unsupported") return "unsupported";
+      const result = await setTracking(true);
+      return result?.tracking === true ? "granted" : "unsupported";
+    },
+    async revokePermission() {
+      if (typeof invoke !== "function") return "unsupported";
+      await setTracking(false);
+      return "denied";
+    },
+    async listTodaySamples(options = {}) {
+      if (options.consented !== true || typeof invoke !== "function") return [];
+      if (!tracking) {
+        const result = await setTracking(true);
+        if (result?.tracking !== true) return [];
+      }
+      const result = await invoke("list_windows_session_usage", { consented: true });
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(result?.day || "")
+        ? result.day
+        : new Date().toLocaleDateString("en-CA");
+      const samples = [];
+      for (const row of Array.isArray(result?.samples) ? result.samples : []) {
+        const processName = String(row?.processName || "").trim().slice(0, 200);
+        const app = String(row?.label || "").trim().slice(0, 120);
+        const foregroundMs = Number(row?.foregroundMs);
+        if (
+          !processName
+          || !app
+          || !Number.isFinite(foregroundMs)
+          || foregroundMs < 60_000
+        ) {
+          continue;
+        }
+        samples.push({
+          app,
+          mins: Math.floor(foregroundMs / 60_000),
+          ts: `${day}T12:00:00`,
+          source: "windows-foreground-session",
+          processName,
+        });
+        if (samples.length === 50) break;
+      }
+      return samples;
+    },
+  };
+}
+
+/**
  * Pick the best available backend for this runtime.
  * @param {{ isNative?: boolean, platform?: string }} env
  */
@@ -126,6 +196,12 @@ export function selectUsageBackend(env = {}) {
       ? env.plugin
       : globalThis.Capacitor?.Plugins?.AilyUsage;
     return plugin ? createAndroidUsageBackend(plugin) : createAndroidUsageBackendStub();
+  }
+  const tauriInvoke = Object.hasOwn(env, "tauriInvoke")
+    ? env.tauriInvoke
+    : globalThis.__TAURI__?.core?.invoke;
+  if (typeof tauriInvoke === "function") {
+    return createWindowsUsageBackend(tauriInvoke);
   }
   return createWebSessionBackend();
 }
@@ -144,6 +220,9 @@ export function usageBackendHonesty(backend) {
       return "Android local daily totals — read only after tutorial consent and the system usage-access grant.";
     }
     return "Android UsageStats adapter is scaffolded but not installed — samples stay manual/session-only.";
+  }
+  if (backend.id === "windows-foreground-session") {
+    return "Windows local foreground totals since AIly opened — process names only; no titles, paths, or historical activity.";
   }
   return backend.label || backend.id;
 }

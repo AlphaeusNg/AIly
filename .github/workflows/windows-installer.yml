@@ -32,6 +32,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      - name: Test Windows native contracts
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Build NSIS installer
         run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis --ci
       - name: Stage AIly-setup.exe

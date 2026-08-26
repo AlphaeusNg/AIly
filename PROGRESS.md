@@ -4,14 +4,15 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 36)
+Last updated: 2026-08-25 (AIly Cycle 37)
 
 ## Current state
 
 - Product phase: Phase 0 dogfood executable shell plus the first Phase 1 native
-  usage slice; local ally propose (JS+Rust), full daily loop, and
-  consent-gated Android daily UsageStats reads.
-- Deployment version: `2026.08.25.6`; Windows and Android package version `0.1.1`.
+  usage slice; local ally propose (JS+Rust), full daily loop,
+  consent-gated Android daily UsageStats reads, and consent-gated Windows
+  foreground-process totals since the installed app opened.
+- Deployment version: `2026.08.25.7`; Windows and Android package version `0.1.2`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
   not in this build.
@@ -21,7 +22,7 @@ Last updated: 2026-08-25 (AIly Cycle 36)
 - Releases include one generated `SHA256SUMS.txt` for the tested Windows and
   Android artifacts, with platform-native verification instructions.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell,
-  three real Chromium storage-failure journeys, and 63 CI policy assertions via
+  three real Chromium storage-failure journeys, one Windows usage fixture, and 63 CI policy assertions via
   `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
   21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
@@ -33,7 +34,8 @@ Last updated: 2026-08-25 (AIly Cycle 36)
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads landed; background and desktop hooks remain | Large / medium | Physical Android permission/read journey + platform APIs | In progress |
+| 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Consent-gated Windows foreground usage in the Tauri package | Product spine / privacy | High: Usage on Windows still meant “this tab” | Medium / low | Win32 aggregator, JS adapter, revoke clears totals, Chromium fixture | Completed in Cycle 37 |
 | — | Browser-gate localStorage failure and label session-only recovery | Reliability / verification | High: in-memory changes worked but generic success copy obscured failed durability, and no browser gate covered the UI | Small-medium / low | Three mutation-backed Chromium journeys plus 63 CI policies | Completed in Cycle 36 |
 | — | Publish verifiable checksums for unsigned/debug packages | Packaging / security | High: users could download tested packages but not independently identify their bytes | Small / low | Generated two-package manifest, docs/contracts, and a byte-exact public v0.1.1 asset | Completed in Cycle 35 |
 | — | Ensure lifecycle-probe changes trigger the combined package gate | Packaging / process | High: the Windows verifier could change without exercising either installable artifact | Small / low | Package-wide workflow identity, path-filter contract, and green hosted Windows/Android jobs | Completed in Cycle 34 |
@@ -68,6 +70,21 @@ Last updated: 2026-08-25 (AIly Cycle 36)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 37 — Consent-gated Windows foreground usage (2026-08-25)
+
+**Why this won:** Android UsageStats could show current-day totals, but the
+Windows package still meant “this tab.” The unfinished Tauri adapter, Win32
+aggregator, and Usage UI were already in the tree.
+
+**Changes**
+
+- Tauri commands start/stop a consent-gated foreground-process monitor and
+  return bounded session totals (process name + minutes, no window titles).
+- Web Usage adapter talks to those commands only after explicit consent.
+- Revoke usage clears in-memory native totals immediately.
+- Chromium fixture covers grant, Editor 2m render, and revoke.
+- Package version `0.1.2`; site stamp `2026.08.25.7`.
 
 ### Cycle 36 — Browser-gate failed durability and honest recovery (2026-08-25)
 

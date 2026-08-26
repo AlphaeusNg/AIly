@@ -67,11 +67,13 @@ const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 let state = loadState();
 const usageBackend = selectUsageBackend();
-const usesNativeUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
-let nativeUsageConsentPending = usesNativeUsage && !!state.tutorial.permissions.usage;
-let nativeUsageConsentWasStored = nativeUsageConsentPending;
-if (nativeUsageConsentPending) {
-  // Fail closed until Android confirms its independently revocable special grant.
+const usesAndroidUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
+const usesWindowsUsage = usageBackend.id === "windows-foreground-session" && usageBackend.available;
+const usesNativeUsage = usesAndroidUsage || usesWindowsUsage;
+let nativeUsageConsentWasStored = usesNativeUsage && !!state.tutorial.permissions.usage;
+let nativeUsageConsentPending = usesAndroidUsage && nativeUsageConsentWasStored;
+if (nativeUsageConsentWasStored) {
+  // Fail closed until the installed native bridge confirms availability.
   state.tutorial.permissions.usage = false;
 }
 {
@@ -316,7 +318,12 @@ function commitUsageGrant(chapterId = "attention", options = {}) {
   nativeUsageConsentWasStored = false;
   if (chapterStatus(state, chapterId) !== "done") completeChapter(chapterId);
   if (!options.restoring && changed) {
-    appendAudit(state, "permission.grant", usesNativeUsage ? "usage:android" : "usage");
+    const source = usesAndroidUsage
+      ? "usage:android"
+      : usesWindowsUsage
+        ? "usage:windows-session"
+        : "usage";
+    appendAudit(state, "permission.grant", source);
     persist();
   } else if (options.restoring) {
     render();
@@ -331,8 +338,10 @@ async function requestUsageGrant(chapterId = "attention") {
       commitUsageGrant(chapterId);
       await refreshPlatformUsage({ force: true });
       showToast(
-        usesNativeUsage
+        usesAndroidUsage
           ? "Android usage access confirmed — local daily totals are on."
+          : usesWindowsUsage
+            ? "Windows foreground tracking on — local session totals are on."
           : "Usage tracking on — AIly will log this tab’s attention.",
         "ok",
         4500,
@@ -369,13 +378,13 @@ async function refreshPlatformUsage(options = {}) {
       if (state.tutorial.permissions.usage || nativeUsageConsentWasStored) {
         state.tutorial.permissions.usage = false;
         nativeUsageConsentWasStored = false;
-        appendAudit(state, "permission.revoke", "usage:android-system");
+        appendAudit(state, "permission.revoke", `usage:${usageBackend.id}`);
         persist();
         syncUsageTracker();
       } else if (state.ui.tab === "usage") {
         renderUsage();
       }
-      if (options.fromSettings && pending) {
+      if (usesAndroidUsage && options.fromSettings && pending) {
         showToast("Android usage access was not granted. AIly left tracking off.", "ok", 5000);
       }
       return;
@@ -383,7 +392,7 @@ async function refreshPlatformUsage(options = {}) {
 
     if (nativeUsageConsentWasStored) {
       commitUsageGrant("attention", { restoring: true });
-    } else if (pending) {
+    } else if (usesAndroidUsage && pending) {
       commitUsageGrant("attention");
       showToast("Android usage access confirmed — local daily totals are on.", "ok", 4500);
     }
@@ -398,7 +407,11 @@ async function refreshPlatformUsage(options = {}) {
     platformUsageStatus = "error";
     platformUsageSamples = [];
     if (options.force || options.fromSettings) {
-      showToast("Android usage totals could not be read. No data left the device.", "error", 5000);
+      showToast(
+        `${usesWindowsUsage ? "Windows session" : "Android usage"} totals could not be read. No data left the device.`,
+        "error",
+        5000,
+      );
     }
     if (state.ui.tab === "usage") renderUsage();
   }
@@ -1632,7 +1645,9 @@ function renderUsage() {
       granted
         ? `<div class="banner ok">${
             usesNativeUsage
-              ? `Android usage access confirmed. Showing ${platformUsageSamples.length} local OS total${platformUsageSamples.length === 1 ? "" : "s"}; status: ${escapeHtml(platformUsageStatus)}.`
+              ? usesAndroidUsage
+                ? `Android usage access confirmed. Showing ${platformUsageSamples.length} local OS total${platformUsageSamples.length === 1 ? "" : "s"}; status: ${escapeHtml(platformUsageStatus)}.`
+                : `Windows foreground tracking on. Showing ${platformUsageSamples.length} local session total${platformUsageSamples.length === 1 ? "" : "s"} since AIly opened; status: ${escapeHtml(platformUsageStatus)}.`
               : `Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
                   usageTracker?.isRunning?.()
                     ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
@@ -1655,7 +1670,7 @@ function renderUsage() {
                        </div>`
                      )
                      .join("")}</div>`
-                 : `<p class="muted">No samples yet — use AIly for a minute, refresh Android totals, or log another app below.</p>`
+                 : `<p class="muted">No samples yet — use an app for a full minute, refresh native totals, or log another app below.</p>`
              }
            </div>
            <form id="usage-form" class="row">
@@ -1664,12 +1679,12 @@ function renderUsage() {
              <button class="primary" type="submit">Log sample usage</button>
            </form>
            <div class="row">
-             ${usesNativeUsage ? `<button type="button" data-action="refresh-platform-usage">Refresh Android totals</button>` : ""}
+             ${usesNativeUsage ? `<button type="button" data-action="refresh-platform-usage">Refresh ${usesWindowsUsage ? "Windows session" : "Android totals"}</button>` : ""}
              <button type="button" data-action="flush-usage" ${usageTracker?.isRunning?.() ? "" : "disabled"}>Flush live buffer now</button>
              <button type="button" data-action="clear-usage-today" ${(state.usageSamples || []).some((u) => u?.ts?.startsWith(todayISO())) ? "" : "disabled"}>Clear today’s saved samples</button>
              <button type="button" data-action="clear-usage" ${(state.usageSamples || []).length ? "" : "disabled"}>Clear all saved samples</button>
            </div>
-           ${usesNativeUsage ? `<p class="muted">Android totals are read live from the OS and are not copied into AIly backups. Saved manual samples remain removable below.</p>` : ""}
+           ${usesNativeUsage ? `<p class="muted">${usesWindowsUsage ? "Windows foreground totals cover this installed AIly session only and contain process names, never window titles or full paths." : "Android totals are read live from the OS."} They are not copied into AIly backups. Saved manual samples remain removable below.</p>` : ""}
            <ul class="list">${(state.usageSamples || [])
              .slice(0, 20)
              .map(
@@ -1684,7 +1699,7 @@ function renderUsage() {
               ? "Finish the Android Usage Access choice, then return to AIly."
               : "Grant usage in Setup / tutorial chapter “Attention map”."
           }</div>
-           <button type="button" class="primary" data-action="grant-usage">${usesNativeUsage ? "Open Android usage access" : "Grant usage tracking"}</button>`
+           <button type="button" class="primary" data-action="grant-usage">${usesAndroidUsage ? "Open Android usage access" : usesWindowsUsage ? "Start Windows foreground tracking" : "Grant usage tracking"}</button>`
     }
   `;
   $("#usage-form")?.addEventListener("submit", (e) => {
@@ -2606,6 +2621,9 @@ async function downloadBackup() {
 
 async function initNativeShell() {
   try {
+    if (usesWindowsUsage) {
+      await refreshPlatformUsage({ force: true });
+    }
     // Capacitor injects globals only inside the Android/iOS shell — no CDN.
     const cap = window.Capacitor;
     if (!cap?.isNativePlatform?.()) return;
@@ -2836,7 +2854,7 @@ function markdownLite(s) {
 }
 
 // Events
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const openOverflow = e.target.closest(".commit-overflow");
   $$(".commit-overflow[open]").forEach((menu) => {
     if (menu !== openOverflow) menu.open = false;
@@ -4165,10 +4183,24 @@ document.addEventListener("click", (e) => {
     );
   }
   if (action === "revoke-usage") {
-    const revokeCopy = usesNativeUsage
+    const revokeCopy = usesAndroidUsage
       ? "Turn off AIly usage reads? Live Android totals disappear now; revoke system Usage Access separately in Android Settings. Saved manual samples remain."
+      : usesWindowsUsage
+        ? "Stop Windows foreground tracking and clear this session’s native totals? Saved manual samples remain."
       : "Revoke usage tracking? Session auto-log stops; samples stay until you clear them.";
     if (!confirm(revokeCopy)) return;
+    platformUsageSamples = [];
+    let nativeRevokeConfirmed = true;
+    try {
+      await usageBackend.revokePermission?.();
+    } catch {
+      nativeRevokeConfirmed = false;
+      showToast(
+        "Local consent is off, but AIly could not confirm the native monitor stopped. Close AIly to stop it completely.",
+        "error",
+        7000,
+      );
+    }
     state.tutorial.permissions.usage = false;
     nativeUsageConsentPending = false;
     nativeUsageConsentWasStored = false;
@@ -4178,7 +4210,7 @@ document.addEventListener("click", (e) => {
     usageTracker = null;
     appendAudit(state, "permission.revoke", "usage");
     persist();
-    showToast("Usage permission revoked.", "ok");
+    if (nativeRevokeConfirmed) showToast("Usage permission revoked.", "ok");
   }
   if (action === "revoke-admin") {
     if (!confirm("Revoke block admin? Armed rules will disarm.")) return;
