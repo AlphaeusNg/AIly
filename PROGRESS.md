@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-27 (AIly Cycle 37)
+Last updated: 2026-08-27 (AIly Cycle 38)
 
 ## Current state
 
@@ -12,9 +12,9 @@ Last updated: 2026-08-27 (AIly Cycle 37)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.08.25.7`; Windows and Android package version `0.1.2`.
+- Deployment version: `2026.08.27.1`; Windows and Android package version `0.1.3`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
-  tested Tauri 2 NSIS release (`v0.1.2`, `AIly-setup.exe`, unsigned). The exact
+  tested Tauri 2 NSIS release (`v0.1.3`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
   cleanup on `windows-latest`. OS hard-blocks are not in this build.
 - Android delivery includes a public, direct-download, debug-signed
@@ -36,6 +36,7 @@ Last updated: 2026-08-27 (AIly Cycle 37)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Restrict the Tauri webview and prove packaged frontend/IPC readiness | Security / verification | High: a window handle and configured title could accept a blank or policy-blocked webview | Small-medium / low | Explicit CSP, external registration script, native ready handshake, fail-closed install lifecycle | Completed in Cycle 38 |
 | — | Make package delivery recoverable and non-preemptible | Process / reliability | High: duplicate deliveries repeatedly canceled the several-minute Windows lifecycle proof | Small / low | Manual dispatch for CI/packages; same-ref/SHA package runs serialize instead of canceling | Completed in Cycle 37 |
 | — | Consent-gated Windows foreground usage in the Tauri package | Product spine / privacy | High: Usage on Windows still meant “this tab” | Medium / low | Win32 aggregator, JS adapter, revoke clears totals, Chromium fixture | Completed in Cycle 37 |
 | — | Browser-gate localStorage failure and label session-only recovery | Reliability / verification | High: in-memory changes worked but generic success copy obscured failed durability, and no browser gate covered the UI | Small-medium / low | Three mutation-backed Chromium journeys plus 63 CI policies | Completed in Cycle 36 |
@@ -72,6 +73,94 @@ Last updated: 2026-08-27 (AIly Cycle 37)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 38 — Restrictive desktop CSP and real readiness proof (2026-08-27)
+
+**Why this won:** The installed app exposed Tauri's global invoke bridge while
+its desktop CSP was `null`. Its lifecycle smoke accepted any window whose
+configured title contained “AIly,” so a blank webview or a policy-blocked
+frontend could still publish as a verified installer.
+
+**Plan and success criteria**
+
+1. Replace the null policy with a packaged-origin CSP that permits only the
+   Tauri IPC endpoints and the minimum local asset capabilities AIly uses.
+2. Remove inline executable script so `script-src 'self'` is enforceable.
+3. Require packaged JavaScript to call a side-effect-free native command that
+   marks the actual Windows window `AIly — Ready`.
+4. Withhold the artifact unless silent install, exact ready title, and clean
+   uninstall all pass under that policy.
+
+**Changes**
+
+- Added explicit default/script/style/image/connect/worker/object/frame/base/form
+  directives. Scripts are packaged-origin only with no inline or eval escape;
+  connections are limited to the packaged origin plus Tauri's documented IPC
+  endpoints. Plugins, frames, and base rewriting are disabled.
+- Moved service-worker registration from inline HTML into a small cached local
+  module, preserving PWA behavior under the script policy.
+- Added `desktop_ready`: the frontend calls it after initial render and native
+  shell setup; Rust sets the real window title and returns a fixed
+  acknowledgement. The browser title mirrors that state.
+- Changed the installer probe from “some window titled AIly” to the exact
+  native ready title. The configured fallback title is contractually forbidden
+  from counterfeiting readiness.
+- Bumped site/cache stamp to `2026.08.27.1` and package identities to `0.1.3`
+  (including Android version code 3).
+
+**Verification evidence**
+
+- Test-first desktop and shell contracts failed on the absent CSP, external
+  registration module, and ready handshake. After implementation, `npm test`
+  passed 18 Rust tests/contracts, every JS/static gate, all four Chromium
+  journeys, and 64 CI/Pages policy assertions; the Windows browser journey now
+  proves the acknowledgement-driven ready title. The high-severity dependency
+  audit reported zero vulnerabilities.
+- The Linux host cannot compile the Tauri crate without GLib development
+  packages, and its Java 21 image lacks `javac`; these environment limits were
+  not treated as product proof. Hosted CI run `32991999966` supplied a complete
+  environment and passed the canonical job in 1m29s plus Android in 1m06s.
+- First package run `32992003531` compiled native tests and a 1,953,620-byte
+  installer, then correctly failed and withheld it when the native title stayed
+  `AIly — Your AI Ally`. This exposed that `document.title` is not the native
+  Tauri window title; the test was preserved and the native command fixed.
+- Corrected branch package run `32992940182` passed all three Windows native
+  tests, built a 1,953,049-byte installer, installed AIly 0.1.3, reached the
+  native ready state through frontend IPC, and uninstalled cleanly in 8m11s.
+  Its Android job built, signed, and verified the 0.1.3 APK in 53 seconds.
+- Annotated tag `v0.1.3` points to corrected commit `0002bef`. Tag run
+  `32993791751` repeated Android verification in 55 seconds, the Windows native
+  and installed-ready lifecycle in 10m18s, and release publication in 18
+  seconds. Independent fresh release downloads passed `sha256sum -c`; the
+  stable latest URLs returned HTTP 200 for `AIly-setup.exe` (1,952,531 bytes,
+  SHA-256 `7da3783f11b10a01c28371d193cc3362f3fa7d14f1eea3dc48cdb59c7c27f390`),
+  signed `AIly-debug.apk` (4,212,156 bytes, SHA-256
+  `68fc2ad8fa3d46d06573680afde4a22704614198de07a91a0975292b01c63c1c`),
+  and the 162-byte manifest.
+- Pages run `32993115735` passed and production serves `2026.08.27.1` with the
+  external registration module. Delayed redundant package runs were canceled;
+  they did not replace the completed evidence runs.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 6/10 | 10/10 | Installer proof now fails on a frontend/native readiness mismatch |
+| Test coverage / verifiability | 5/10 | 10/10 | Browser acknowledgement plus installed native-title proof spans both sides of IPC |
+| Maintainability | 7/10 | 9/10 | One tiny command owns the explicit desktop-ready contract |
+| Performance / resources | 9/10 | 8/10 | Runtime cost is one startup IPC; clean Windows verification still takes ~8 minutes |
+| Security / robustness | 4/10 | 10/10 | Desktop content and connections are explicitly bounded; scripts reject inline/eval |
+| Developer / user experience | 7/10 | 9/10 | Published installers cannot silently open an unusable shell |
+
+**Lesson / process improvement:** Observe the platform surface the test claims
+to verify. A browser document title is not necessarily a native window title.
+The first hosted failure was useful evidence: preserve strict lifecycle probes,
+withhold failed artifacts, and move the signal to the real trust boundary.
+
+**Next opportunity:** Cache safe Windows Cargo build outputs with a lockfile-
+and-runner-specific key, while preserving fresh native tests, NSIS lifecycle,
+and checksum gates. Three clean builds took 8–10 minutes each during this
+cycle, making verification latency the clearest compounding process cost.
 
 ### Cycle 37 — Consent-gated Windows foreground usage (2026-08-25)
 
