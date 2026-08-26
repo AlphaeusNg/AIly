@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-25 (AIly Cycle 37)
+Last updated: 2026-08-27 (AIly Cycle 37)
 
 ## Current state
 
@@ -14,15 +14,16 @@ Last updated: 2026-08-25 (AIly Cycle 37)
   foreground-process totals since the installed app opened.
 - Deployment version: `2026.08.25.7`; Windows and Android package version `0.1.2`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
-  tested Tauri 2 NSIS release (`AIly-setup.exe`, unsigned). OS hard-blocks are
-  not in this build.
+  tested Tauri 2 NSIS release (`v0.1.2`, `AIly-setup.exe`, unsigned). The exact
+  public installer has passed build, silent install, launch, and uninstall
+  cleanup on `windows-latest`. OS hard-blocks are not in this build.
 - Android delivery includes a public, direct-download, debug-signed
   `AIly-debug.apk`; package identity/version/signature and JVM tests gate each
   hosted artifact. Physical-device install and Usage Access dogfood remain.
 - Releases include one generated `SHA256SUMS.txt` for the tested Windows and
   Android artifacts, with platform-native verification instructions.
 - Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell,
-  three real Chromium storage-failure journeys, one Windows usage fixture, and 63 CI policy assertions via
+  three real Chromium storage-failure journeys, one Windows usage fixture, and 64 CI policy assertions via
   `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
   21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
@@ -35,6 +36,7 @@ Last updated: 2026-08-25 (AIly Cycle 37)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Make package delivery recoverable and non-preemptible | Process / reliability | High: duplicate deliveries repeatedly canceled the several-minute Windows lifecycle proof | Small / low | Manual dispatch for CI/packages; same-ref/SHA package runs serialize instead of canceling | Completed in Cycle 37 |
 | — | Consent-gated Windows foreground usage in the Tauri package | Product spine / privacy | High: Usage on Windows still meant “this tab” | Medium / low | Win32 aggregator, JS adapter, revoke clears totals, Chromium fixture | Completed in Cycle 37 |
 | — | Browser-gate localStorage failure and label session-only recovery | Reliability / verification | High: in-memory changes worked but generic success copy obscured failed durability, and no browser gate covered the UI | Small-medium / low | Three mutation-backed Chromium journeys plus 63 CI policies | Completed in Cycle 36 |
 | — | Publish verifiable checksums for unsigned/debug packages | Packaging / security | High: users could download tested packages but not independently identify their bytes | Small / low | Generated two-package manifest, docs/contracts, and a byte-exact public v0.1.1 asset | Completed in Cycle 35 |
@@ -85,6 +87,57 @@ aggregator, and Usage UI were already in the tree.
 - Revoke usage clears in-memory native totals immediately.
 - Chromium fixture covers grant, Editor 2m render, and revoke.
 - Package version `0.1.2`; site stamp `2026.08.25.7`.
+- CI and package workflows can be manually recovered. Package runs now use a
+  same-ref/SHA, non-preemptible concurrency group, so duplicate delivery cannot
+  repeatedly cancel the expensive Windows lifecycle proof.
+
+**Verification evidence**
+
+- Local `npm ci --ignore-scripts && npm test` passed 18 Rust/core/contract
+  tests, all JS/static gates, four real Chromium journeys, and 64 CI/Pages
+  policy assertions. `npm audit --audit-level=high` reported zero findings;
+  Android JVM tests passed separately.
+- Hosted CI run `32990320520` passed both canonical and Android jobs at commit
+  `aeb2ed6`. Manual package run `32989897186` then proved the starvation fix on
+  the same commit: three Windows native tests passed; its 1,955,085-byte NSIS
+  package installed, launched AIly 0.1.2, and uninstalled cleanly; Android
+  produced and verified a signed 4,211,664-byte `com.alphaeusng.aily` 0.1.2 APK.
+- Annotated tag `v0.1.2` points to that verified commit. Tag run `32990710962`
+  passed Android in 54 seconds, Windows in 8m27s, and the release job in 10
+  seconds. The Windows job built a 1,953,849-byte NSIS installer, ran all three
+  native tests, and logged an exact installed launch from
+  `C:\\Users\\runneradmin\\AppData\\Local\\AIly` before clean uninstall.
+- The public, non-draft release contains exactly `AIly-setup.exe` (1,953,849
+  bytes), signed `AIly-debug.apk` (4,211,664 bytes), and
+  `SHA256SUMS.txt` (162 bytes). Independent fresh downloads passed
+  `sha256sum -c`; stable latest URLs returned HTTP 200 with those byte counts.
+  SHA-256 values are `814552d2bfc10329d7fa514b7274dc3b0ad7c0d6c04bc62fd96296581992261a`
+  for the EXE and `dc2382103fbefb70858cd8f1195a2d4d72c26c6feb46397bf6be1aa28c409f19`
+  for the APK.
+- GitHub Pages run `32988869968` passed, and the live site serves the
+  `2026.08.25.7` stamp.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 4/10 | 9/10 | Installed Windows usage is real, consent-gated, bounded, and revoke-cleared |
+| Test coverage / verifiability | 5/10 | 10/10 | Native, browser, install lifecycle, package identity, signature, and public-byte gates passed |
+| Maintainability | 7/10 | 9/10 | Platform collection remains behind one shared usage adapter contract |
+| Performance / resources | 8/10 | 8/10 | Five-second foreground sampling is bounded; full Windows packaging remains intentionally expensive |
+| Security / robustness | 6/10 | 9/10 | No titles/paths/history leave the process, and exact public bytes are checksummed |
+| Developer / user experience | 4/10 | 9/10 | A direct, tested Windows installer now delivers the advertised native capability |
+
+**Lesson / process improvement:** A green branch package is not equivalent to
+a published product. Close delivery cycles by exercising the tag-only release
+path and independently downloading its public assets. Long-running lifecycle
+proofs must queue duplicate deliveries instead of allowing them to preempt one
+another indefinitely.
+
+**Next opportunity:** Add an explicit, restrictive Tauri CSP and strengthen the
+Windows installer smoke so it proves frontend JavaScript and native IPC reached
+a ready state. A window handle and static configured title can otherwise accept
+a blank or policy-blocked webview.
 
 ### Cycle 36 — Browser-gate failed durability and honest recovery (2026-08-25)
 
