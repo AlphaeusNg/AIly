@@ -1,8 +1,11 @@
 mod windows_usage;
 
 #[tauri::command]
-fn desktop_ready() -> &'static str {
-    "AIly frontend ready"
+fn desktop_ready(window: tauri::WebviewWindow) -> Result<&'static str, String> {
+    window
+        .set_title("AIly — Ready")
+        .map_err(|error| error.to_string())?;
+    Ok("AIly frontend ready")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

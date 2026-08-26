@@ -136,6 +136,11 @@ assert.match(desktopLib, /set_windows_usage_tracking/, "desktop registers the co
 assert.match(desktopLib, /list_windows_session_usage/, "desktop registers the aggregate command");
 assert.match(desktopLib, /fn desktop_ready/, "desktop exposes a side-effect-free readiness handshake");
 assert.match(desktopLib, /AIly frontend ready/, "desktop readiness uses a fixed native acknowledgement");
+assert.match(
+  desktopLib,
+  /set_title\("AIly — Ready"\)/,
+  "the readiness command marks the actual native window for lifecycle verification",
+);
 const desktopApp = read("apps/web/js/app.js");
 assert.match(desktopApp, /invoke\("desktop_ready"\)/, "frontend proves the native bridge is callable");
 assert.match(desktopApp, /document\.title\s*=\s*"AIly — Ready"/, "successful IPC marks the window ready");
