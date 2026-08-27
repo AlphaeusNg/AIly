@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-27 (AIly Cycle 38)
+Last updated: 2026-08-28 (AIly Cycle 39)
 
 ## Current state
 
@@ -29,6 +29,9 @@ Last updated: 2026-08-27 (AIly Cycle 38)
 - Service-worker execution covers activation cleanup, installed-scope bypass,
   current-cache ownership, fetch lifetime, offline navigation, and cache-write
   failure isolation.
+- Windows package jobs reuse same-OS/architecture Cargo dependencies and build
+  outputs, but delete the cached final executable/bundle and always rerun native
+  tests, NSIS build, installed readiness, uninstall, and artifact verification.
 - Continuous improve loop on `main` (100+ commits since executable shell).
 
 ## Opportunity backlog
@@ -36,6 +39,7 @@ Last updated: 2026-08-27 (AIly Cycle 38)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Cache Windows Cargo work without caching trust decisions | Performance / process | High compounding value: repeated installed-package proofs took 8–10 minutes | Small / low | 845 MB same-platform cache; cold 9m08s versus warm 3m29s with identical gates | Completed in Cycle 39 |
 | — | Restrict the Tauri webview and prove packaged frontend/IPC readiness | Security / verification | High: a window handle and configured title could accept a blank or policy-blocked webview | Small-medium / low | Explicit CSP, external registration script, native ready handshake, fail-closed install lifecycle | Completed in Cycle 38 |
 | — | Make package delivery recoverable and non-preemptible | Process / reliability | High: duplicate deliveries repeatedly canceled the several-minute Windows lifecycle proof | Small / low | Manual dispatch for CI/packages; same-ref/SHA package runs serialize instead of canceling | Completed in Cycle 37 |
 | — | Consent-gated Windows foreground usage in the Tauri package | Product spine / privacy | High: Usage on Windows still meant “this tab” | Medium / low | Win32 aggregator, JS adapter, revoke clears totals, Chromium fixture | Completed in Cycle 37 |
@@ -73,6 +77,74 @@ Last updated: 2026-08-27 (AIly Cycle 38)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 39 — Cache compilation, never package trust (2026-08-28)
+
+**Why this won:** Cycle 38 required three clean Windows builds of 8–10 minutes
+each. That latency slows every future correctness and security cycle, while the
+actual high-value gates—native tests, fresh package output, installed frontend/
+IPC readiness, and uninstall—must remain unconditional.
+
+**Plan and success criteria**
+
+1. Reuse only same-OS/architecture Cargo work keyed by the exact desktop lock.
+2. Remove cached final EXE and NSIS bundle outputs before every run.
+3. Never use a cache hit to skip tests, packaging, install, readiness, cleanup,
+   signing/identity checks, or upload ordering.
+4. Prove a cold successful run creates the cache and a same-commit warm run
+   materially reduces end-to-end Windows job time with every step still green.
+
+**Changes**
+
+- Added official `actions/cache@v5` after Rust setup for Cargo registry/git data
+  and `src-tauri/target`. The key includes cache schema, runner OS,
+  architecture, and `src-tauri/Cargo.lock`; the fallback prefix remains bound
+  to the same OS and architecture. Cross-OS archives are not enabled.
+- Bounded any cache-segment download to three minutes, below a clean rebuild's
+  measured cost.
+- Delete the cached final `aily-desktop.exe` and `release/bundle` before native
+  tests. Cargo dependencies remain reusable, but the deliverable is recreated.
+- Added policy contracts for action/runtime, paths, key isolation, fallback,
+  output deletion, timeout, and the absence of cache-hit skip conditions.
+
+**Verification evidence**
+
+- Test-first `node tools/test-packaging.mjs` failed on the absent official cache
+  action. Focused desktop/package/workflow contracts pass after implementation.
+- `npm test` passed all 18 Rust tests/contracts, JS/static gates, four Chromium
+  journeys, and 64 CI/Pages policy assertions. The high-severity audit found
+  zero vulnerabilities; whitespace checks passed.
+- Cold manual package run `32995224528` at commit `2f19560` passed Android and
+  every Windows step, including cache miss/population, three native tests,
+  fresh NSIS output, installed ready-state IPC, uninstall, and upload. The
+  Windows job took 9m08s and created cache `7024839183`: 845,039,034 bytes,
+  scoped to `refs/heads/main` with OS/architecture/lock key
+  `windows-tauri-v1-Windows-X64-b40b…fd6b1`.
+- Queued push run `32995284926` used the same commit and cache, then passed the
+  identical Windows lifecycle in 3m29s and Android in 44 seconds. The cache
+  inventory records its warm access at `2026-08-26T17:46:51Z`. Windows elapsed
+  time fell 339 seconds, from 548 to 209 seconds: **61.9% faster**, with no gate
+  removed or skipped.
+
+**Scores**
+
+| Dimension | Before | After | Evidence |
+|---|---:|---:|---|
+| Correctness / reliability | 10/10 | 10/10 | Final outputs are deleted and every trust gate still executes |
+| Test coverage / verifiability | 9/10 | 10/10 | Cache isolation, cleanup, timeout, and no-skip policy are contract-locked |
+| Maintainability | 8/10 | 9/10 | One official cache step and explicit cleanup own the optimization boundary |
+| Performance / resources | 4/10 | 9/10 | Same-commit Windows proof dropped from 9m08s to 3m29s; one 845 MB cache |
+| Security / robustness | 9/10 | 10/10 | No cross-OS reuse and no final binary/bundle survives restoration |
+| Developer / user experience | 5/10 | 9/10 | Future desktop feedback arrives about 5m39s sooner on a warm lock |
+
+**Lesson / process improvement:** Cache expensive deterministic compilation,
+not decisions or final deliverables. Prove the first miss and second hit against
+the same commit, measure end-to-end—not only compile time—and keep a bounded
+restore so an unhealthy cache cannot be slower than rebuilding.
+
+**Next opportunity:** Rotate to the next clean repository with new runtime or
+content evidence. AIly's physical Android Usage Access journey remains blocked
+on an attached device; do not replace it with another source-only assertion.
 
 ### Cycle 38 — Restrictive desktop CSP and real readiness proof (2026-08-27)
 

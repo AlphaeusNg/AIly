@@ -39,6 +39,11 @@ assert.match(
 assert.match(workflow, /uses:\s*actions\/cache@v5/, "Windows Cargo caching uses the official Node 24 action");
 assert.match(
   workflow,
+  /SEGMENT_DOWNLOAD_TIMEOUT_MINS:\s*["']3["']/,
+  "a slow cache segment cannot consume more time than a clean rebuild",
+);
+assert.match(
+  workflow,
   /path:\s*\|\s*\n\s+~\/.cargo\/registry\s*\n\s+~\/.cargo\/git\s*\n\s+src-tauri\/target/,
   "Windows caching covers Cargo downloads and compiled outputs",
 );
