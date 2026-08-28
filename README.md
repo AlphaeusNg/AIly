@@ -18,30 +18,6 @@ AIly walks you through setup (no terminal), tracks the journey, can watch app us
 
 PWA, `.exe`, and APK are three different things. The PWA will not give you OS admin or app blocks.
 
-## What is in this phase
-
-Dogfood shell (`2026.08.27.1`): boot splash, daily intention, focus sessions, a local propose-only planner, Today targets, consent-gated usage totals on Android and Windows, weekly journey stats, export/import backup. Later: OS hard-blocks, sealed DB, optional local AI.
-
-## Docs
-
-- [Windows and Android install](docs/install-windows-android.md)
-- [Architecture](docs/architecture.md)
-- [Tutorial](docs/tutorial.md)
-- [Privacy](docs/privacy.md)
-- [Blocking](docs/blocking.md)
-
-## Develop
-
-```bash
-cd apps/web
-python3 -m http.server 8765
-# http://127.0.0.1:8765/
-
-npm ci
-npx playwright install chromium
-npm test
-```
-
-`apps/web` is the PWA UI (and Tauri frontend). `src-tauri/` builds the Windows NSIS installer. `android/` is the Capacitor shell. `crates/aily-core` is the Rust domain.
+Working in this repo? See **[AGENTS.md](AGENTS.md)** for layout, tests, privacy rules, and native builds. Extra docs: [install](docs/install-windows-android.md), [architecture](docs/architecture.md), [tutorial](docs/tutorial.md), [privacy](docs/privacy.md), [blocking](docs/blocking.md).
 
 MIT. See [LICENSE](LICENSE).
