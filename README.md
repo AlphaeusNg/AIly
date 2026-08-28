@@ -1,122 +1,47 @@
 # AIly
 
-**Your AI Ally** — local-first companion that helps you **achieve the targets you set**.
+**Your AI Ally** (written **AIly**, spoken *AY-lee*). A local-first companion for the **targets you set**.
 
-AIly walks you through setup (no terminal), tracks your journey, can watch app usage (with consent), and block distractions you already decided are off-limits — accountability for **productivity**, not moral filtering.
+**[Open the PWA](https://alphaeusng.github.io/AIly/)** · [Windows installer](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe) · [Android APK](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk)
 
-## Brand
+The hosted app *is* the demo. Install it, or use **Load sample journey** to see a day of targets without setup.
 
-| | |
-|---|---|
-| Written | **AIly** (`AI` + `ly`, capital **I**) |
-| Tagline | *Your AI Ally* |
-| Spoken | **AY-lee** (recommended) |
+AIly walks you through setup (no terminal), tracks the journey, can watch app usage (with consent), and block distractions you already decided are off-limits. Accountability for productivity, not moral filtering. Data stays on the device.
 
-## Test on Windows & Android (you’re on WSL)
+## Try it
 
-Your Ubuntu environment is **WSL** — use **Windows host** and/or a **phone** for product testing.
+**Fastest:** Chrome or Edge → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/) → **Install app**. Then **Load sample journey**.
 
-Full guide: **[docs/install-windows-android.md](docs/install-windows-android.md)**
+**Windows:** download [`AIly-setup.exe`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe) (unsigned dogfood; SmartScreen may warn). That is a Start Menu app wrapping the same UI, not OS hard-blocks.
 
-### Windows
+**Android:** same URL → Add to Home screen, or the [debug APK](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk). Verify hashes with [`SHA256SUMS.txt`](https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt).
 
-These are **three different things**. Do not collapse them:
+PWA, `.exe`, and APK are three different things. The PWA will not give you OS admin or app blocks.
 
-| Path | What you get | What you do not get |
-|---|---|---|
-| **PWA** | Edge/Chrome “Install app”, localStorage in that browser profile | OS admin, app blocks, a Start Menu `.exe` |
-| **AIly-setup.exe** | Start Menu / desktop app wrapping the same `apps/web` UI (unsigned dogfood) | SmartScreen reputation, OS hard-blocks |
-| **Preview launcher** | `tools\serve-windows.bat` for local web | An installer |
+## What is in this phase
 
-1. **[Download `AIly-setup.exe`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe)** directly, or inspect the [latest release notes](https://github.com/AlphaeusNg/AIly/releases/latest) first. Unsigned; SmartScreen may warn. Auto-start stays off.
-2. **Or install the hosted PWA:** Edge/Chrome → [https://alphaeusng.github.io/AIly/](https://alphaeusng.github.io/AIly/) → **Install app**. Scoped to `/AIly/`.
-3. **Or preview:** clone on Windows and double-click `tools\serve-windows.bat` (needs Python or Node).
-
-### Android
-
-1. Chrome → same GitHub Pages URL → **Install app** / Add to Home screen.  
-2. Or **[download `AIly-debug.apk`](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk)** directly, or inspect [Releases](https://github.com/AlphaeusNg/AIly/releases) first. This is an unsigned debug build for dogfood, not a Play Store release.
-   - Enable “Install unknown apps” for your file manager if needed, and install only if you trust this repository.
-
-For either package, download [`SHA256SUMS.txt`](https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt) and compare the file hash before opening it. The [install guide](docs/install-windows-android.md#verify-package-integrity) includes PowerShell and `sha256sum` commands.
-
-### Local web (any OS)
-
-```bash
-cd apps/web
-python3 -m http.server 8765
-# open http://127.0.0.1:8765/
-```
-
-## Develop
-
-```bash
-source "$HOME/.cargo/env"   # if needed
-npm ci
-npx playwright install chromium
-npm test
-
-# Android (needs Android SDK + JDK)
-export ANDROID_HOME=$HOME/Android/Sdk   # or your SDK path
-export JAVA_HOME=$HOME/.local/jdk-21    # or system JDK
-npx cap sync android
-cd android && ./gradlew assembleDebug
-# APK: android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-The canonical `npm test` gate checks Rust formatting, strict Clippy warnings,
-Rust unit and shared-contract tests, browser-domain suites, real Chromium
-storage-failure journeys, CI/Pages policy, and recursive web, tool, and
-service-worker syntax. CI also runs
-`npm run android:test` in a separate cached Temurin 21 job; run it locally after
-native-shell changes.
-
-## Repo layout
-
-| Path | Role |
-|---|---|
-| `apps/web` | PWA UI (tutorial, targets, Today, blocks…) — also the Tauri frontend |
-| `src-tauri/` | Tauri 2 Windows shell (NSIS `AIly-setup.exe`); not a workspace member |
-| `android/` | Capacitor Android shell |
-| `crates/aily-core` | Rust domain (capacity, replan, tutorial gates) |
-| `docs/` | Architecture, install, privacy, blocking |
-| `dist/` | Local build artifacts (not always committed) |
-
-## Status
-
-**Phase 0 dogfood shell + native usage slices** (`2026.08.27.1`):
-
-- Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
-- Time-consciousness meter + intentional check before ≥30m commitments  
-- Daily intention check-in + focus sessions (soft-arm / auto-disarm)  
-- **Local propose-only ally planner** (JS + Rust) — Ask AIly to propose a plan  
-- Clone yesterday, must-keep / priority controls, target pause/complete  
-- In-app attention tracker + honesty prompt for off-limits app samples  
-- Capacitor Android: consent-gated local daily app totals via UsageStats
-- Tauri Windows: consent-gated foreground process totals since AIly opened;
-  process names only, with no window titles, full paths, or historical lookup
-- Break-glass countdown + configurable delay; try-open simulation  
-- Weekly journey stats + reflection; evening review badges  
-- Display density / reduce-motion; keyboard help (`?`, `Esc`, `1–7`)  
-- Safe local persist, prune, export/import/share backup  
-- Android: `npx cap sync android && npm run android:build` · `npm run android:test`  
-- Setup → **Load sample journey** for instant dogfood  
-- Local web: `npm run web` · gate: `npm test`
-
-- Return-from-away is a real question; accept-all shows drop/skip preview; Today can log a target number
-- Windows package (`src-tauri/`) builds `AIly-setup.exe` on `windows-latest` — unsigned, with session usage but no OS blocks yet
-
-**Later:** persistent/background desktop usage and OS hard-blocks (Ship C); sealed DB; optional local AI.
+Dogfood shell (`2026.08.27.1`): boot splash, daily intention, focus sessions, a local propose-only planner, Today targets, consent-gated usage totals on Android and Windows, weekly journey stats, export/import backup. Later: OS hard-blocks, sealed DB, optional local AI.
 
 ## Docs
 
-- [Windows & Android install](docs/install-windows-android.md)
+- [Windows and Android install](docs/install-windows-android.md)
 - [Architecture](docs/architecture.md)
 - [Tutorial](docs/tutorial.md)
 - [Privacy](docs/privacy.md)
 - [Blocking](docs/blocking.md)
-- Plan: `/home/alph/projects/plans/aily-heavy-plan.md`
 
-## License
+## Develop
 
-MIT — see [LICENSE](LICENSE).
+```bash
+cd apps/web
+python3 -m http.server 8765
+# http://127.0.0.1:8765/
+
+npm ci
+npx playwright install chromium
+npm test
+```
+
+`apps/web` is the PWA UI (and Tauri frontend). `src-tauri/` builds the Windows NSIS installer. `android/` is the Capacitor shell. `crates/aily-core` is the Rust domain.
+
+MIT. See [LICENSE](LICENSE).
