@@ -84,7 +84,7 @@ native-shell changes.
 
 ## Status
 
-**Phase 0 dogfood shell + native usage slices** (`2026.08.27.1`):
+**Phase 0 dogfood shell + native usage slices** (`2026.08.28.1`):
 
 - Boot splash + brand assets, PWA install/update banners, scope-isolated offline page
 - Time-consciousness meter + intentional check before ≥30m commitments  
