@@ -22,7 +22,7 @@ Visitor-facing docs live in [README.md](README.md). This file is for agents and 
 |---|---|---|
 | **PWA** | Edge/Chrome “Install app”, localStorage in that browser profile | OS admin, app blocks, a Start Menu `.exe` |
 | **AIly-setup.exe** | Start Menu / desktop app wrapping the same `apps/web` UI (unsigned dogfood) | SmartScreen reputation, OS hard-blocks |
-| **Preview launcher** | `tools\serve-windows.bat` for local web | An installer |
+| **Preview launcher** | `tools\\serve-windows.bat` for local web | An installer |
 | **Android PWA / APK** | Home screen or unsigned `AIly-debug.apk` | Play Store release |
 
 Verify packages with `SHA256SUMS.txt` before opening. Full guide: `docs/install-windows-android.md`.
@@ -40,7 +40,7 @@ Verify packages with `SHA256SUMS.txt` before opening. Full guide: `docs/install-
 
 Do not add `src-tauri` to the Cargo workspace — Linux `npm test` must stay WebKit-free. Core logic stays in Rust.
 
-## Status (Phase 0 dogfood `2026.08.27.1`)
+## Status (Phase 0 dogfood `2026.08.28.1`)
 
 Boot splash + brand assets, PWA install/update banners, scope-isolated offline page, time-consciousness meter, daily intention check-in, focus sessions, local propose-only ally planner, clone yesterday, must-keep / priority controls, target pause/complete, in-app attention tracker, Capacitor Android consent-gated UsageStats, Tauri Windows consent-gated foreground process totals (process names only), break-glass countdown, weekly journey stats, display density / reduce-motion, keyboard help (`?`, `Esc`, `1–7`), safe local persist/export/import, **Load sample journey**. Later: OS hard-blocks (Ship C), sealed DB, optional local AI.
 
