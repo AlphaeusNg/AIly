@@ -1,7 +1,9 @@
 /**
- * Platform usage adapter boundary (Phase 2 scaffold).
- * Phase 0: only the in-tab session tracker is real.
- * OS backends plug in behind the same shape — never invent cloud exfil.
+ * Platform usage adapter boundary.
+ * Web/PWA: in-tab visibility/focus session only.
+ * Android Capacitor: consent-gated current-day UsageStats when the plugin is present.
+ * Windows Tauri: consent-gated foreground-process totals since this AIly process opened.
+ * Never invent cloud exfil.
  */
 
 /** @typedef {{ app: string, mins: number, ts: string, source?: string, packageName?: string }} UsageSample */
@@ -36,8 +38,8 @@ export function createWebSessionBackend() {
 }
 
 /**
- * Placeholder for Android UsageStatsManager (not wired yet).
- * Exists so UI/docs can talk about the same contract.
+ * Fallback when the Capacitor Android shell is native but AilyUsage is missing.
+ * The live adapter is `createAndroidUsageBackend`.
  */
 export function createAndroidUsageBackendStub() {
   return {
