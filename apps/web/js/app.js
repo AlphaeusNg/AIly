@@ -548,8 +548,8 @@ function dismissBootSplash() {
   document.body.classList.remove("is-booting");
   document.body.classList.add("app-ready");
   if (!splash) return;
-  // Minimum beat so the brand mark is felt, not a white flash.
-  const minMs = 550;
+  // Short brand beat — intentional without stalling Today.
+  const minMs = 300;
   const started = performance.now();
   const finish = () => {
     const wait = Math.max(0, minMs - (performance.now() - started));
@@ -568,33 +568,85 @@ function applyUiPrefs() {
   document.body.classList.toggle("high-contrast", !!state.ui.highContrast);
 }
 
-function render() {
+/** Tabs whose panel DOM has been built at least once this session. */
+const renderedTabs = new Set();
+
+function renderChrome() {
   applyUiPrefs();
-  $("#brand-version").textContent = SITE_VERSION.id;
-  $("#tray-status").textContent = trayLabel();
+  const brand = $("#brand-version");
+  if (brand) brand.textContent = SITE_VERSION.id;
+  const tray = $("#tray-status");
+  if (tray) tray.textContent = trayLabel();
   renderNetStatus();
   renderInstallBanner();
   renderNav();
-  const tab = state.ui.tab;
+}
+
+function renderActivePanel(tab = state.ui.tab) {
   $$(".panel").forEach((p) => p.classList.toggle("hidden", p.dataset.panel !== tab));
+  // Cold boot and later persist passes only build the visible tab.
   if (tab === "today") renderToday();
-  if (tab === "targets") renderTargets();
-  if (tab === "review") renderReview();
-  if (tab === "usage") renderUsage();
-  if (tab === "blocks") renderBlocks();
-  if (tab === "setup") renderSetup();
-  if (tab === "activity") renderActivity();
-  renderTutorialModal();
-  renderIntentionModal();
-  renderBreakGlassModal();
-  renderCheckInModal();
-  renderReturnNudgeModal();
-  renderHelpModal();
-  renderMoreSheet();
+  else if (tab === "targets") renderTargets();
+  else if (tab === "review") renderReview();
+  else if (tab === "usage") renderUsage();
+  else if (tab === "blocks") renderBlocks();
+  else if (tab === "setup") renderSetup();
+  else if (tab === "activity") renderActivity();
+  renderedTabs.add(tab);
+  document.body.dataset.activePanel = tab;
+  document.body.dataset.renderedTabs = [...renderedTabs].join(",");
+}
+
+function renderOpenModals() {
+  // Closed sheets stay untouched so first paint does not build their bodies.
+  if (state.ui.tutorialOpen) renderTutorialModal();
+  else {
+    const tutorial = $("#tutorial-modal");
+    if (tutorial && !tutorial.classList.contains("hidden")) tutorial.classList.add("hidden");
+  }
+  if (pendingIntention) renderIntentionModal();
+  else {
+    const intention = $("#intention-modal");
+    if (intention && !intention.classList.contains("hidden")) intention.classList.add("hidden");
+  }
+  if (pendingBreakGlass) renderBreakGlassModal();
+  else {
+    const glass = $("#breakglass-modal");
+    if (glass && !glass.classList.contains("hidden")) glass.classList.add("hidden");
+  }
+  if (state.ui.checkInOpen) renderCheckInModal();
+  else {
+    const checkin = $("#checkin-modal");
+    if (checkin && !checkin.classList.contains("hidden")) checkin.classList.add("hidden");
+  }
+  if (activeReturnNudge) renderReturnNudgeModal();
+  else {
+    const nudge = $("#return-nudge-modal");
+    if (nudge && !nudge.classList.contains("hidden")) nudge.classList.add("hidden");
+  }
+  if (helpOpen) renderHelpModal();
+  else {
+    const help = $("#help-modal");
+    if (help && !help.classList.contains("hidden")) help.classList.add("hidden");
+  }
+  if (moreOpen) renderMoreSheet();
+  else {
+    const more = $("#more-sheet");
+    if (more && !more.classList.contains("hidden")) more.classList.add("hidden");
+    const trigger = $("[data-action='open-more']");
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  }
+}
+
+function render() {
+  renderChrome();
+  renderActivePanel(state.ui.tab || "today");
+  renderOpenModals();
   syncUsageTracker();
   maybeOfferCheckIn();
   updateSaveStatus();
 }
+
 
 function renderHelpModal() {
   const modal = $("#help-modal");
