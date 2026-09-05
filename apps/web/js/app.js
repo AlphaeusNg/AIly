@@ -549,7 +549,9 @@ function dismissBootSplash() {
   document.body.classList.add("app-ready");
   if (!splash) return;
   // Minimum beat so the brand mark is felt, not a white flash.
-  const minMs = 550;
+  // Reduce-motion and already-ready sessions skip the artificial wait.
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const minMs = reduceMotion ? 0 : 550;
   const started = performance.now();
   const finish = () => {
     const wait = Math.max(0, minMs - (performance.now() - started));

@@ -40,6 +40,7 @@ for (const rel of required) {
 
 const html = read("index.html");
 assert.match(html, /<script[^>]+src="js\/register-sw\.js"/, "service-worker registration is externalized");
+assert.match(html, /rel="modulepreload"[^>]*href="js\/app\.js"/, "app module is preloaded before first paint");
 assert.doesNotMatch(
   html,
   /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i,

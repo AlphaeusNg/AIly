@@ -230,6 +230,7 @@ assert.equal(verifyFail.error, "verify_failed", "round-trip failure is labeled")
 
 const html = readFileSync(new URL("../apps/web/index.html", import.meta.url), "utf8");
 assert.match(html, /id="boot-splash"/, "index includes boot splash");
+assert.match(html, /rel="modulepreload"[^>]*href="js\/app\.js"/, "app module is preloaded for faster boot");
 assert.match(html, /assets\/logo\.svg/, "index references logo asset");
 assert.match(html, /id="intention-modal"/, "index includes intention modal");
 assert.match(html, /id="install-banner"/, "index includes install banner");
