@@ -518,9 +518,6 @@ function allyTimeMessage(dailyCap, planned, usage) {
     parts.push(`Hi <strong>${escapeHtml(name)}</strong>.`);
   }
   parts.push(
-    `You've planned <strong>${planned|0}m</strong> of about <strong>${dailyCap|0}m</strong> soft capacity today.`
-  );
-  parts.push(
     `You've planned <strong>${formatClockHours(planned)}</strong> of a <strong>${formatClockHours(dailyCap)}</strong> day.`
   );
   if (usage > 0) {

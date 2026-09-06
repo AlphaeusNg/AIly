@@ -167,6 +167,16 @@ assert.match(html, /Windows package/, "install banner offers the Windows package
 assert.match(html, /id="return-nudge-title"/, "return-nudge modal has a question title");
 assert.match(app, /formatClockHours/, "capacity copy can speak clock hours");
 assert.match(app, /of a <strong>\$\{formatClockHours\(dailyCap\)\}<\/strong> day/, "time-consciousness states planned hours of a day");
+assert.equal(
+  (app.match(/You've planned <strong>/g) || []).length,
+  1,
+  "time-consciousness states the planned duration once",
+);
+assert.doesNotMatch(
+  app,
+  /of about <strong>\$\{dailyCap\|0\}m<\/strong> soft capacity today/,
+  "time-consciousness does not repeat the same duration in raw minutes",
+);
 assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");
 assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
 
