@@ -16,10 +16,13 @@ const required = [
   "offline.html",
   "css/app.css",
   "js/app.js",
+  "js/activity-view.js",
+  "js/block-view.js",
   "js/store.js",
   "js/capacity.js",
   "js/target.js",
   "js/tutorial.js",
+  "js/tutorial-view.js",
   "js/usage.js",
   "js/block.js",
   "js/ally.js",
@@ -99,6 +102,9 @@ assert.match(sw, /journey\.js/, "SW caches journey module");
 assert.match(sw, /ally\.js/, "SW caches ally module");
 assert.match(sw, /target\.js/, "SW caches target progress module");
 assert.match(sw, /register-sw\.js/, "SW caches its external registration script");
+for (const deferredView of ["activity-view.js", "block-view.js", "tutorial-view.js"]) {
+  assert.ok(sw.includes(deferredView), `SW caches deferred ${deferredView}`);
+}
 
 const version = read("js/version.js");
 assert.match(version, /SITE_VERSION/, "version module exports SITE_VERSION");
@@ -179,6 +185,18 @@ assert.doesNotMatch(
 );
 assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");
 assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
+for (const deferredView of ["activity-view", "block-view", "tutorial-view"]) {
+  assert.match(
+    app,
+    new RegExp(`import\\(\\"\\./${deferredView}\\.js\\"\\)`),
+    `${deferredView} stays outside the Today boot module graph`,
+  );
+  assert.doesNotMatch(
+    app,
+    new RegExp(`^import[^\\n]+${deferredView}`, "m"),
+    `${deferredView} is not eagerly imported`,
+  );
+}
 
 const androidManifest = readFileSync(join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
 assert.match(

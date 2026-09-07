@@ -62,6 +62,35 @@ import {
 } from "./journey.js";
 import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
 
+function paintActivity(element) {
+  activityViewModule.renderActivityPanel({
+    element,
+    audit: state.audit || [],
+    activityFilter: state.ui.activityFilter || "",
+    onFilter: (value) => {
+      state.ui.activityFilter = String(value).trim().slice(0, 80);
+      persist();
+    },
+  });
+  element.removeAttribute("aria-busy");
+}
+
+function renderActivity() {
+  const element = $("#panel-activity");
+  if (activityViewModule) {
+    paintActivity(element);
+    return;
+  }
+  element.setAttribute("aria-busy", "true");
+  element.innerHTML = "<p class='muted'>Loading Activity…</p>";
+  activityViewPromise ||= import("./activity-view.js");
+  void activityViewPromise
+    .then((module) => {
+      activityViewModule = module;
+      if (state.ui.tab === "activity") paintActivity(element);
+    })
+    .catch(() => renderDeferredLoadError(element, "Activity"));
+}
 const WINDOWS_DOWNLOAD_URL = "https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe";
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -116,6 +145,12 @@ let swRegistration = null;
 let updateBannerDismissed = false;
 let helpOpen = false;
 let moreOpen = false;
+let blocksViewModule = null;
+let blocksViewPromise = null;
+let activityViewModule = null;
+let activityViewPromise = null;
+let tutorialViewModule = null;
+let tutorialViewPromise = null;
 const MORE_TABS = new Set(["blocks", "setup", "activity"]);
 const sessionStartedAt = Date.now();
 let skipIntentionThisSession = false;
@@ -565,6 +600,12 @@ function applyUiPrefs() {
   document.body.classList.toggle("density-compact", state.ui.density === "compact");
   document.body.classList.toggle("reduce-motion", !!state.ui.reduceMotion);
   document.body.classList.toggle("high-contrast", !!state.ui.highContrast);
+}
+
+function renderDeferredLoadError(element, label) {
+  element.removeAttribute("aria-busy");
+  element.innerHTML = `<div class="banner warn">${label} could not load from this local shell.
+    <button type="button" data-action="apply-update">Reload AIly</button></div>`;
 }
 
 function render() {
@@ -1745,127 +1786,74 @@ function renderUsage() {
   });
 }
 
-function renderBlocks() {
-  const el = $("#panel-blocks");
-  const ok = canArmBlocks(state);
-  const armedCount = (state.blockRules || []).filter((r) => r.armed).length;
-  el.innerHTML = `
-    <header class="panel-head">
-      <h1>Blocks</h1>
-      <p class="muted">Self-admin productivity blocks — ally, not prison. Break-glass always.</p>
-    </header>
-    ${
-      ok
-        ? `<div class="banner ok">Admin + usage granted. ${armedCount} rule${armedCount === 1 ? "" : "s"} armed.</div>`
-        : `<div class="banner warn">Complete Attention map + Ally admin in Setup before arming blocks.</div>`
-    }
-    ${
-      focusRemainingLabel()
-        ? `<div class="banner focus-armed">Focus session active · ${focusRemainingLabel()} left. Armed rules protect this window.</div>`
-        : ""
-    }
-    <form id="block-form" class="row">
-      <input name="app" placeholder="App key (e.g. firefox)" required />
-      <select name="mode"><option value="soft">Soft delay</option><option value="hard">Hard block</option></select>
-      <input name="delay" type="number" min="0" max="600" value="30" title="Break-glass delay seconds" style="width:5rem" />
-      <button class="primary" type="submit">Add rule</button>
-    </form>
-    <form id="try-open-form" class="card form">
-      <h2>Try open (dogfood)</h2>
-      <p class="muted">Simulate opening an app. If an armed rule matches, AIly starts break-glass instead of letting it through.</p>
-      <div class="row">
-        <input name="app" placeholder="App key to open" required />
-        <button class="primary" type="submit">Try open</button>
-      </div>
-    </form>
-    <ul class="list">
-      ${(state.blockRules || [])
-        .slice()
-        .sort((a, b) => Number(!!b.armed) - Number(!!a.armed) || String(a.appKeys?.[0] || "").localeCompare(String(b.appKeys?.[0] || "")))
-        .map((r) => {
-          const policy = breakGlassPolicy(r);
-          return `<li>
-          <strong>${escapeHtml(r.appKeys.join(", "))}</strong>
-          <span class="tag">${r.mode}</span>
-          <span class="tag ${r.armed ? "armed" : ""}">${r.armed ? "armed" : "idle"}</span>
-          <span class="muted">${policy.delaySec}s glass</span>
-          <button type="button" data-action="toggle-arm" data-id="${r.id}">${r.armed ? "Disarm" : "Arm"}</button>
-          <button type="button" data-action="toggle-block-mode" data-id="${r.id}">${
-            r.mode === "hard_block" ? "Make soft" : "Make hard"
-          }</button>
-          <button type="button" data-action="break-glass" data-id="${r.id}" ${r.armed ? "" : "disabled"}>Break glass</button>
-          <button type="button" data-action="rename-rule-app" data-id="${r.id}">App key</button>
-          <button type="button" data-action="set-delay" data-id="${r.id}">Delay</button>
-          <button type="button" data-action="set-daily-limit" data-id="${r.id}">Limit</button>
-          <button type="button" data-action="delete-rule" data-id="${r.id}">Delete</button>
-        </li>`;
-        })
-        .join("") || "<li class='muted'>No block rules yet.</li>"}
-    </ul>
-    <div class="row">
-      <button type="button" data-action="disarm-all" ${state.blockRules.some((r) => r.armed) ? "" : "disabled"}>Disarm all</button>
-      <button type="button" data-action="arm-all" ${ok && state.blockRules.some((r) => !r.armed) ? "" : "disabled"}>Arm all</button>
-    </div>
-    <p class="muted">Break-glass uses today: ${breakGlassUsesToday(state.audit || [], todayISO())}${
-      (() => {
-        const uses = breakGlassUsesToday(state.audit || [], todayISO());
-        const limits = (state.blockRules || [])
-          .map((r) => breakGlassPolicy(r).dailyLimit)
-          .filter((x) => x != null);
-        if (!limits.length) return "";
-        const lim = Math.min(...limits);
-        return ` · tightest daily limit ${lim}${uses >= lim ? " (at/over)" : ""}`;
-      })()
-    }</p>
-  `;
-  $("#block-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    let delaySec = Number(fd.get("delay"));
-    if (!Number.isFinite(delaySec) || delaySec < 0) delaySec = 30;
-    delaySec = Math.min(600, Math.floor(delaySec));
-    const app = String(fd.get("app") || "").trim();
-    if (!app) {
-      showToast("Enter an app key.", "error");
-      return;
-    }
-    const result = upsertBlockRule(state.blockRules || [], {
-      id: uid(),
-      appKeys: [app],
-      mode: fd.get("mode") === "hard" ? "hard_block" : "soft_delay",
-      delaySec,
-    });
-    state.blockRules = result.rules;
-    appendAudit(
-      state,
-      result.merged ? "block.rule_merge" : "block.rule_add",
-      `${app}@${delaySec}s`
-    );
-    persist();
-    showToast(
-      result.merged
-        ? `Updated existing rule for ${app} (${delaySec}s glass).`
-        : `Rule added (${delaySec}s break-glass).`,
-      "ok"
-    );
+function paintBlocks(element) {
+  blocksViewModule.renderBlocksPanel({
+    element,
+    state,
+    canArm: canArmBlocks(state),
+    focusRemaining: focusRemainingLabel(),
+    today: todayISO(),
+    onAddRule: addBlockRule,
+    onTryOpen: tryOpenBlockedApp,
   });
-  $("#try-open-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const app = String(fd.get("app") || "");
-    const hit = isAppBlocked(state.blockRules || [], app);
-    if (!hit) {
-      appendAudit(state, "block.try_open_allowed", app);
-      persist();
-      showToast(`${app || "App"} is not armed-blocked — allowed (simulation).`, "ok");
-      return;
-    }
-    appendAudit(state, "block.try_open_blocked", `${app} → ${hit.id}`);
-    startBreakGlass(hit.id);
-    showToast(`${app} is blocked. Complete break-glass to unlock.`, "error", 4000);
-  });
+  element.removeAttribute("aria-busy");
 }
 
+function renderBlocks() {
+  const element = $("#panel-blocks");
+  if (blocksViewModule) {
+    paintBlocks(element);
+    return;
+  }
+  element.setAttribute("aria-busy", "true");
+  element.innerHTML = "<p class='muted'>Loading Blocks…</p>";
+  blocksViewPromise ||= import("./block-view.js");
+  void blocksViewPromise
+    .then((module) => {
+      blocksViewModule = module;
+      if (state.ui.tab === "blocks") paintBlocks(element);
+    })
+    .catch(() => renderDeferredLoadError(element, "Blocks"));
+}
+
+function addBlockRule({ app, mode, delaySec }) {
+  if (!app) {
+    showToast("Enter an app key.", "error");
+    return;
+  }
+  const result = upsertBlockRule(state.blockRules || [], {
+    id: uid(),
+    appKeys: [app],
+    mode,
+    delaySec,
+  });
+  state.blockRules = result.rules;
+  appendAudit(
+    state,
+    result.merged ? "block.rule_merge" : "block.rule_add",
+    `${app}@${delaySec}s`
+  );
+  persist();
+  showToast(
+    result.merged
+      ? `Updated existing rule for ${app} (${delaySec}s glass).`
+      : `Rule added (${delaySec}s break-glass).`,
+    "ok"
+  );
+}
+
+function tryOpenBlockedApp(app) {
+  const hit = isAppBlocked(state.blockRules || [], app);
+  if (!hit) {
+    appendAudit(state, "block.try_open_allowed", app);
+    persist();
+    showToast(`${app || "App"} is not armed-blocked — allowed (simulation).`, "ok");
+    return;
+  }
+  appendAudit(state, "block.try_open_blocked", `${app} → ${hit.id}`);
+  startBreakGlass(hit.id);
+  showToast(`${app} is blocked. Complete break-glass to unlock.`, "error", 4000);
+}
 function renderSetup() {
   const el = $("#panel-setup");
   const standalone =
@@ -1994,138 +1982,44 @@ function renderSetup() {
   $("#import-backup")?.addEventListener("change", onImportBackup);
 }
 
-function friendlyAuditTool(tool) {
-  const map = {
-    "commitment.add": "Added commitment",
-    "commitment.done": "Marked done",
-    "commitment.edit": "Edited commitment",
-    "commitment.priority": "Changed priority",
-    "commitment.must_keep": "Toggled must-keep",
-    "commitment.drop": "Dropped commitment",
-    "commitment.reopen": "Reopened commitment",
-    "commitment.estimate": "Adjusted estimate",
-    "plan.defer_one": "Deferred one item",
-    "target.create": "Created target",
-    "target.pause": "Paused target",
-    "target.complete": "Completed target",
-    "target.complete_drop": "Dropped pending on complete",
-    "target.activate": "Reactivated target",
-    "target.duplicate": "Duplicated target",
-    "target.rename": "Renamed target",
-    "target.soft": "Edited soft hours",
-    "block.mode": "Toggled block mode",
-    "undo.drop": "Undid drop",
-    "undo.hide_done": "Undid hide-done",
-    // keep labels in sync with pushUndo types
-    "checkin.save": "Daily intention",
-    "checkin.skip": "Skipped check-in",
-    "checkin.clear": "Cleared intention",
-    "focus.start": "Focus started",
-    "focus.end": "Focus ended",
-    "focus.extend": "Focus extended",
-    "focus.pause": "Focus paused",
-    "focus.resume": "Focus resumed",
-    "metric.bump": "Logged progress",
-    "metric.nudge_back": "Reversed progress",
-    "metric.snap_goal": "Snapped metric to goal",
-    "metric.set": "Set metric value",
-    "metric.step": "Edited progress step",
-    "target.soft_scale": "Scaled soft caps",
-    "target.soft_share": "Shared soft hours evenly",
-    "plan.defer_tomorrow": "Deferred open items",
-    "plan.copy_one_tomorrow": "Copied item to tomorrow",
-    "undo.defer_tomorrow": "Undid defer-to-tomorrow",
-    "undo.replan": "Undid replan",
-    "block.arm": "Armed block",
-    "block.arm_focus": "Armed for focus",
-    "block.disarm": "Disarmed block",
-    "block.break_glass": "Break glass",
-    "block.try_open_blocked": "Blocked try-open",
-    "block.try_open_allowed": "Allowed try-open",
-    "usage.session": "Session attention",
-    "usage.merge": "Merged attention",
-    "usage.sample": "Logged usage",
-    "usage.blocked_sample": "Logged off-limits app",
-    "usage.clear": "Cleared usage samples",
-    "usage.clear_today": "Cleared today’s usage",
-    "usage.remove": "Removed usage sample",
-    "state.export_week": "Exported week honesty",
-    "plan.replan": "Replanned day",
-    "tutorial.complete": "Tutorial step",
-    "permission.grant": "Granted permission",
-    "app.installed": "App installed",
-    "state.export": "Exported backup",
-    "state.import": "Imported backup",
-    "state.prune": "Pruned old commitments",
-    "state.copy_summary": "Copied honesty summary",
-    "demo.seed": "Loaded sample journey",
-    "ally.propose": "Ally proposed plan",
-    "ally.accept_all": "Accepted ally plan",
-    "block.rule_delete": "Deleted block rule",
-    "block.rule_merge": "Merged block rule",
-    "block.rule_rename": "Renamed rule app key",
-    "block.disarm_all": "Disarmed all rules",
-    "block.arm_all": "Armed all rules",
-    "block.delay": "Changed break-glass delay",
-    "block.limit": "Changed daily glass limit",
-    "capacity.save": "Saved capacity",
-    "permission.revoke": "Revoked permission",
-    "user.name": "Saved display name",
-    "ui.display": "Saved display prefs",
-    "audit.clear": "Cleared activity log",
-    "audit.export": "Exported audit TSV",
-    "audit.prune": "Pruned old activity",
-    "intention.resume": "Resumed intention checks",
-    "intention.snooze": "Snoozed intention checks",
-    "notify.test": "Test notification",
-    "plan.clone_yesterday": "Cloned yesterday’s plan",
-    "plan.hide_done": "Hid completed items",
-    "plan.export_today": "Exported today plan",
-    "plan.copy_today": "Copied today plan",
-    "plan.pull_stale": "Pulled stale items to today",
-    "plan.drop_stale": "Dropped stale items",
-    "review.bulk_no_impact": "Bulk no-impact close",
-    "review.bulk_metric": "Bulk done + metric",
-  };
-  return map[tool] || tool;
-}
-
-function renderActivity() {
-  const el = $("#panel-activity");
-  const filter = (state.ui.activityFilter || "").trim().toLowerCase();
-  const rows = (state.audit || []).filter((a) => {
-    if (!filter) return true;
-    const hay = `${a.tool || ""} ${a.detail || ""} ${friendlyAuditTool(a.tool)}`.toLowerCase();
-    return hay.includes(filter);
-  });
-  el.innerHTML = `
-    <header class="panel-head"><h1>Activity</h1>
-    <p class="muted">What AIly recorded (local audit — never leaves this device).</p></header>
-    <div class="row">
-      <input id="activity-filter" type="search" placeholder="Filter log…" value="${escapeHtml(state.ui.activityFilter || "")}" />
-      <button type="button" data-action="apply-activity-filter">Filter</button>
-      ${filter ? `<button type="button" data-action="clear-activity-filter">Clear</button>` : ""}
-      <button type="button" data-action="prune-audit" ${(state.audit || []).length ? "" : "disabled"}>Prune &gt;45d</button>
-    </div>
-    <p class="muted">${rows.length} shown${filter ? ` · filter “${escapeHtml(filter)}”` : ""} · ${(state.audit || []).length} total</p>
-    <ul class="list">
-      ${rows
-        .map((a) => {
-          const when = typeof a.ts === "string" ? a.ts.slice(0, 16).replace("T", " ") : "";
-          return `<li>
-            <strong>${escapeHtml(friendlyAuditTool(a.tool))}</strong>
-            <span class="muted">${escapeHtml(a.detail || "")}</span>
-            <span class="muted">${when}</span>
-          </li>`;
-        })
-        .join("") || "<li class='muted'>No actions yet. Use Today, Targets, or Blocks to begin.</li>"}
-    </ul>
-  `;
-  $("#activity-filter")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      state.ui.activityFilter = e.target.value || "";
-      persist();
-    }
+function paintTutorial() {
+  tutorialViewModule.renderTutorialContent({
+    state,
+    actions: {
+      grant: grantAndComplete,
+      goToTargets: () => {
+        state.ui.tab = "targets";
+        state.ui.tutorialOpen = false;
+        persist();
+      },
+      complete: (id) => {
+        completeChapter(id);
+        persist();
+      },
+      saveCapacity: (weeklyHours, nightsPerWeek) => {
+        state.user.weeklyCapacityHours = weeklyHours;
+        state.user.nightsPerWeek = nightsPerWeek;
+        completeChapter("capacity");
+        persist();
+      },
+      skip: (id) => {
+        state.tutorial.chapters[id] = "skipped";
+        appendAudit(state, "tutorial.skip", id);
+        persist();
+      },
+      enter: () => {
+        state.ui.tutorialOpen = false;
+        state.ui.tab = "today";
+        persist();
+        showToast(
+          state.user.displayName
+            ? `Welcome, ${state.user.displayName}. Protect the time that matters.`
+            : "You're ready. Set an intention and protect the time that matters.",
+          "ok",
+          4500
+        );
+      },
+    },
   });
 }
 
@@ -2135,94 +2029,23 @@ function renderTutorialModal() {
   const show = state.ui.tutorialOpen;
   modal.classList.toggle("hidden", !show);
   if (!show) return;
-
-  const pending = CHAPTERS.find((c) => chapterStatus(state, c.id) === "pending") || CHAPTERS[0];
-  $("#tutorial-title").textContent = pending.title;
-  $("#tutorial-body").innerHTML = markdownLite(pending.body);
-  $("#tutorial-progress").textContent = `${CHAPTERS.filter((c) => chapterStatus(state, c.id) === "done").length}/${CHAPTERS.length} chapters`;
-  const actions = $("#tutorial-actions");
-  actions.innerHTML = "";
-  if (pending.grant) {
-    const g = document.createElement("button");
-    g.className = "primary";
-    g.textContent =
-      pending.grant === "usage"
-        ? "Grant usage permission"
-        : pending.grant === "blockAdmin"
-          ? "Grant block admin"
-          : "Allow notifications";
-    g.onclick = () => grantAndComplete(pending);
-    actions.appendChild(g);
-  } else if (pending.id === "first_target") {
-    actions.innerHTML = `<p class="muted">Create a target in the Targets tab, then mark done.</p>`;
-    const b = document.createElement("button");
-    b.className = "primary";
-    b.textContent = state.targets.length ? "I created a target — continue" : "Go to Targets";
-    b.onclick = () => {
-      if (!state.targets.length) {
-        state.ui.tab = "targets";
-        state.ui.tutorialOpen = false;
-      } else {
-        completeChapter("first_target");
-      }
-      persist();
-    };
-    actions.appendChild(b);
-  } else if (pending.id === "capacity") {
-    actions.innerHTML = `
-      <label>Weekly hours <input type="number" id="tut-hours" min="1" max="80" value="${state.user.weeklyCapacityHours}" /></label>
-      <label>Nights/week <input type="number" id="tut-nights" min="1" max="7" value="${state.user.nightsPerWeek}" /></label>
-    `;
-    const b = document.createElement("button");
-    b.className = "primary";
-    b.textContent = "Save capacity";
-    b.onclick = () => {
-      state.user.weeklyCapacityHours = Number($("#tut-hours").value) || 10;
-      state.user.nightsPerWeek = Number($("#tut-nights").value) || 4;
-      completeChapter("capacity");
-      persist();
-    };
-    actions.appendChild(b);
-  } else {
-    const b = document.createElement("button");
-    b.className = "primary";
-    b.textContent = pending.id === "meet" ? "Nice to meet you" : "Continue";
-    b.onclick = () => {
-      completeChapter(pending.id);
-      persist();
-    };
-    actions.appendChild(b);
+  if (tutorialViewModule) {
+    paintTutorial();
+    return;
   }
-  if (!pending.required) {
-    const s = document.createElement("button");
-    s.textContent = "Skip for now";
-    s.onclick = () => {
-      state.tutorial.chapters[pending.id] = "skipped";
-      appendAudit(state, "tutorial.skip", pending.id);
-      persist();
-    };
-    actions.appendChild(s);
-  }
-  if (isReady(state)) {
-    const d = document.createElement("button");
-    d.textContent = "Enter AIly";
-    d.className = "primary";
-    d.onclick = () => {
-      state.ui.tutorialOpen = false;
-      state.ui.tab = "today";
-      persist();
-      showToast(
-        state.user.displayName
-          ? `Welcome, ${state.user.displayName}. Protect the time that matters.`
-          : "You're ready. Set an intention and protect the time that matters.",
-        "ok",
-        4500
-      );
-    };
-    actions.appendChild(d);
-  }
+  tutorialViewPromise ||= import("./tutorial-view.js");
+  void tutorialViewPromise
+    .then((module) => {
+      tutorialViewModule = module;
+      if (state.ui.tutorialOpen) paintTutorial();
+    })
+    .catch(() => {
+      $("#tutorial-title").textContent = "Tutorial unavailable";
+      $("#tutorial-body").textContent = "AIly could not load this local screen. Reload to retry.";
+      $("#tutorial-actions").innerHTML =
+        '<button type="button" class="primary" data-action="apply-update">Reload AIly</button>';
+    });
 }
-
 function renderIntentionModal() {
   const modal = $("#intention-modal");
   if (!modal) return;

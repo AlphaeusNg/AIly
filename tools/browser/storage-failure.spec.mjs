@@ -71,6 +71,27 @@ test.afterEach(async ({ page }) => {
   expect(runtimeErrors.get(page), "unexpected browser runtime errors").toEqual([]);
 });
 
+test("loads deferred Blocks, Activity, and tutorial views on demand", async ({ page }) => {
+  await page.addInitScript(({ seed }) => {
+    localStorage.setItem("aily.v1.state", JSON.stringify(seed));
+  }, { seed: readyState() });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#panel-today h1")).toContainText("Today");
+  await page.locator('.side [data-nav="blocks"]').click();
+  await expect(page.locator("#panel-blocks h1")).toHaveText("Blocks");
+  await expect(page.locator("#block-form")).toBeVisible();
+
+  await page.locator('.side [data-nav="activity"]').click();
+  await expect(page.locator("#panel-activity h1")).toHaveText("Activity");
+  await expect(page.locator("#activity-filter")).toBeVisible();
+
+  await page.locator('.side [data-nav="setup"]').click();
+  await page.locator('[data-action="open-tutorial"]').click();
+  await expect(page.locator("#tutorial-modal")).toBeVisible();
+  await expect(page.locator("#tutorial-title")).not.toBeEmpty();
+});
+
 test("keeps target input usable and labels an unsaved session-only change", async ({ page }) => {
   await openWithWriteFailure(page, readyState({ tab: "targets" }));
   await page.locator('#target-form input[name="title"]').fill("Memory-only target");
