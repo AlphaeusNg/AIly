@@ -91,3 +91,46 @@ export function isReady(state) {
 export function chapterStatus(state, id) {
   return state.tutorial.chapters[id] || "pending";
 }
+
+const NOTIFICATION_PERMISSION_STATES = new Set(["default", "denied", "granted"]);
+
+/** Read the browser's permission without turning an unknown value into a grant. */
+export function currentNotificationPermission(notificationApi = globalThis.Notification) {
+  if (!notificationApi) return "unavailable";
+  try {
+    const permission = String(notificationApi.permission || "");
+    return NOTIFICATION_PERMISSION_STATES.has(permission) ? permission : "error";
+  } catch {
+    return "error";
+  }
+}
+
+/** Request browser notification permission and preserve every non-granted outcome. */
+export async function requestNotificationPermission(notificationApi = globalThis.Notification) {
+  const current = currentNotificationPermission(notificationApi);
+  if (current === "granted" || current === "denied") return current;
+  if (current !== "default") return current;
+  if (typeof notificationApi?.requestPermission !== "function") return "unavailable";
+  try {
+    const result = String(await notificationApi.requestPermission());
+    return NOTIFICATION_PERMISSION_STATES.has(result) ? result : "error";
+  } catch {
+    return "error";
+  }
+}
+
+/**
+ * A saved AIly opt-in is enabled only while this browser still grants access.
+ * A browser grant alone does not silently opt AIly in.
+ */
+export function reconcileNotificationPermission(state, permission) {
+  const normalized = ["default", "denied", "granted", "unavailable", "error"].includes(permission)
+    ? permission
+    : "error";
+  const stored = state?.tutorial?.permissions?.notifications === true;
+  const enabled = stored && normalized === "granted";
+  if (state?.tutorial?.permissions) {
+    state.tutorial.permissions.notifications = enabled;
+  }
+  return { changed: stored !== enabled, enabled, permission: normalized };
+}

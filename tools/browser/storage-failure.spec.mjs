@@ -92,6 +92,41 @@ test("loads deferred Blocks, Activity, and tutorial views on demand", async ({ p
   await expect(page.locator("#tutorial-title")).not.toBeEmpty();
 });
 
+test("keeps AIly notification consent aligned with the live browser grant", async ({ page }) => {
+  const seed = readyState({ tab: "setup" });
+  seed.tutorial.permissions.notifications = false;
+  await page.addInitScript(({ state }) => {
+    window.__notificationPermission = "granted";
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: class NotificationFixture {
+        static get permission() {
+          return window.__notificationPermission;
+        }
+
+        static async requestPermission() {
+          return window.__notificationPermission;
+        }
+      },
+    });
+    localStorage.setItem("aily.v1.state", JSON.stringify(state));
+  }, { state: seed });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#panel-setup")).toContainText("Notifications: off");
+  await page.locator('[data-action="grant-notifications"]').click();
+  await expect(page.locator("#panel-setup")).toContainText("Notifications: on");
+  await expect(page.locator('[data-action="notify-test"]')).toBeVisible();
+
+  await page.evaluate(() => {
+    window.__notificationPermission = "denied";
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(page.locator("#panel-setup")).toContainText("Notifications: off");
+  await expect(page.locator('[data-action="grant-notifications"]')).toBeVisible();
+  await expect(page.locator("#toast-host")).toContainText("AIly turned them off");
+});
+
 test("keeps target input usable and labels an unsaved session-only change", async ({ page }) => {
   await openWithWriteFailure(page, readyState({ tab: "targets" }));
   await page.locator('#target-form input[name="title"]').fill("Memory-only target");

@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-08-28 (AIly Cycle 39)
+Last updated: 2026-09-08 (AIly Cycle 40)
 
 ## Current state
 
@@ -12,7 +12,7 @@ Last updated: 2026-08-28 (AIly Cycle 39)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.08.27.1`; Windows and Android package version `0.1.3`.
+- Deployment version: `2026.09.08.2`; Windows and Android package version `0.1.3`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`v0.1.3`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
@@ -22,8 +22,8 @@ Last updated: 2026-08-28 (AIly Cycle 39)
   hosted artifact. Physical-device install and Usage Access dogfood remain.
 - Releases include one generated `SHA256SUMS.txt` for the tested Windows and
   Android artifacts, with platform-native verification instructions.
-- Gate: Rust + target/store/usage/platform-usage/block/ally/journey/service-worker/shell,
-  three real Chromium storage-failure journeys, one Windows usage fixture, and 64 CI policy assertions via
+- Gate: Rust + target/store/tutorial/usage/platform-usage/block/ally/journey/service-worker/shell,
+  six real Chromium journeys, one Windows usage fixture, and 64 CI policy assertions via
   `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
   21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
@@ -39,6 +39,7 @@ Last updated: 2026-08-28 (AIly Cycle 39)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Keep notification consent aligned with the browser's real permission | Privacy / correctness | High: denied, dismissed, revoked, or unavailable access previously appeared enabled | Small-medium / low | Outcome-preserving helper, startup/focus/import reconciliation, truthful audit labels, and retry path | Completed in Cycle 40 |
 | — | Cache Windows Cargo work without caching trust decisions | Performance / process | High compounding value: repeated installed-package proofs took 8–10 minutes | Small / low | 845 MB same-platform cache; cold 9m08s versus warm 3m29s with identical gates | Completed in Cycle 39 |
 | — | Restrict the Tauri webview and prove packaged frontend/IPC readiness | Security / verification | High: a window handle and configured title could accept a blank or policy-blocked webview | Small-medium / low | Explicit CSP, external registration script, native ready handshake, fail-closed install lifecycle | Completed in Cycle 38 |
 | — | Make package delivery recoverable and non-preemptible | Process / reliability | High: duplicate deliveries repeatedly canceled the several-minute Windows lifecycle proof | Small / low | Manual dispatch for CI/packages; same-ref/SHA package runs serialize instead of canceling | Completed in Cycle 37 |
@@ -77,6 +78,51 @@ Last updated: 2026-08-28 (AIly Cycle 39)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 40 — Keep notification consent truthful (2026-09-08)
+
+**Why this won:** AIly persisted its notification toggle before the browser
+answered. A denial, dismissed prompt, unsupported runtime, or later revocation
+could therefore leave Setup claiming notifications were on even though no
+notification could be delivered.
+
+**Plan and success criteria**
+
+1. Enable AIly notifications only after an actual browser `granted` result.
+2. Preserve denied, dismissed, unavailable, and error outcomes distinctly.
+3. Reconcile stale saved/imported consent on startup and when focus returns.
+4. Keep notification setup optional and expose a clear retry action.
+
+**Changes**
+
+- Added pure permission read, request, and reconciliation helpers; a browser
+  grant alone never silently opts AIly in, and a saved opt-in is disabled when
+  the browser no longer grants access.
+- Setup now shows **Allow notifications** while off and **Test notification**
+  only while the saved opt-in and live browser grant agree.
+- Startup, imported backups, focus return, and the test action reconcile stale
+  state and record precise grant/denial/dismissal/unavailable/error events.
+- Kept the tutorial step optional: refusal does not block onboarding, and the
+  visitor can retry later from Setup.
+- Coupled `SITE_VERSION` and the service-worker cache at `2026.09.08.2`.
+
+**Verification evidence**
+
+- Unit contracts cover every browser permission result, request failures,
+  revoked saved state, and the non-opt-in browser-grant boundary.
+- A Chromium journey proves an existing browser grant does not opt AIly in by
+  itself, an explicit Allow action enables it, and revocation turns it off.
+- Source contracts prevent any UI path from assigning notification consent to
+  true before the browser-backed helper reports a grant.
+- `npm test` passes 18 Rust tests/contracts, every JS/static/worker/package
+  gate, 64 CI/Pages policy assertions, recursive syntax, and 6/6 Chromium
+  journeys. Hosted deployment results are recorded with the Cycle 40 commit.
+
+**Scores**
+
+- Privacy/correctness: 3/10 -> 10/10.
+- Recovery/clarity: 4/10 -> 9/10.
+- Verifiability: 2/10 -> 9/10.
 
 ### Cycle 39 — Cache compilation, never package trust (2026-08-28)
 

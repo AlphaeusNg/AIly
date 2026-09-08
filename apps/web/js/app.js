@@ -28,7 +28,15 @@ import {
   dailySoftCapMinutes,
   snapEstimateMin,
 } from "./capacity.js";
-import { CHAPTERS, canArmBlocks, isReady, chapterStatus } from "./tutorial.js";
+import {
+  CHAPTERS,
+  canArmBlocks,
+  isReady,
+  chapterStatus,
+  currentNotificationPermission,
+  reconcileNotificationPermission,
+  requestNotificationPermission,
+} from "./tutorial.js";
 import {
   appendUsageSample,
   createSessionTracker,
@@ -108,6 +116,17 @@ async function markDesktopReady() {
 }
 
 let state = loadState();
+const initialNotificationReconciliation = reconcileNotificationPermission(
+  state,
+  currentNotificationPermission(),
+);
+if (initialNotificationReconciliation.changed) {
+  appendAudit(
+    state,
+    "permission.reconcile",
+    `notifications:${initialNotificationReconciliation.permission}`,
+  );
+}
 const usageBackend = selectUsageBackend();
 const usesAndroidUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
 const usesWindowsUsage = usageBackend.id === "windows-foreground-session" && usageBackend.available;
@@ -127,6 +146,8 @@ if (nativeUsageConsentWasStored) {
       "state.prune",
       `commitments:${pruned} usage:${prunedUsage}`
     );
+  }
+  if (pruned > 0 || prunedUsage > 0 || initialNotificationReconciliation.changed) {
     saveState(state);
   }
 }
@@ -206,6 +227,21 @@ function updateSaveStatus() {
   el.hidden = false;
   el.className = "save-status is-error";
   el.textContent = "Save failed — storage full or blocked";
+}
+
+function reconcileLiveNotificationPermission({ announce = false } = {}) {
+  const result = reconcileNotificationPermission(state, currentNotificationPermission());
+  if (!result.changed) return result;
+  appendAudit(state, "permission.reconcile", `notifications:${result.permission}`);
+  persist();
+  if (announce) {
+    showToast(
+      "Browser notifications are no longer allowed. AIly turned them off; in-app nudges still work.",
+      "ok",
+      5000,
+    );
+  }
+  return result;
 }
 
 function pushUndo(entry) {
@@ -1947,7 +1983,11 @@ function renderSetup() {
       <div class="row">
         <button type="button" data-action="revoke-usage" ${state.tutorial.permissions.usage ? "" : "disabled"}>Revoke usage</button>
         <button type="button" data-action="revoke-admin" ${state.tutorial.permissions.blockAdmin ? "" : "disabled"}>Revoke block admin</button>
-        <button type="button" data-action="notify-test" ${state.tutorial.permissions.notifications ? "" : "disabled"}>Test notification</button>
+        ${
+          state.tutorial.permissions.notifications
+            ? '<button type="button" data-action="notify-test">Test notification</button>'
+            : '<button type="button" data-action="grant-notifications">Allow notifications</button>'
+        }
       </div>
     </div>
     <div class="card">
@@ -2339,22 +2379,30 @@ async function grantAndComplete(chapter) {
     await requestUsageGrant(chapter.id);
     return;
   }
-  if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
   if (chapter.grant === "notifications") {
-    state.tutorial.permissions.notifications = true;
-    try {
-      if (typeof Notification !== "undefined" && Notification.permission === "default") {
-        const result = await Notification.requestPermission();
-        if (result !== "granted") {
-          showToast("Browser notifications blocked — AIly will still work; nudges stay in-app.", "ok", 4500);
-        }
-      } else if (typeof Notification !== "undefined" && Notification.permission === "denied") {
-        showToast("Browser notifications are denied — in-app toasts still work.", "ok", 4000);
-      }
-    } catch {
-      // Browser denied or unavailable — permission flag still records user intent.
-    }
+    const notificationStatus = await requestNotificationPermission();
+    state.tutorial.permissions.notifications = notificationStatus === "granted";
+    completeChapter(chapter.id);
+    const auditTool = {
+      granted: "permission.grant",
+      denied: "permission.denied",
+      default: "permission.dismissed",
+      unavailable: "permission.unavailable",
+      error: "permission.error",
+    }[notificationStatus];
+    appendAudit(state, auditTool || "permission.error", "notifications");
+    persist();
+    const message = {
+      granted: "Notifications enabled.",
+      denied: "Browser notifications are denied. Setup continues with in-app nudges.",
+      default: "No notification choice was made. Setup continues; you can retry in Setup.",
+      unavailable: "Notifications are unavailable here. Setup continues with in-app nudges.",
+      error: "AIly could not confirm notification access. Notifications stay off; you can retry in Setup.",
+    }[notificationStatus];
+    showToast(message || "Notifications stay off; you can retry in Setup.", notificationStatus === "granted" ? "ok" : "error", 5000);
+    return;
   }
+  if (chapter.grant === "blockAdmin") state.tutorial.permissions.blockAdmin = true;
   completeChapter(chapter.id);
   appendAudit(state, "permission.grant", chapter.grant);
   persist();
@@ -2383,11 +2431,24 @@ function onImportBackup(e) {
     undoStack = [];
     helpOpen = false;
     state = result.state;
+    const notificationReconciliation = reconcileNotificationPermission(
+      state,
+      currentNotificationPermission(),
+    );
+    if (notificationReconciliation.changed) {
+      appendAudit(
+        state,
+        "permission.reconcile",
+        `notifications:${notificationReconciliation.permission}`,
+      );
+    }
     pendingIntention = null;
     lastSave = null;
     appendAudit(state, "state.import", file.name || "backup");
     persistWithOutcome(
-      "Backup imported.",
+      notificationReconciliation.changed
+        ? "Backup imported. Notifications stayed off because this browser has not granted them."
+        : "Backup imported.",
       "Backup imported for this session only. Storage is blocked, so export a fresh backup before refresh.",
       6500
     );
@@ -2772,6 +2833,8 @@ document.addEventListener("click", async (e) => {
     resumeFocusSession();
   }
   if (action === "notify-test") {
+    const notificationReconciliation = reconcileLiveNotificationPermission({ announce: true });
+    if (!notificationReconciliation.enabled) return;
     try {
       if (typeof Notification === "undefined") {
         showToast("Notifications not available here.", "error");
@@ -2803,6 +2866,10 @@ document.addEventListener("click", async (e) => {
     } catch {
       showToast("Could not show a notification.", "error");
     }
+  }
+  if (action === "grant-notifications") {
+    const notificationChapter = CHAPTERS.find((chapter) => chapter.grant === "notifications");
+    if (notificationChapter) await grantAndComplete(notificationChapter);
   }
   if (action === "open-tutorial") {
     state.ui.tutorialOpen = true;
@@ -4332,6 +4399,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("focus", () => {
   usageTracker?.onVisibilityOrFocus();
+  reconcileLiveNotificationPermission({ announce: true });
   if (usesNativeUsage) void refreshPlatformUsage({ force: true, fromSettings: true });
 });
 window.addEventListener("blur", () => usageTracker?.onVisibilityOrFocus());
