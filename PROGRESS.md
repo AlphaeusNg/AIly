@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-11 (AIly Cycle 42)
+Last updated: 2026-09-11 (AIly Cycle 43)
 
 ## Current state
 
@@ -12,7 +12,7 @@ Last updated: 2026-09-11 (AIly Cycle 42)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.09.11.2`; Windows and Android package version `0.1.4`.
+- Deployment version: `2026.09.11.3`; Windows and Android package version `0.1.4`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`v0.1.4`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
@@ -27,8 +27,9 @@ Last updated: 2026-09-11 (AIly Cycle 42)
   `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
   21 hosted job.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
-  current-cache ownership, fetch lifetime, offline navigation, and cache-write
-  failure isolation.
+  current-cache ownership, fetch lifetime, first-use caching of deferred
+  modules, offline navigation, and cache-write failure isolation. Install
+  precache is the first-paint shell; lazy tab/native modules are not precached.
 - Windows package jobs reuse same-OS/architecture Cargo dependencies and build
   outputs, but delete the cached final executable/bundle and always rerun native
   tests, NSIS build, installed readiness, uninstall, and artifact verification.
@@ -39,6 +40,7 @@ Last updated: 2026-09-11 (AIly Cycle 42)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Stop precaching lazy tab modules on first PWA install | Performance / first paint | High: install still downloaded Activity/Blocks/tutorial views and platform-usage before Today painted | Small / low | First-paint ASSETS, runtime cache-on-first-use, SITE_VERSION-coupled cache | Completed in Cycle 43 |
 | — | Defer native usage backend until after first paint | Performance / correctness | High: Today still compiled platform-usage.js, and Usage-tab seeds could throw before desktop_ready | Small / low | Inlined web-session stub, dynamic import, 7/7 Chromium journeys | Completed in Cycle 42 |
 | — | Refresh public Windows and Android packages from the current verified app | Packaging / release correctness | High: `v0.1.3` predated later CSP, readiness, caching, lazy-view, and notification-consent work | Small / low | Exact `v0.1.4` tag, two independent package runs, installed Windows gate, Android JVM/build gate, and downloaded checksum proof | Completed in Cycle 41 |
 | — | Keep notification consent aligned with the browser's real permission | Privacy / correctness | High: denied, dismissed, revoked, or unavailable access previously appeared enabled | Small-medium / low | Outcome-preserving helper, startup/focus/import reconciliation, truthful audit labels, and retry path | Completed in Cycle 40 |
@@ -80,6 +82,38 @@ Last updated: 2026-09-11 (AIly Cycle 42)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 43 — Stop precaching lazy tab modules (2026-09-11)
+
+**Why this won:** Cycle 42 already kept `platform-usage.js` off the first
+module graph, but the service worker still precached that file plus Activity,
+Blocks, and tutorial views during PWA install. First install therefore
+downloaded more than first paint needs.
+
+**Changes**
+
+- Install `ASSETS` is the first-paint shell: HTML/CSS, `app.js`, store,
+  capacity, target, icons, and the offline page. Eager Today-graph modules
+  stay; `activity-view.js`, `block-view.js`, `tutorial-view.js`, and
+  `platform-usage.js` do not.
+- The existing same-origin fetch handler still cache-puts deferred modules on
+  first use, so later tab visits work offline after they have been opened.
+- Coupled the worker cache name to `SITE_VERSION` at `2026.09.11.3`.
+
+**Verification evidence**
+
+- Worker and shell contracts assert the install precache omits the four lazy
+  modules, keeps the first-paint shell, matches `SITE_VERSION.id`, and
+  cache-writes `platform-usage.js` on first fetch.
+- Local Node/Rust unit gate passed: `cargo fmt --check`, Clippy `-D warnings`,
+  18 Rust tests/contracts, every package.json Node tool except Playwright
+  (17 Node suites + recursive `node --check`), and 64 CI/Pages policy
+  assertions. Chromium journeys were skipped to avoid port collisions.
+
+**Scores**
+
+- First-install payload: 5/10 -> 9/10.
+- First-paint match: 6/10 -> 10/10.
 
 ### Cycle 42 — Defer native usage backend until after first paint (2026-09-11)
 

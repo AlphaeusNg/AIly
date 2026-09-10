@@ -6,9 +6,21 @@ import vm from "node:vm";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = readFileSync(join(root, "apps/web/sw.js"), "utf8");
+const versionSource = readFileSync(join(root, "apps/web/js/version.js"), "utf8");
+const versionId = /\bid:\s*"([^"]+)"/.exec(versionSource)?.[1];
 const scope = "https://alphaeusng.github.io/AIly/";
 const currentCache = /const CACHE = "([^"]+)";/.exec(source)?.[1];
 assert.match(currentCache || "", /^aily-\d{4}\.\d{2}\.\d{2}\.\d+$/, "worker cache uses an AIly-owned version name");
+assert.equal(currentCache, `aily-${versionId}`, "worker cache name matches SITE_VERSION.id");
+
+const assetsBlock = /const ASSETS = \[([\s\S]*?)\];/.exec(source)?.[1] || "";
+const precached = [...assetsBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+for (const kept of ["./", "./index.html", "./offline.html", "./css/app.css", "./js/app.js", "./js/store.js", "./js/capacity.js", "./js/target.js"]) {
+  assert.ok(precached.includes(kept), `install precache keeps first-paint ${kept}`);
+}
+for (const deferred of ["./js/activity-view.js", "./js/block-view.js", "./js/tutorial-view.js", "./js/platform-usage.js"]) {
+  assert.ok(!precached.includes(deferred), `install precache omits lazy ${deferred}`);
+}
 
 const handlers = new Map();
 const deleted = [];
@@ -177,6 +189,16 @@ function createFetchWorker({
   assert.equal(await response.text(), "fresh", "an uncached request returns its network response");
   assert.deepEqual(worker.calls.open, [currentCache], "only the current AIly cache is opened");
   assert.equal(worker.calls.put.length, 1, "a successful response is cached before lifetime settlement");
+}
+
+{
+  const worker = createFetchWorker({ networkBody: "lazy module" });
+  const event = worker.dispatchFetch(`${scope}js/platform-usage.js`);
+  const response = await event.responsePromises[0];
+  await event.lifetimePromises[0];
+  assert.equal(await response.text(), "lazy module", "a deferred module returns its first-use network response");
+  assert.equal(worker.calls.put.length, 1, "deferred modules cache on first use rather than install");
+  assert.equal(worker.calls.put[0].url, `${scope}js/platform-usage.js`, "first-use cache write targets the deferred module");
 }
 
 {

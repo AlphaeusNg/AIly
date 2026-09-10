@@ -102,13 +102,27 @@ assert.match(sw, /journey\.js/, "SW caches journey module");
 assert.match(sw, /ally\.js/, "SW caches ally module");
 assert.match(sw, /target\.js/, "SW caches target progress module");
 assert.match(sw, /register-sw\.js/, "SW caches its external registration script");
-for (const deferredView of ["activity-view.js", "block-view.js", "tutorial-view.js"]) {
-  assert.ok(sw.includes(deferredView), `SW caches deferred ${deferredView}`);
+assert.match(sw, /store\.js/, "SW caches store module");
+assert.match(sw, /capacity\.js/, "SW caches capacity module");
+assert.match(sw, /app\.js/, "SW caches the first-paint app module");
+assert.match(sw, /css\/app\.css/, "SW caches the app stylesheet");
+const assetsBlock = /const ASSETS = \[([\s\S]*?)\];/.exec(sw)?.[1] || "";
+for (const deferred of ["activity-view.js", "block-view.js", "tutorial-view.js", "platform-usage.js"]) {
+  assert.doesNotMatch(
+    assetsBlock,
+    new RegExp(`${deferred.replace(".", "\\.")}`),
+    `install precache omits lazy ${deferred}`,
+  );
 }
 
 const version = read("js/version.js");
 assert.match(version, /SITE_VERSION/, "version module exports SITE_VERSION");
 assert.match(version, /\bid:\s*"\d{4}\.\d{2}\.\d{2}\.\d+"/, "version stamp uses deploy format");
+const versionId = /\bid:\s*"([^"]+)"/.exec(version)?.[1];
+assert.ok(
+  sw.includes(`const CACHE = "aily-${versionId}";`),
+  "service worker cache name matches SITE_VERSION.id",
+);
 
 const manifest = JSON.parse(read("manifest.webmanifest"));
 assert.equal(manifest.display, "standalone");

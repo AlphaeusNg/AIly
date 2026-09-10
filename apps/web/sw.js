@@ -1,25 +1,22 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
 const CACHE_PREFIX = "aily-";
-const CACHE = "aily-2026.09.11.2";
+const CACHE = "aily-2026.09.11.3";
 const SCOPE_URL = new URL(self.registration.scope);
+// First-paint shell only. Lazy tab/native modules cache on first fetch.
 const ASSETS = [
   "./",
   "./index.html",
   "./offline.html",
   "./css/app.css",
   "./js/app.js",
-  "./js/activity-view.js",
-  "./js/block-view.js",
   "./js/store.js",
   "./js/capacity.js",
   "./js/target.js",
   "./js/tutorial.js",
-  "./js/tutorial-view.js",
   "./js/usage.js",
   "./js/block.js",
   "./js/ally.js",
   "./js/journey.js",
-  "./js/platform-usage.js",
   "./js/register-sw.js",
   "./js/version.js",
   "./manifest.webmanifest",
