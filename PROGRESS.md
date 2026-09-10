@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-08 (AIly Cycle 40)
+Last updated: 2026-09-11 (AIly Cycle 41)
 
 ## Current state
 
@@ -12,9 +12,9 @@ Last updated: 2026-09-08 (AIly Cycle 40)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.09.08.2`; Windows and Android package version `0.1.3`.
+- Deployment version: `2026.09.08.2`; Windows and Android package version `0.1.4`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
-  tested Tauri 2 NSIS release (`v0.1.3`, `AIly-setup.exe`, unsigned). The exact
+  tested Tauri 2 NSIS release (`v0.1.4`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
   cleanup on `windows-latest`. OS hard-blocks are not in this build.
 - Android delivery includes a public, direct-download, debug-signed
@@ -39,6 +39,7 @@ Last updated: 2026-09-08 (AIly Cycle 40)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Refresh public Windows and Android packages from the current verified app | Packaging / release correctness | High: `v0.1.3` predated later CSP, readiness, caching, lazy-view, and notification-consent work | Small / low | Exact `v0.1.4` tag, two independent package runs, installed Windows gate, Android JVM/build gate, and downloaded checksum proof | Completed in Cycle 41 |
 | — | Keep notification consent aligned with the browser's real permission | Privacy / correctness | High: denied, dismissed, revoked, or unavailable access previously appeared enabled | Small-medium / low | Outcome-preserving helper, startup/focus/import reconciliation, truthful audit labels, and retry path | Completed in Cycle 40 |
 | — | Cache Windows Cargo work without caching trust decisions | Performance / process | High compounding value: repeated installed-package proofs took 8–10 minutes | Small / low | 845 MB same-platform cache; cold 9m08s versus warm 3m29s with identical gates | Completed in Cycle 39 |
 | — | Restrict the Tauri webview and prove packaged frontend/IPC readiness | Security / verification | High: a window handle and configured title could accept a blank or policy-blocked webview | Small-medium / low | Explicit CSP, external registration script, native ready handshake, fail-closed install lifecycle | Completed in Cycle 38 |
@@ -78,6 +79,49 @@ Last updated: 2026-09-08 (AIly Cycle 40)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 41 — Publish current verified installables (2026-09-11)
+
+**Why this won:** The public `v0.1.3` release still pointed to an August build,
+so new visitors downloading the native apps missed the later restrictive
+desktop CSP, packaged frontend/IPC readiness proof, faster trustworthy package
+gate, lazy secondary views, and truthful notification-consent behavior already
+deployed on the web.
+
+**Changes**
+
+- Advanced the shared npm, Cargo, Tauri, and Android package identity to
+  `0.1.4`; Android `versionCode` advanced to 4.
+- Published annotated tag `v0.1.4` at exact commit
+  `9ffc10f488e263dc80dfaa04f0895cf26c5be0e4` only after the same commit's
+  `main` CI, Pages, and full package workflows succeeded.
+- Kept the web deployment stamp at `2026.09.08.2` because this cycle changes
+  package/release metadata rather than deployed web bytes.
+
+**Verification evidence**
+
+- Local `npm test` passed 18 Rust tests/contracts, all JS/static/worker/package
+  checks, 64 CI policy assertions, recursive syntax, and 6/6 Chromium journeys;
+  `JAVA_HOME=/home/alph/.local/jdk-21 npm run android:test` passed five JVM
+  tests and all 71 Gradle tasks.
+- Commit run `34184110562` rebuilt both packages successfully before tagging;
+  CI run `34184110559` and Pages run `34184110556` also passed at the exact
+  commit.
+- Tag package run `34502445007` independently passed Android in 52 seconds,
+  then built, silently installed, launched to the native ready state,
+  uninstalled, and uploaded Windows in 3m44s before creating the release.
+- The public release is neither draft nor prerelease and contains exactly the
+  expected package names plus one checksum manifest. A fresh download verified
+  both manifest entries byte-for-byte: `AIly-setup.exe` is 1,957,017 bytes at
+  SHA-256 `1eeb6ef78f08becfa6c0f78fbfca506d80a313900876733307b4acf5ff342f3d`;
+  `AIly-debug.apk` is 4,216,994 bytes at SHA-256
+  `b21463894f2d48029ff0d6bed9e3e6ca33ed544ec3e38bb7b140bc382bc38cba`.
+
+**Scores**
+
+- Release correctness: 4/10 -> 10/10.
+- Package verifiability: 8/10 -> 10/10.
+- Download freshness: 3/10 -> 10/10.
 
 ### Cycle 40 — Keep notification consent truthful (2026-09-08)
 
