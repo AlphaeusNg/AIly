@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-11 (AIly Cycle 41)
+Last updated: 2026-09-11 (AIly Cycle 42)
 
 ## Current state
 
@@ -12,7 +12,7 @@ Last updated: 2026-09-11 (AIly Cycle 41)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.09.08.2`; Windows and Android package version `0.1.4`.
+- Deployment version: `2026.09.11.2`; Windows and Android package version `0.1.4`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`v0.1.4`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
@@ -39,6 +39,7 @@ Last updated: 2026-09-11 (AIly Cycle 41)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Defer native usage backend until after first paint | Performance / correctness | High: Today still compiled platform-usage.js, and Usage-tab seeds could throw before desktop_ready | Small / low | Inlined web-session stub, dynamic import, 7/7 Chromium journeys | Completed in Cycle 42 |
 | — | Refresh public Windows and Android packages from the current verified app | Packaging / release correctness | High: `v0.1.3` predated later CSP, readiness, caching, lazy-view, and notification-consent work | Small / low | Exact `v0.1.4` tag, two independent package runs, installed Windows gate, Android JVM/build gate, and downloaded checksum proof | Completed in Cycle 41 |
 | — | Keep notification consent aligned with the browser's real permission | Privacy / correctness | High: denied, dismissed, revoked, or unavailable access previously appeared enabled | Small-medium / low | Outcome-preserving helper, startup/focus/import reconciliation, truthful audit labels, and retry path | Completed in Cycle 40 |
 | — | Cache Windows Cargo work without caching trust decisions | Performance / process | High compounding value: repeated installed-package proofs took 8–10 minutes | Small / low | 845 MB same-platform cache; cold 9m08s versus warm 3m29s with identical gates | Completed in Cycle 39 |
@@ -79,6 +80,31 @@ Last updated: 2026-09-11 (AIly Cycle 41)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 42 — Defer native usage backend until after first paint (2026-09-11)
+
+**Why this won:** Cycle 41 already cold-opens Today without compiling every
+tab, but `platform-usage.js` still loaded on the first module graph. Usage
+honesty copy then threw on a Usage-tab seed before `desktop_ready` could set
+the native title.
+
+**Changes**
+
+- First paint uses an inlined web-session stub and honesty line.
+- `import("./platform-usage.js")` selects Android/Windows backends after Today
+  is on screen, then re-renders and runs the native shell.
+- Service-worker cache and `SITE_VERSION` advance to `2026.09.11.2`.
+
+**Verification evidence**
+
+- `npm test` passed Rust contracts, JS/static/worker/package checks, 64 CI
+  policy assertions, recursive syntax, and 7/7 Chromium journeys including
+  cold-open Today, deferred views, and Windows usage Ready.
+
+**Scores**
+
+- First-paint isolation: 7/10 -> 10/10.
+- Native title handshake: 6/10 -> 10/10.
 
 ### Cycle 41 — Publish current verified installables (2026-09-11)
 

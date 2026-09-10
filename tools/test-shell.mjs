@@ -147,6 +147,12 @@ assert.match(app, /seedDemoJourney|seed-demo/, "sample journey seeder exists");
 assert.match(app, /upsertBlockRule/, "block upsert is wired");
 assert.match(app, /attentionMismatchNote/, "attention mismatch note is wired");
 assert.match(app, /platform-usage|selectUsageBackend/, "platform usage backend is wired");
+assert.match(app, /import\("\.\/platform-usage\.js"\)/, "native usage backend loads after first paint");
+assert.match(
+  app,
+  /function defaultUsageBackendHonesty[\s\S]*let usageBackendHonesty = defaultUsageBackendHonesty/,
+  "usage honesty copy is available before platform-usage loads",
+);
 assert.match(app, /requestUsageGrant/, "usage grant is routed through the selected backend");
 assert.match(app, /listTodaySamples\(\{ consented: true \}\)/, "native usage reads require consent");
 assert.match(

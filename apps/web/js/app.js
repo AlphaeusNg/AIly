@@ -68,7 +68,42 @@ import {
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
-import { selectUsageBackend, usageBackendHonesty } from "./platform-usage.js";
+function createWebSessionBackend() {
+  return {
+    id: "web-session",
+    label: "This tab (visibility + focus)",
+    available: true,
+    capabilities: { session: true, perApp: false, realtime: true },
+    async listTodaySamples() {
+      return [];
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async permissionStatus() {
+      return "granted";
+    },
+  };
+}
+
+function defaultUsageBackendHonesty(backend) {
+  if (!backend) return "No usage backend selected.";
+  if (backend.id === "web-session") {
+    return "Tracking this AIly tab only (visible + focused). Other apps are manual samples until OS hooks ship.";
+  }
+  if (backend.id === "android-usagestats") {
+    if (backend.available) {
+      return "Android local daily totals — read only after tutorial consent and the system usage-access grant.";
+    }
+    return "Android UsageStats adapter is scaffolded but not installed — samples stay manual/session-only.";
+  }
+  if (backend.id === "windows-foreground-session") {
+    return "Windows local foreground totals since AIly opened — process names only; no titles, paths, or historical activity.";
+  }
+  return backend.label || backend.id;
+}
+
+let usageBackendHonesty = defaultUsageBackendHonesty;
 
 function paintActivity(element) {
   activityViewModule.renderActivityPanel({
@@ -127,16 +162,29 @@ if (initialNotificationReconciliation.changed) {
     `notifications:${initialNotificationReconciliation.permission}`,
   );
 }
-const usageBackend = selectUsageBackend();
-const usesAndroidUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
-const usesWindowsUsage = usageBackend.id === "windows-foreground-session" && usageBackend.available;
-const usesNativeUsage = usesAndroidUsage || usesWindowsUsage;
-let nativeUsageConsentWasStored = usesNativeUsage && !!state.tutorial.permissions.usage;
-let nativeUsageConsentPending = usesAndroidUsage && nativeUsageConsentWasStored;
-if (nativeUsageConsentWasStored) {
-  // Fail closed until the installed native bridge confirms availability.
-  state.tutorial.permissions.usage = false;
-}
+let usageBackend = createWebSessionBackend();
+let usesAndroidUsage = false;
+let usesWindowsUsage = false;
+let usesNativeUsage = false;
+const usageBackendReady = import("./platform-usage.js")
+  .then((mod) => {
+    usageBackendHonesty = mod.usageBackendHonesty;
+    usageBackend = mod.selectUsageBackend();
+    usesAndroidUsage = usageBackend.id === "android-usagestats" && usageBackend.available;
+    usesWindowsUsage = usageBackend.id === "windows-foreground-session" && usageBackend.available;
+    usesNativeUsage = usesAndroidUsage || usesWindowsUsage;
+    nativeUsageConsentWasStored = usesNativeUsage && !!state.tutorial.permissions.usage;
+    nativeUsageConsentPending = usesAndroidUsage && nativeUsageConsentWasStored;
+    platformUsageStatus = usesNativeUsage ? "checking" : "unsupported";
+    if (nativeUsageConsentWasStored) {
+      // Fail closed until the installed native bridge confirms availability.
+      state.tutorial.permissions.usage = false;
+    }
+    return usageBackend;
+  })
+  .catch(() => usageBackend);
+let nativeUsageConsentWasStored = false;
+let nativeUsageConsentPending = false;
 {
   const pruned = pruneOldCommitments(state, 45, todayISO());
   const prunedUsage = pruneOldUsageSamples(state, 45, todayISO());
@@ -417,6 +465,7 @@ function commitUsageGrant(chapterId = "attention", options = {}) {
 
 async function requestUsageGrant(chapterId = "attention") {
   try {
+    await usageBackendReady;
     const result = await usageBackend.requestPermission();
     if (result === "granted") {
       commitUsageGrant(chapterId);
@@ -448,6 +497,7 @@ async function requestUsageGrant(chapterId = "attention") {
 }
 
 async function refreshPlatformUsage(options = {}) {
+  await usageBackendReady;
   if (!usesNativeUsage) return;
   const now = Date.now();
   if (!options.force && now - lastPlatformUsageRefreshAt < 60_000) return;
@@ -2568,6 +2618,7 @@ async function downloadBackup() {
 
 async function initNativeShell() {
   try {
+    await usageBackendReady;
     if (usesWindowsUsage) {
       await refreshPlatformUsage({ force: true });
     }
@@ -4432,7 +4483,11 @@ if (!isReady(state)) state.ui.tutorialOpen = true;
 
 render();
 dismissBootSplash();
-initNativeShell();
+void usageBackendReady.then(() => {
+  render();
+  initNativeShell();
+  syncUsageTracker();
+});
 syncUsageTracker();
 watchServiceWorkerUpdates();
 void markDesktopReady();
