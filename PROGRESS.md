@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-11 (AIly Cycle 43)
+Last updated: 2026-09-12 (AIly Cycle 44)
 
 ## Current state
 
@@ -40,6 +40,7 @@ Last updated: 2026-09-11 (AIly Cycle 43)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Override Capacitor CLI xmldom to the patched 0.9.12 line | Security / maintenance | High: Dependabot flagged ten high/medium advisories on development-scope `@xmldom/xmldom` 0.9.10 | Tiny / low | npm override, lock 0.9.12, packaging contract, `npm audit` 0 | Completed in Cycle 44 |
 | — | Stop precaching lazy tab modules on first PWA install | Performance / first paint | High: install still downloaded Activity/Blocks/tutorial views and platform-usage before Today painted | Small / low | First-paint ASSETS, runtime cache-on-first-use, SITE_VERSION-coupled cache | Completed in Cycle 43 |
 | — | Defer native usage backend until after first paint | Performance / correctness | High: Today still compiled platform-usage.js, and Usage-tab seeds could throw before desktop_ready | Small / low | Inlined web-session stub, dynamic import, 7/7 Chromium journeys | Completed in Cycle 42 |
 | — | Refresh public Windows and Android packages from the current verified app | Packaging / release correctness | High: `v0.1.3` predated later CSP, readiness, caching, lazy-view, and notification-consent work | Small / low | Exact `v0.1.4` tag, two independent package runs, installed Windows gate, Android JVM/build gate, and downloaded checksum proof | Completed in Cycle 41 |
@@ -82,6 +83,28 @@ Last updated: 2026-09-11 (AIly Cycle 43)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 44 — Override Capacitor CLI xmldom to 0.9.12 (2026-09-12)
+
+**Why this won:** GitHub Dependabot opened ten high/medium alerts on
+development-scope `@xmldom/xmldom` 0.9.10 (plist via Capacitor CLI). The PWA
+runtime does not load xmldom; the lock still needed the patched 0.9.12 line
+without bumping Capacitor.
+
+**Changes**
+
+- npm override `@xmldom/xmldom` to `0.9.12`.
+- Packaging contract asserts the override and lock version.
+- SITE_VERSION stays `2026.09.11.3` (no visitor-runtime change).
+
+**Verification evidence**
+
+- `node tools/test-packaging.mjs`
+- `npm audit` reports 0 vulnerabilities.
+
+**Scores**
+
+- Dependabot lock hygiene: 4/10 -> 10/10.
 
 ### Cycle 43 — Stop precaching lazy tab modules (2026-09-11)
 

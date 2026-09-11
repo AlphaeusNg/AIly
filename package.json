@@ -25,5 +25,8 @@
   "devDependencies": {
     "@capacitor/cli": "^7.4.2",
     "@playwright/test": "1.62.1"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.9.12"
   }
 }

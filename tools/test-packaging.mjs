@@ -139,4 +139,16 @@ for (const [label, source] of [
 assert.match(installGuide, /Get-FileHash[^\n]*AIly-setup\.exe[^\n]*SHA256/, "install guide verifies the Windows package with PowerShell");
 assert.match(installGuide, /sha256sum -c SHA256SUMS\.txt --ignore-missing/, "install guide verifies transferred packages with sha256sum");
 
+const packageLock = JSON.parse(read("package-lock.json"));
+assert.equal(
+  packageJson.overrides?.["@xmldom/xmldom"],
+  "0.9.12",
+  "Capacitor CLI's @xmldom/xmldom should be overridden to the patched 0.9.12 line",
+);
+assert.equal(
+  packageLock.packages?.["node_modules/@xmldom/xmldom"]?.version,
+  "0.9.12",
+  "the lockfile should resolve @xmldom/xmldom 0.9.12",
+);
+
 console.log("test-packaging.mjs: Android version, verified build, release, and docs contracts ok");
