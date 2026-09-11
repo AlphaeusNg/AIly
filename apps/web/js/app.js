@@ -645,7 +645,9 @@ function allyTimeMessage(dailyCap, planned, usage) {
     parts.push(`Logged attention samples: <strong>${usage|0}m</strong>.`);
   }
   if (session >= 1) {
-    parts.push(`This AIly session: <strong>${session}m</strong>.`);
+    parts.push(
+      `This AIly session: <strong id="today-session-mins">${session}m</strong>.`
+    );
   }
   parts.push("Pause a second — is this how you want to spend the next stretch?");
   return parts.join(" ");
@@ -1365,7 +1367,7 @@ function renderToday() {
       }
       ${
         focusRemainingLabel()
-          ? `<p class="ally-line">Focus session: <strong>${focusRemainingLabel()}</strong> left.
+          ? `<p class="ally-line">Focus session: <strong id="today-focus-remaining">${focusRemainingLabel()}</strong> left.
              ${
                isFocusPaused()
                  ? `<button type="button" class="primary" data-action="resume-focus">Resume</button>`
@@ -4517,10 +4519,11 @@ window.setInterval(() => {
   if (!focusRemainingLabel()) return;
   $("#tray-status").textContent = trayLabel();
   if (state.ui.tab === "today" && !state.ui.tutorialOpen) {
-    // Light update: only tray is required every second; full today every 5s via other timer
-  }
-  if (state.ui.tab === "blocks" && !state.ui.tutorialOpen) {
-    // keep blocks focus banner roughly current without full re-render thrash
+    const focusEl = $("#today-focus-remaining");
+    if (focusEl) {
+      const label = focusRemainingLabel();
+      if (label) focusEl.textContent = label;
+    }
   }
   const ended = endFocusSessionIfNeeded();
   if (ended) {
@@ -4546,14 +4549,35 @@ window.setInterval(() => {
   }
 }, 1000);
 
-// Refresh session clock on Today occasionally while tab is visible
+
+/** Idle tick: update tray + Today session/focus text nodes without rebuilding panels. */
+function refreshIdleChrome() {
+  const tray = $("#tray-status");
+  if (tray) tray.textContent = trayLabel();
+
+  if (state.ui.tab !== "today" || state.ui.tutorialOpen) return;
+
+  const mins = sessionMinutes();
+  const sessionEl = $("#today-session-mins");
+  if (sessionEl) {
+    sessionEl.textContent = `${mins}m`;
+  } else if (mins >= 1) {
+    // First minute of the session — the line did not exist on last full paint.
+    renderToday();
+    return;
+  }
+
+  const focusEl = $("#today-focus-remaining");
+  if (focusEl) {
+    const label = focusRemainingLabel();
+    if (label) focusEl.textContent = label;
+  }
+}
+
+// Refresh session clock / tray occasionally while visible — no full panel rebuild.
 window.setInterval(() => {
   if (document.visibilityState === "visible" && !state.ui.tutorialOpen) {
-    if (state.ui.tab === "today") renderToday();
-    if (state.ui.tab === "usage" && state.tutorial.permissions.usage) renderUsage();
-    if (state.ui.tab === "blocks") renderBlocks();
-    $("#tray-status").textContent = trayLabel();
-    renderNav();
+    refreshIdleChrome();
   }
   // Periodic flush so multi-minute sessions land without waiting for hide
   if (usageTracker?.isRunning()) usageTracker.flush();
@@ -4561,6 +4585,13 @@ window.setInterval(() => {
     void refreshPlatformUsage();
   }
 }, 30_000);
+
+// Test hook: fire without waiting for the 30s timer.
+document.addEventListener("aily:idle-tick", () => {
+  if (document.visibilityState === "visible" && !state.ui.tutorialOpen) {
+    refreshIdleChrome();
+  }
+});
 
 // Light keyboard nav for desktop dogfood (ignore when typing).
 document.addEventListener("keydown", (e) => {
