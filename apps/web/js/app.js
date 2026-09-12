@@ -238,6 +238,134 @@ const MAX_UNDO = 12;
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
+const MODAL_SELECTOR = '.modal-backdrop[role="dialog"]';
+const MODAL_FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+let activeModalElement = null;
+let modalReturnFocus = null;
+let recentModalTrigger = null;
+let modalSyncFrame = 0;
+
+function topVisibleModal() {
+  const modals = $$(MODAL_SELECTOR);
+  for (let index = modals.length - 1; index >= 0; index -= 1) {
+    if (!modals[index].classList.contains("hidden")) return modals[index];
+  }
+  return null;
+}
+
+function focusDescriptor(element) {
+  if (!(element instanceof HTMLElement) || element === document.body) return null;
+  return {
+    element,
+    id: element.id || "",
+    action: element.dataset.action || "",
+    nav: element.dataset.nav || "",
+  };
+}
+
+function resolveFocusDescriptor(descriptor) {
+  if (!descriptor) return null;
+  if (descriptor.element?.isConnected) return descriptor.element;
+  const escaped = (value) => globalThis.CSS?.escape?.(value) || value.replace(/["\\]/g, "\\$&");
+  if (descriptor.id) return document.getElementById(descriptor.id);
+  if (descriptor.action) return $(`[data-action="${escaped(descriptor.action)}"]`);
+  if (descriptor.nav) return $(`.side [data-nav="${escaped(descriptor.nav)}"]`);
+  return null;
+}
+
+function modalFocusableElements(modal) {
+  return $$(MODAL_FOCUSABLE_SELECTOR, modal).filter(
+    (element) => !element.hidden && !element.closest("[inert]") && element.getClientRects().length > 0,
+  );
+}
+
+function syncModalAccessibility() {
+  modalSyncFrame = 0;
+  const modal = topVisibleModal();
+  const shell = $("#app-shell");
+
+  for (const candidate of $$(MODAL_SELECTOR)) {
+    if (candidate !== modal && !candidate.classList.contains("hidden")) {
+      candidate.setAttribute("inert", "");
+    } else {
+      candidate.removeAttribute("inert");
+    }
+  }
+
+  if (modal) {
+    shell?.setAttribute("inert", "");
+    if (modal !== activeModalElement) {
+      if (!activeModalElement) {
+        const current = focusDescriptor(document.activeElement);
+        const recent = recentModalTrigger && performance.now() - recentModalTrigger.at < 1500
+          ? recentModalTrigger.descriptor
+          : null;
+        modalReturnFocus = current || recent;
+      }
+      activeModalElement = modal;
+      const initial = modal.querySelector("[data-modal-initial]");
+      const focusTarget =
+        (initial instanceof HTMLElement && !initial.matches(":disabled") ? initial : null) ||
+        modalFocusableElements(modal)[0];
+      if (!modal.contains(document.activeElement)) focusTarget?.focus();
+    }
+    return;
+  }
+
+  shell?.removeAttribute("inert");
+  if (!activeModalElement) return;
+  activeModalElement = null;
+  const returnTarget = resolveFocusDescriptor(modalReturnFocus);
+  modalReturnFocus = null;
+  recentModalTrigger = null;
+  returnTarget?.focus();
+}
+
+function scheduleModalAccessibilitySync() {
+  if (modalSyncFrame) return;
+  modalSyncFrame = requestAnimationFrame(syncModalAccessibility);
+}
+
+function handleModalKeydown(event) {
+  const modal = topVisibleModal();
+  if (!modal) return;
+  if (event.key === "Escape") {
+    const close = modal.querySelector("[data-modal-close]");
+    if (!close) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    close.click();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = modalFocusableElements(modal);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!modal.contains(document.activeElement)) {
+    event.preventDefault();
+    first.focus();
+  } else if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+document.addEventListener("keydown", handleModalKeydown, true);
+
 function persist({ failureMessage = "" } = {}) {
   moreOpen = false;
   lastSave = saveState(state);
@@ -604,6 +732,7 @@ function renderBreakGlassModal() {
   if (!modal) return;
   const show = !!pendingBreakGlass;
   modal.classList.toggle("hidden", !show);
+  scheduleModalAccessibilitySync();
   if (!show || !pendingBreakGlass) return;
   const rule = state.blockRules.find((r) => r.id === pendingBreakGlass.ruleId);
   if (!rule) {
@@ -764,6 +893,7 @@ function renderOpenModals() {
     const trigger = $("[data-action='open-more']");
     if (trigger) trigger.setAttribute("aria-expanded", "false");
   }
+  scheduleModalAccessibilitySync();
 }
 
 function render() {
@@ -779,12 +909,14 @@ function renderHelpModal() {
   const modal = $("#help-modal");
   if (!modal) return;
   modal.classList.toggle("hidden", !helpOpen);
+  scheduleModalAccessibilitySync();
 }
 
 function renderMoreSheet() {
   const modal = $("#more-sheet");
   if (!modal) return;
   modal.classList.toggle("hidden", !moreOpen);
+  scheduleModalAccessibilitySync();
   const trigger = $("[data-action='open-more']");
   if (trigger) trigger.setAttribute("aria-expanded", moreOpen ? "true" : "false");
 }
@@ -818,6 +950,7 @@ function renderCheckInModal() {
   if (!modal) return;
   const show = !!state.ui.checkInOpen;
   modal.classList.toggle("hidden", !show);
+  scheduleModalAccessibilitySync();
   if (!show) return;
   const input = $("#checkin-intention");
   if (input && !input.value && state.ui.dailyIntention) {
@@ -2171,6 +2304,7 @@ function renderTutorialModal() {
   if (!modal) return;
   const show = state.ui.tutorialOpen;
   modal.classList.toggle("hidden", !show);
+  scheduleModalAccessibilitySync();
   if (!show) return;
   if (tutorialViewModule) {
     paintTutorial();
@@ -2194,6 +2328,7 @@ function renderIntentionModal() {
   if (!modal) return;
   const show = !!pendingIntention;
   modal.classList.toggle("hidden", !show);
+  scheduleModalAccessibilitySync();
   if (!show || !pendingIntention) return;
 
   const daily = dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek);
@@ -2715,6 +2850,7 @@ function renderReturnNudgeModal() {
   if (!modal) return;
   const show = !!activeReturnNudge;
   modal.classList.toggle("hidden", !show);
+  scheduleModalAccessibilitySync();
   if (!show) return;
   const title = $("#return-nudge-title");
   const body = $("#return-nudge-body");
@@ -2855,6 +2991,11 @@ function markdownLite(s) {
 
 // Events
 document.addEventListener("click", async (e) => {
+  if (!topVisibleModal()) {
+    const trigger = e.target.closest("button, a[href], input, select, textarea, [tabindex]");
+    const descriptor = focusDescriptor(trigger);
+    if (descriptor) recentModalTrigger = { descriptor, at: performance.now() };
+  }
   const openOverflow = e.target.closest(".commit-overflow");
   $$(".commit-overflow[open]").forEach((menu) => {
     if (menu !== openOverflow) menu.open = false;
@@ -4601,6 +4742,8 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") e.target.blur();
     return;
   }
+  // Modal keys belong to the open decision, never to tabs or background shortcuts.
+  if (topVisibleModal()) return;
   if (e.key === "Escape") {
     if (activeReturnNudge) {
       dismissReturnNudge();

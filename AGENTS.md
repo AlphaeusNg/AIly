@@ -40,9 +40,12 @@ Verify packages with `SHA256SUMS.txt` before opening. Full guide: `docs/install-
 
 Do not add `src-tauri` to the Cargo workspace — Linux `npm test` must stay WebKit-free. Core logic stays in Rust.
 
-## Status (Phase 0 dogfood `2026.08.28.1`)
+## Status (Phase 0 dogfood `2026.09.13.1`)
 
 Boot splash + brand assets, PWA install/update banners, scope-isolated offline page, time-consciousness meter, daily intention check-in, focus sessions, local propose-only ally planner, clone yesterday, must-keep / priority controls, target pause/complete, in-app attention tracker, Capacitor Android consent-gated UsageStats, Tauri Windows consent-gated foreground process totals (process names only), break-glass countdown, weekly journey stats, display density / reduce-motion, keyboard help (`?`, `Esc`, `1–7`), safe local persist/export/import, **Load sample journey**. Later: OS hard-blocks (Ship C), sealed DB, optional local AI.
+
+All seven decision modals isolate the app shell, trap keyboard focus, suppress
+background shortcuts, close with Escape, and return focus to their trigger.
 
 ## Rules
 

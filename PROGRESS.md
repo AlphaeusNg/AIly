@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-12 (AIly Cycle 44)
+Last updated: 2026-09-13 (AIly Cycle 45)
 
 ## Current state
 
@@ -12,7 +12,7 @@ Last updated: 2026-09-12 (AIly Cycle 44)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.09.11.3`; Windows and Android package version `0.1.4`.
+- Deployment version: `2026.09.13.1`; Windows and Android package version `0.1.4`.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`v0.1.4`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
@@ -23,9 +23,11 @@ Last updated: 2026-09-12 (AIly Cycle 44)
 - Releases include one generated `SHA256SUMS.txt` for the tested Windows and
   Android artifacts, with platform-native verification instructions.
 - Gate: Rust + target/store/tutorial/usage/platform-usage/block/ally/journey/service-worker/shell,
-  six real Chromium journeys, one Windows usage fixture, and 64 CI policy assertions via
+  nine real Chromium journeys, one Windows usage fixture, and 64 CI policy assertions via
   `npm test`, plus five Android JVM shell/usage tests in a separate cached JDK
   21 hosted job.
+- Every decision modal isolates the app shell, keeps keyboard focus inside,
+  ignores background shortcuts, closes with Escape, and restores its trigger.
 - Service-worker execution covers activation cleanup, installed-scope bypass,
   current-cache ownership, fetch lifetime, first-use caching of deferred
   modules, offline navigation, and cache-write failure isolation. Install
@@ -40,6 +42,7 @@ Last updated: 2026-09-12 (AIly Cycle 44)
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
 | 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Isolate every decision modal and keep keyboard focus inside it | Accessibility / correctness | High: dialog users could tab or shortcut into the background, and focus was not reliably restored | Small-medium / low | Native `inert`, shared focus loop, explicit close/initial controls, Chromium journey | Completed in Cycle 45 |
 | — | Override Capacitor CLI xmldom to the patched 0.9.12 line | Security / maintenance | High: Dependabot flagged ten high/medium advisories on development-scope `@xmldom/xmldom` 0.9.10 | Tiny / low | npm override, lock 0.9.12, packaging contract, `npm audit` 0 | Completed in Cycle 44 |
 | — | Stop precaching lazy tab modules on first PWA install | Performance / first paint | High: install still downloaded Activity/Blocks/tutorial views and platform-usage before Today painted | Small / low | First-paint ASSETS, runtime cache-on-first-use, SITE_VERSION-coupled cache | Completed in Cycle 43 |
 | — | Defer native usage backend until after first paint | Performance / correctness | High: Today still compiled platform-usage.js, and Usage-tab seeds could throw before desktop_ready | Small / low | Inlined web-session stub, dynamic import, 7/7 Chromium journeys | Completed in Cycle 42 |
@@ -83,6 +86,39 @@ Last updated: 2026-09-12 (AIly Cycle 44)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 45 — Keep modal decisions isolated and keyboard-complete (2026-09-13)
+
+**Why this won:** AIly labels its seven overlays as modal dialogs, but keyboard
+focus could still leave them and global shortcuts could change the obscured app.
+Closing an overlay also did not reliably return users to the control that
+opened it.
+
+**Changes**
+
+- The visible top dialog makes the app shell and any lower dialog inert until
+  it closes.
+- Shared modal keyboard handling wraps Tab/Shift+Tab, closes with Escape even
+  from an editable field, and prevents app-level shortcuts while a decision is
+  open.
+- Each dialog declares an explicit close control and a useful initial focus
+  target; closing restores a still-present or re-rendered trigger when possible.
+- Coupled the service-worker cache and deployment stamp at `2026.09.13.1`.
+
+**Verification evidence**
+
+- Static shell contracts cover all seven close controls, background isolation,
+  focus containment, and trigger restoration wiring.
+- A real Chromium journey covers initial focus, forward focus wrapping,
+  background shortcut suppression, Escape from a button and input, shell
+  restoration, and trigger restoration.
+- `npm test` passes the Rust/domain/static/policy/syntax gate and all nine
+  Chromium journeys; Android JVM verification passes separately.
+
+**Scores**
+
+- Modal keyboard isolation: 2/10 -> 10/10.
+- Focus return reliability: 3/10 -> 9/10.
 
 ### Cycle 44 — Override Capacitor CLI xmldom to 0.9.12 (2026-09-12)
 

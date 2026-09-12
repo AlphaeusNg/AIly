@@ -120,7 +120,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted" id="tutorial-progress">0/8</span>
-          <button type="button" data-action="close-tutorial" aria-label="Close">✕</button>
+          <button type="button" data-action="close-tutorial" data-modal-close aria-label="Close">✕</button>
         </div>
         <h2 id="tutorial-title">Meet AIly</h2>
         <div id="tutorial-body"></div>
@@ -133,7 +133,7 @@
       <div class="modal intention-modal">
         <div class="modal-top">
           <span class="muted">Intentional check</span>
-          <button type="button" data-action="intention-cancel" aria-label="Cancel">✕</button>
+          <button type="button" data-action="intention-cancel" data-modal-close aria-label="Cancel">✕</button>
         </div>
         <h2 id="intention-title">Is this what you want?</h2>
         <p id="intention-body" class="intention-body"></p>
@@ -142,7 +142,7 @@
         </div>
         <p class="muted intention-hint" id="intention-hint"></p>
         <div class="modal-actions">
-          <button type="button" class="primary" data-action="intention-confirm">Yes — protect this time</button>
+          <button type="button" class="primary" data-action="intention-confirm" data-modal-initial>Yes — protect this time</button>
           <button type="button" data-action="intention-cancel">Not now</button>
         </div>
         <details class="intention-fewer">
@@ -160,12 +160,12 @@
       <div class="modal intention-modal">
         <div class="modal-top">
           <span class="muted">Welcome back</span>
-          <button type="button" data-action="return-choose-next" aria-label="Close">✕</button>
+          <button type="button" data-action="return-choose-next" data-modal-close aria-label="Close">✕</button>
         </div>
         <h2 id="return-nudge-title">Still protecting this?</h2>
         <p id="return-nudge-body" class="intention-body"></p>
         <div class="modal-actions">
-          <button type="button" class="primary" id="return-nudge-yes" data-action="return-still-yes">Yes — still this</button>
+          <button type="button" class="primary" id="return-nudge-yes" data-action="return-still-yes" data-modal-initial>Yes — still this</button>
           <button type="button" id="return-nudge-no" data-action="return-change">No — change intention</button>
           <button type="button" class="ghost" id="return-nudge-next" data-action="return-choose-next">I'll choose next</button>
         </div>
@@ -176,12 +176,12 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Daily check-in</span>
-          <button type="button" data-action="checkin-skip" aria-label="Skip">✕</button>
+          <button type="button" data-action="checkin-skip" data-modal-close aria-label="Skip">✕</button>
         </div>
         <h2 id="checkin-title">What do you want to protect today?</h2>
         <p class="muted">Pause before the day runs you. One sentence is enough — AIly will keep it visible on Today.</p>
         <label class="form-label">My intention
-          <input id="checkin-intention" type="text" maxlength="280" placeholder="e.g. Ship the hard part before lunch" />
+          <input id="checkin-intention" type="text" maxlength="280" placeholder="e.g. Ship the hard part before lunch" data-modal-initial />
         </label>
         <label class="form-label">Optional note
           <input id="checkin-note" type="text" maxlength="500" placeholder="Context for later (local only)" />
@@ -208,13 +208,13 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Break glass</span>
-          <button type="button" data-action="breakglass-cancel" aria-label="Cancel">✕</button>
+          <button type="button" data-action="breakglass-cancel" data-modal-close aria-label="Cancel">✕</button>
         </div>
         <h2 id="breakglass-title">Unlock for a moment</h2>
         <p id="breakglass-body" class="intention-body"></p>
         <p class="breakglass-countdown" id="breakglass-countdown" aria-live="polite">—</p>
         <label class="form-label">Why? <span class="muted">(logged locally — no shame)</span>
-          <input id="breakglass-reason" type="text" maxlength="200" placeholder="e.g. need one message from Slack" />
+          <input id="breakglass-reason" type="text" maxlength="200" placeholder="e.g. need one message from Slack" data-modal-initial />
         </label>
         <div class="modal-actions">
           <button type="button" class="primary" id="breakglass-confirm" data-action="breakglass-confirm" disabled>Unlock</button>
@@ -227,7 +227,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Keyboard</span>
-          <button type="button" data-action="close-help" aria-label="Close">✕</button>
+          <button type="button" data-action="close-help" data-modal-close aria-label="Close">✕</button>
         </div>
         <h2 id="help-title">Shortcuts</h2>
         <ul class="list">
@@ -243,7 +243,7 @@
         </ul>
         <p class="muted">AIly is local-first. Shortcuts are ignored while typing in fields.</p>
         <div class="modal-actions">
-          <button type="button" class="primary" data-action="close-help">Got it</button>
+          <button type="button" class="primary" data-action="close-help" data-modal-initial>Got it</button>
         </div>
       </div>
     </div>
@@ -252,11 +252,11 @@
       <div class="modal more-sheet">
         <div class="modal-top">
           <span class="muted">More</span>
-          <button type="button" data-action="close-more" aria-label="Close">✕</button>
+          <button type="button" data-action="close-more" data-modal-close aria-label="Close">✕</button>
         </div>
         <h2 id="more-sheet-title">More</h2>
         <div class="more-sheet-nav">
-          <button type="button" data-nav="blocks">
+          <button type="button" data-nav="blocks" data-modal-initial>
             <span class="nav-ico" aria-hidden="true">▣</span> Blocks
           </button>
           <button type="button" data-nav="setup">

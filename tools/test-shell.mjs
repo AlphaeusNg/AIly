@@ -65,6 +65,11 @@ for (const id of [
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `index has #${id}`);
 }
+assert.equal(
+  (html.match(/data-modal-close/g) || []).length,
+  7,
+  "every modal exposes one explicit Escape/focus-management close control",
+);
 
 for (const tab of ["today", "targets", "review", "usage", "blocks", "setup", "activity"]) {
   assert.match(html, new RegExp(`data-nav="${tab}"`), `index still exposes ${tab} navigation`);
@@ -205,6 +210,9 @@ assert.doesNotMatch(
 );
 assert.match(app, /commit-overflow/, "commitment extras live behind a per-row overflow menu");
 assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
+assert.match(app, /shell\?\.setAttribute\("inert"/, "open modals isolate the app shell");
+assert.match(app, /handleModalKeydown/, "modal keyboard focus stays inside the active dialog");
+assert.match(app, /resolveFocusDescriptor/, "closing a modal restores its trigger when possible");
 for (const deferredView of ["activity-view", "block-view", "tutorial-view"]) {
   assert.match(
     app,
