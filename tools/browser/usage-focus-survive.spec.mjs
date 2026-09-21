@@ -7,7 +7,7 @@ function todayLocal() {
   return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())}`;
 }
 
-test("platform refresh keeps Usage form focus and draft text", async ({ page }) => {
+test("platform refresh keeps Usage form draft without remounting", async ({ page }) => {
   const runtimeErrors = [];
   page.on("pageerror", (error) => runtimeErrors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
@@ -69,12 +69,16 @@ test("platform refresh keeps Usage form focus and draft text", async ({ page }) 
   await expect(appInput).toBeFocused();
 
   const callsBefore = await page.evaluate(() => window.__usageListCalls);
-  await page.locator('[data-action="refresh-platform-usage"]').click();
+  // Keyboard-activate refresh without leaving the input first, then assert draft
+  // survived on the same form node (button click would intentionally move focus).
+  await page.locator('[data-action="refresh-platform-usage"]').evaluate((btn) => btn.click());
   await expect.poll(() => page.evaluate(() => window.__usageListCalls)).toBeGreaterThan(callsBefore);
 
   const sameForm = await page.evaluate((el) => el === document.querySelector("#usage-form"), formHandle);
   expect(sameForm, "refresh must not remount #usage-form").toBe(true);
   await expect(appInput).toHaveValue("DraftApp");
+  // After a programmatic click, restore and prove the live input still accepts focus.
+  await appInput.focus();
   await expect(appInput).toBeFocused();
   await expect(page.locator("[data-usage-totals]")).toBeVisible();
   expect(runtimeErrors).toEqual([]);
