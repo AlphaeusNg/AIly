@@ -696,10 +696,13 @@ async function refreshPlatformUsage(options = {}) {
       return;
     }
 
+    let grantedThisPass = false;
     if (nativeUsageConsentWasStored) {
       commitUsageGrant("attention", { restoring: true });
+      grantedThisPass = true;
     } else if (usesAndroidUsage && pending) {
       commitUsageGrant("attention");
+      grantedThisPass = true;
       showToast("Android usage access confirmed — local daily totals are on.", "ok", 4500);
     }
     if (state.tutorial.permissions.usage) {
@@ -707,7 +710,11 @@ async function refreshPlatformUsage(options = {}) {
     } else {
       platformUsageSamples = [];
     }
-    if (state.ui.tab === "usage") renderUsage();
+    if (state.ui.tab === "usage") {
+      // Grant/revoke chrome changes need a full mount; sample refresh keeps the form.
+      if (grantedThisPass) renderUsage();
+      else paintUsageTotals();
+    }
     if (state.ui.tab === "today") renderToday();
   } catch {
     platformUsageStatus = "error";
@@ -2030,21 +2037,75 @@ function renderReview() {
   `;
 }
 
+function usageGrantedBannerHtml() {
+  const pendingMs = usageTracker?.pendingMs?.() || 0;
+  const pendingMin = Math.floor(pendingMs / 60000);
+  const pendingSec = Math.floor((pendingMs % 60000) / 1000);
+  if (usesNativeUsage) {
+    if (usesAndroidUsage) {
+      return `Android usage access confirmed. Showing ${platformUsageSamples.length} local OS total${platformUsageSamples.length === 1 ? "" : "s"}; status: ${escapeHtml(platformUsageStatus)}.`;
+    }
+    return `Windows foreground tracking on. Showing ${platformUsageSamples.length} local session total${platformUsageSamples.length === 1 ? "" : "s"} since AIly opened; status: ${escapeHtml(platformUsageStatus)}.`;
+  }
+  return `Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
+    usageTracker?.isRunning?.()
+      ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
+      : ""
+  }`;
+}
+
+function usageTotalsInnerHtml() {
+  const reading = usageReading();
+  const measuredRows = reading.measured
+    ? allUsageSamples().filter((sample) => sample?.source === reading.source
+        && (reading.source !== "web-session" || sample.visitId === usageVisitId))
+    : [];
+  const byApp = summarizeDayByApp(measuredRows, todayISO());
+  const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
+  return `<h2>Today’s logged attention</h2>
+      <p class="ally-line"><strong data-usage-total-mins>${reading.measured ? `${reading.minutes | 0}m` : "Not measured"}</strong>
+        <span class="usage-window-label">${escapeHtml(reading.windowLabel)}</span>.
+        ${reading.manualMinutes > 0 ? `Saved notes ${reading.manualMinutes | 0}m are not part of that measurement. ` : ""}
+        Does that match how you meant to spend the day?</p>
+      <p class="muted usage-window">${escapeHtml(reading.explanation)}</p>
+      ${
+        byApp.length
+          ? `<div class="usage-bars">${byApp
+              .map(
+                (row) => `<div class="usage-bar-row" title="${escapeHtml(row.app)}">
+                  <div>
+                    <div>${escapeHtml(row.app)}</div>
+                    <div class="usage-bar-track"><div class="usage-bar-fill" style="width:${Math.round((row.mins / maxMins) * 100)}%"></div></div>
+                  </div>
+                  <div class="usage-bar-mins">${row.mins|0}m</div>
+                </div>`
+              )
+              .join("")}</div>`
+          : `<p class="muted">No samples yet — use an app for a full minute, refresh native totals, or log another app below.</p>`
+      }`;
+}
+
+/** Sample-only refresh: update banner + totals without remounting #usage-form. */
+function paintUsageTotals() {
+  const el = $("#panel-usage");
+  if (!el || !state.tutorial.permissions.usage) {
+    renderUsage();
+    return;
+  }
+  const banner = el.querySelector("[data-usage-banner]");
+  const totals = el.querySelector("[data-usage-totals]");
+  if (!banner || !totals || !$("#usage-form")) {
+    renderUsage();
+    return;
+  }
+  banner.innerHTML = usageGrantedBannerHtml();
+  totals.innerHTML = usageTotalsInnerHtml();
+}
+
 function renderUsage() {
   const el = $("#panel-usage");
   const granted = state.tutorial.permissions.usage;
   const reading = usageReading();
-  const measuredRows = reading.measured
-    ? allUsageSamples().filter(
-        (sample) => sample?.source === reading.source && sample.ts?.startsWith(todayISO())
-          && (reading.source !== "web-session" || sample.visitId === usageVisitId),
-      )
-    : [];
-  const byApp = summarizeDayByApp(measuredRows, todayISO());
-  const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
-  const pendingMs = usageTracker?.pendingMs?.() || 0;
-  const pendingMin = Math.floor(pendingMs / 60000);
-  const pendingSec = Math.floor((pendingMs % 60000) / 1000);
   el.innerHTML = `
     <header class="panel-head">
       <h1>Usage</h1>
@@ -2053,44 +2114,9 @@ function renderUsage() {
     <p class="muted">Backend: <strong>${escapeHtml(usageBackend.label)}</strong> · <code>${escapeHtml(usageBackend.id)}</code></p>
     ${
       granted
-        ? `<div class="banner ok">${
-            usesNativeUsage
-              ? usesAndroidUsage
-                ? `Android usage access confirmed. Showing ${platformUsageSamples.length} local OS total${platformUsageSamples.length === 1 ? "" : "s"}; status: ${escapeHtml(platformUsageStatus)}.`
-                : `Windows foreground tracking on. Showing ${platformUsageSamples.length} local session total${platformUsageSamples.length === 1 ? "" : "s"} since AIly opened; status: ${escapeHtml(platformUsageStatus)}.`
-              : `Usage on. Session tracker is active for <strong>AIly</strong> while this tab is visible and focused.${
-                  usageTracker?.isRunning?.()
-                    ? ` Live buffer ~${pendingMin}m ${pendingSec}s (flushes in whole minutes).`
-                    : ""
-                }`
-          }</div>
-           <div class="capacity-card">
-             <h2>Today’s logged attention</h2>
-             <p class="ally-line">${
-               reading.measured
-                 ? `<strong>${reading.minutes | 0}m</strong> <span class="usage-window-label">${escapeHtml(reading.windowLabel)}</span>`
-                 : `<strong>Not measured</strong> <span class="usage-window-label">not measured</span>`
-             }. ${
-               reading.manualMinutes > 0
-                 ? `Saved notes ${reading.manualMinutes | 0}m are not part of that measurement. `
-                 : ""
-             }Does that match how you meant to spend the day?</p>
-             <p class="muted usage-window">${escapeHtml(reading.explanation)}</p>
-             ${
-               byApp.length
-                 ? `<div class="usage-bars">${byApp
-                     .map(
-                       (row) => `<div class="usage-bar-row" title="${escapeHtml(row.app)}">
-                         <div>
-                           <div>${escapeHtml(row.app)}</div>
-                           <div class="usage-bar-track"><div class="usage-bar-fill" style="width:${Math.round((row.mins / maxMins) * 100)}%"></div></div>
-                         </div>
-                         <div class="usage-bar-mins">${row.mins|0}m</div>
-                       </div>`
-                     )
-                     .join("")}</div>`
-                 : `<p class="muted">No samples yet — use an app for a full minute, refresh native totals, or log another app below.</p>`
-             }
+        ? `<div class="banner ok" data-usage-banner>${usageGrantedBannerHtml()}</div>
+           <div class="capacity-card" data-usage-totals>
+             ${usageTotalsInnerHtml()}
            </div>
            <form id="usage-form" class="row">
              <input name="app" placeholder="App name (e.g. YouTube)" required />
