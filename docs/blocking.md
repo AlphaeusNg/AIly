@@ -24,6 +24,8 @@ Hard OS-level blocks depend on the OS. Until hooks ship, the web/Android shell
 simulates enforcement in-app so the journey (consent → arm → glass) is
 exercisable. Real enforcement is Phase 2.
 
+Ship C still needs one platform prototype with consent, expiry, restart recovery, and break-glass before any wider support.
+
 ## Safety
 
 - Never arm without tutorial grants.

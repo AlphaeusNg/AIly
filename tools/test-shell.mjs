@@ -18,6 +18,7 @@ const required = [
   "js/app.js",
   "js/activity-view.js",
   "js/block-view.js",
+  "js/setup-view.js",
   "js/store.js",
   "js/capacity.js",
   "js/target.js",
@@ -112,7 +113,7 @@ assert.match(sw, /capacity\.js/, "SW caches capacity module");
 assert.match(sw, /app\.js/, "SW caches the first-paint app module");
 assert.match(sw, /css\/app\.css/, "SW caches the app stylesheet");
 const assetsBlock = /const ASSETS = \[([\s\S]*?)\];/.exec(sw)?.[1] || "";
-for (const deferred of ["activity-view.js", "block-view.js", "tutorial-view.js", "platform-usage.js"]) {
+for (const deferred of ["activity-view.js", "block-view.js", "tutorial-view.js", "platform-usage.js", "setup-view.js"]) {
   assert.doesNotMatch(
     assetsBlock,
     new RegExp(`${deferred.replace(".", "\\.")}`),
@@ -190,7 +191,17 @@ assert.match(app, /return-still-yes/, "return nudge is a real yes/no question");
 assert.match(app, /WINDOWS_DOWNLOAD_URL/, "install copy points at the Windows package");
 assert.ok(app.includes(windowsDownloadUrl), "app uses the direct latest Windows asset");
 assert.ok(html.includes(windowsDownloadUrl), "static install CTA works before JavaScript runs");
-assert.match(app, /Install PWA/, "PWA install is named separately from the Windows package");
+const setupView = read("js/setup-view.js");
+assert.match(setupView, /Install PWA/, "PWA install is named separately from the Windows package");
+assert.match(setupView, /Export backup/, "setup recovery still offers a local backup");
+assert.match(app, /import\("\.\/setup-view\.js"\)/, "setup and recovery UI load outside Today boot");
+assert.match(app, /usage-window-label/, "usage totals name their measurement window");
+assert.match(app, /Not measured/, "unsupported usage is not presented as a measured total");
+assert.match(app, /explainPlanChange/, "a proposed plan explains capacity, priorities, and targets");
+assert.match(app, /Undo accepted plan change/, "an accepted plan change can be undone");
+assert.match(app, /entry\.type === "ally-accept"/, "plan-change undo is a distinct session action");
+const planUndo = app.slice(app.indexOf('entry.type === "ally-accept"'), app.indexOf('entry.type === "ally-accept"') + 700);
+assert.doesNotMatch(planUndo, /tutorial\.permissions/, "undoing a plan change does not touch consent");
 const tutorial = read("js/tutorial.js");
 assert.match(tutorial, /AIly-setup.exe/, "tutorial names the Windows package");
 assert.match(tutorial, /Auto-start stays/, "tutorial says auto-start stays off");
@@ -213,7 +224,7 @@ assert.match(app, /open-more|closeMoreSheet/, "More sheet open/close is wired");
 assert.match(app, /shell\?\.setAttribute\("inert"/, "open modals isolate the app shell");
 assert.match(app, /handleModalKeydown/, "modal keyboard focus stays inside the active dialog");
 assert.match(app, /resolveFocusDescriptor/, "closing a modal restores its trigger when possible");
-for (const deferredView of ["activity-view", "block-view", "tutorial-view"]) {
+for (const deferredView of ["activity-view", "block-view", "tutorial-view", "setup-view"]) {
   assert.match(
     app,
     new RegExp(`import\\(\\"\\./${deferredView}\\.js\\"\\)`),

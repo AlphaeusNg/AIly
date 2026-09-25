@@ -436,6 +436,23 @@ body.app-ready .app-shell[hidden] {
   font-variant-numeric: tabular-nums;
 }
 
+.usage-window-label {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  vertical-align: 0.05rem;
+}
+
+.usage-window {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .file-pick {
   cursor: pointer;
 }

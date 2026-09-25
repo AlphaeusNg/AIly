@@ -40,9 +40,9 @@ import {
 import {
   appendUsageSample,
   createSessionTracker,
+  presentUsageTotal,
   removeUsageSampleAt,
   summarizeDayByApp,
-  totalMinutesForDay,
 } from "./usage.js";
 import {
   breakGlassPolicy,
@@ -53,7 +53,15 @@ import {
   upsertBlockRule,
   validateBreakGlassComplete,
 } from "./block.js";
-import { pickNextCommitment, previewAcceptAll, proposeDayPlan, rankCommitments, returnNudge } from "./ally.js";
+import {
+  explainPlanChange,
+  explainReplanChange,
+  pickNextCommitment,
+  previewAcceptAll,
+  proposeDayPlan,
+  rankCommitments,
+  returnNudge,
+} from "./ally.js";
 import {
   attentionMismatchNote,
   findSameDayDuplicate,
@@ -220,8 +228,11 @@ let activityViewModule = null;
 let activityViewPromise = null;
 let tutorialViewModule = null;
 let tutorialViewPromise = null;
+let setupViewModule = null;
+let setupViewPromise = null;
 const MORE_TABS = new Set(["blocks", "setup", "activity"]);
 const sessionStartedAt = Date.now();
+const usageVisitId = uid();
 let skipIntentionThisSession = false;
 let usageTracker = null;
 let platformUsageSamples = [];
@@ -473,6 +484,19 @@ function undoLast() {
     showToast("Undid replan drops/shrinks.", "ok");
     return;
   }
+  if (entry.type === "ally-accept") {
+    let restored = 0;
+    for (const item of entry.payload || []) {
+      const commitment = state.commitments.find((candidate) => candidate.id === item.id);
+      if (!commitment) continue;
+      commitment.status = "dropped";
+      restored += 1;
+    }
+    appendAudit(state, "undo.plan", `${restored}`);
+    persist();
+    showToast("Undid the accepted plan change. Consent is unchanged.", "ok");
+    return;
+  }
   showToast("Could not undo that action.", "error");
 }
 
@@ -532,8 +556,24 @@ function todayCommitments() {
   return state.commitments.filter((c) => c.planDate === d && c.status !== "dropped");
 }
 
-function dayUsageMinutes() {
-  return totalMinutesForDay(allUsageSamples(), todayISO());
+function usageReading() {
+  return presentUsageTotal({
+    backend: usageBackend,
+    permission: state.tutorial.permissions.usage ? "granted" : "denied",
+    status: usesNativeUsage ? platformUsageStatus : "granted",
+    platformSamples: platformUsageSamples,
+    manualSamples: state.usageSamples || [],
+    day: todayISO(),
+    visitId: usageVisitId,
+  });
+}
+
+function usageHonestyFields(reading) {
+  return {
+    todayUsageMin: reading.measured ? reading.minutes : 0,
+    usageMeasured: reading.measured,
+    usageWindow: reading.windowLabel,
+  };
 }
 
 function allUsageSamples() {
@@ -542,7 +582,11 @@ function allUsageSamples() {
 
 function flushUsageSample(entry) {
   if (!state.tutorial.permissions.usage) return;
-  const result = appendUsageSample(state.usageSamples || [], entry);
+  const result = appendUsageSample(state.usageSamples || [], {
+    ...entry,
+    source: entry.source || "web-session",
+    visitId: usageVisitId,
+  });
   if (!result.added) return;
   state.usageSamples = result.samples;
   appendAudit(
@@ -760,7 +804,7 @@ function sessionMinutes() {
   return Math.max(0, Math.round((Date.now() - sessionStartedAt) / 60000));
 }
 
-function allyTimeMessage(dailyCap, planned, usage) {
+function allyTimeMessage(dailyCap, planned, reading) {
   const session = sessionMinutes();
   const parts = [];
   const name = (state.user.displayName || "").trim();
@@ -770,8 +814,14 @@ function allyTimeMessage(dailyCap, planned, usage) {
   parts.push(
     `You've planned <strong>${formatClockHours(planned)}</strong> of a <strong>${formatClockHours(dailyCap)}</strong> day.`
   );
-  if (usage > 0) {
-    parts.push(`Logged attention samples: <strong>${usage|0}m</strong>.`);
+  if (reading?.measured && reading.minutes > 0) {
+    parts.push(
+      `Measured <strong>${reading.minutes | 0}m</strong> · ${escapeHtml(reading.windowLabel)}.`
+    );
+  } else if (reading && !reading.measured && reading.manualMinutes > 0) {
+    parts.push(
+      `Saved notes <strong>${reading.manualMinutes | 0}m</strong> · not measured usage.`
+    );
   }
   if (session >= 1) {
     parts.push(
@@ -1411,7 +1461,7 @@ function renderToday() {
   const nextThing = pickNextCommitment(today);
   const invalidCommitments = state.recovery?.invalidCommitments || [];
   const used = plannedMinutes();
-  const usage = dayUsageMinutes();
+  const reading = usageReading();
   const ratio = daily > 0 ? used / daily : 0;
   const fillPct = Math.min(100, Math.round(ratio * 100));
   const check = checkPlanAccept({
@@ -1479,10 +1529,17 @@ function renderToday() {
       <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${fillPct}" aria-label="Day plan fill">
         <div class="capacity-meter-fill ${meterClass(ratio)}" style="width:${fillPct}%"></div>
       </div>
-      <p class="ally-line">${allyTimeMessage(daily, used, usage)}</p>
+      <p class="ally-line">${allyTimeMessage(daily, used, reading)}</p>
+      ${
+        reading.measured
+          ? `<p class="muted usage-window">${escapeHtml(reading.explanation)}</p>`
+          : reading.manualMinutes > 0
+            ? `<p class="muted usage-window">${escapeHtml(reading.explanation)}</p>`
+            : ""
+      }
       ${
         (() => {
-          const note = attentionMismatchNote(used, usage);
+          const note = attentionMismatchNote(used, reading.measured ? reading.minutes : 0);
           return note ? `<p class="ally-line muted">${escapeHtml(note)}</p>` : "";
         })()
       }
@@ -1596,12 +1653,29 @@ function renderToday() {
       ${today.some((c) => c.status === "pending") ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>` : ""}
       ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
       ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
+      ${
+        undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
+          ? `<button type="button" data-action="undo">Undo accepted plan change</button>`
+          : ""
+      }
     </div>
     ${
       allyProposal
         ? `<div class="capacity-card ally-propose-card">
              <h2>Ally proposal (local, not cloud)</h2>
              <p class="ally-line">${escapeHtml(allyProposal.summary)}</p>
+             ${(() => {
+               const explained = explainPlanChange({
+                 proposals: allyProposal.proposals,
+                 weeklyCapacityHours: cap,
+                 nightsPerWeek: state.user.nightsPerWeek,
+                 existingToday: today,
+                 targets: state.targets,
+               });
+               return `<p class="ally-line">${escapeHtml(explained.capacity)}</p>
+               <p class="muted">${escapeHtml(explained.priorities)}</p>
+               <p class="muted">${escapeHtml(explained.targets)} Proposal only. Accepting does not change usage or block consent.</p>`;
+             })()}
              <ul class="list">
                ${allyProposal.proposals
                  .map(
@@ -1870,6 +1944,10 @@ function renderReview() {
   const streak = intentionStreak(state, d);
   const plannedToday = list.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
   const doneToday = done.reduce((a, c) => a + (Number.isFinite(c.estimateMin) ? c.estimateMin : 0), 0);
+  const reading = usageReading();
+  const attentionLabel = reading.measured
+    ? `${reading.minutes | 0}m · ${escapeHtml(reading.windowLabel)}`
+    : "not measured";
   const maxDayPlan = Math.max(1, ...breakdown.days.map((x) => x.plannedMin));
   el.innerHTML = `
     <header class="panel-head">
@@ -1885,7 +1963,8 @@ function renderReview() {
     }
     <div class="capacity-card">
       <h2>Today close-out</h2>
-      <p class="ally-line">Planned <strong>${plannedToday|0}m</strong> · closed <strong>${doneToday|0}m</strong> · open <strong>${pending.length}</strong> · attention samples <strong>${dayUsageMinutes()|0}m</strong>.</p>
+      <p class="ally-line">Planned <strong>${plannedToday|0}m</strong> · closed <strong>${doneToday|0}m</strong> · open <strong>${pending.length}</strong> · attention <strong>${attentionLabel}</strong>.</p>
+      <p class="muted usage-window">${escapeHtml(reading.explanation)} Week totals below count saved samples on this device only — not a full day on every device.</p>
     </div>
     <div class="capacity-card">
       <h2>This week (from ${week.start})</h2>
@@ -1954,8 +2033,14 @@ function renderReview() {
 function renderUsage() {
   const el = $("#panel-usage");
   const granted = state.tutorial.permissions.usage;
-  const usage = dayUsageMinutes();
-  const byApp = summarizeDayByApp(allUsageSamples(), todayISO());
+  const reading = usageReading();
+  const measuredRows = reading.measured
+    ? allUsageSamples().filter(
+        (sample) => sample?.source === reading.source && sample.ts?.startsWith(todayISO())
+          && (reading.source !== "web-session" || sample.visitId === usageVisitId),
+      )
+    : [];
+  const byApp = summarizeDayByApp(measuredRows, todayISO());
   const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
   const pendingMs = usageTracker?.pendingMs?.() || 0;
   const pendingMin = Math.floor(pendingMs / 60000);
@@ -1981,7 +2066,16 @@ function renderUsage() {
           }</div>
            <div class="capacity-card">
              <h2>Today’s logged attention</h2>
-             <p class="ally-line"><strong>${usage|0}m</strong> total. Does that match how you meant to spend the day?</p>
+             <p class="ally-line">${
+               reading.measured
+                 ? `<strong>${reading.minutes | 0}m</strong> <span class="usage-window-label">${escapeHtml(reading.windowLabel)}</span>`
+                 : `<strong>Not measured</strong> <span class="usage-window-label">not measured</span>`
+             }. ${
+               reading.manualMinutes > 0
+                 ? `Saved notes ${reading.manualMinutes | 0}m are not part of that measurement. `
+                 : ""
+             }Does that match how you meant to spend the day?</p>
+             <p class="muted usage-window">${escapeHtml(reading.explanation)}</p>
              ${
                byApp.length
                  ? `<div class="usage-bars">${byApp
@@ -2024,6 +2118,7 @@ function renderUsage() {
               ? "Finish the Android Usage Access choice, then return to AIly."
               : "Grant usage in Setup / tutorial chapter “Attention map”."
           }</div>
+           <p class="muted usage-window"><strong>Not measured</strong> <span class="usage-window-label">not measured</span>. ${escapeHtml(reading.explanation)}</p>
            <button type="button" class="primary" data-action="grant-usage">${usesAndroidUsage ? "Open Android usage access" : usesWindowsUsage ? "Start Windows foreground tracking" : "Grant usage tracking"}</button>`
     }
   `;
@@ -2126,136 +2221,39 @@ function tryOpenBlockedApp(app) {
   startBreakGlass(hit.id);
   showToast(`${app} is blocked. Complete break-glass to unlock.`, "error", 4000);
 }
-function renderSetup() {
-  const el = $("#panel-setup");
+function paintSetup(element) {
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
-    // @ts-expect-error iOS
     window.navigator.standalone === true;
-  const doneCh = CHAPTERS.filter((c) => chapterStatus(state, c.id) === "done").length;
-  const setupPct = Math.round((doneCh / CHAPTERS.length) * 100);
-  el.innerHTML = `
-    <header class="panel-head">
-      <h1>Setup</h1>
-      <p class="muted">Tutorial checklist — AIly walks you through everything.</p>
-    </header>
-    <div class="capacity-card">
-      <h2>Setup progress</h2>
-      <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${setupPct}">
-        <div class="capacity-meter-fill" style="width:${setupPct}%"></div>
-      </div>
-      <p class="muted">${doneCh}/${CHAPTERS.length} chapters · ready: <strong>${isReady(state) ? "yes" : "not yet"}</strong></p>
-    </div>
-    <button type="button" class="primary" data-action="open-tutorial">Open tutorial</button>
-    <ul class="list checklist">
-      ${CHAPTERS.map((c) => {
-        const st = chapterStatus(state, c.id);
-        return `<li>
-          <span class="dot ${st}"></span>
-          <strong>${escapeHtml(c.title)}</strong>
-          <span class="muted">${st}${c.required ? " · required" : ""}</span>
-        </li>`;
-      }).join("")}
-    </ul>
-    <div class="card">
-      <h2>Get AIly on this device</h2>
-      <p class="muted">${
-        isTauriShell()
-          ? "You’re in the Windows package. Data lives in this app’s profile, not a random browser. OS app blocks are not in this build."
-          : standalone
-            ? "Running as an installed PWA. This is a browser app — not OS admin, and not AIly-setup.exe."
-            : "Two different installs: a browser PWA now, or the Windows package (AIly-setup.exe) from GitHub Releases. Neither can hard-block apps yet."
-      }</p>
-      <div class="row">
-        ${
-          !standalone && deferredInstall
-            ? `<button type="button" class="primary" data-action="install-app">Install PWA</button>`
-            : ""
-        }
-        ${
-          isTauriShell()
-            ? ""
-            : `<a class="primary" href="${WINDOWS_DOWNLOAD_URL}" target="_blank" rel="noopener">Download Windows package</a>`
-        }
-      </div>
-      <p class="muted">PWA stays in this browser profile. The Windows package is unsigned dogfood until a later signed MSIX. Auto-start stays off.</p>
-    </div>
-    <div class="card form">
-      <h2>You</h2>
-      <label>Display name <input id="setup-name" type="text" maxlength="80" value="${escapeHtml(state.user.displayName || "")}" placeholder="Optional — how AIly greets you" /></label>
-      <button type="button" data-action="save-name">Save name</button>
-    </div>
-    <div class="card form">
-      <h2>Capacity</h2>
-      <p class="muted">How much time you can honestly protect each week.</p>
-      <div class="row">
-        <label>Weekly hours <input id="setup-hours" type="number" min="1" max="80" step="0.5" value="${state.user.weeklyCapacityHours}" /></label>
-        <label>Nights/week <input id="setup-nights" type="number" min="1" max="7" value="${state.user.nightsPerWeek}" /></label>
-        <button type="button" class="primary" data-action="save-capacity">Save capacity</button>
-      </div>
-      <p class="muted">Day soft cap ≈ ${dailySoftCapMinutes(state.user.weeklyCapacityHours, state.user.nightsPerWeek)|0}m</p>
-    </div>
-    <div class="card">
-      <h2>Display</h2>
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="setup-compact" ${state.ui.density === "compact" ? "checked" : ""} /> Compact density</label>
-        <label class="chk"><input type="checkbox" id="setup-reduce-motion" ${state.ui.reduceMotion ? "checked" : ""} /> Reduce motion</label>
-        <label class="chk"><input type="checkbox" id="setup-contrast" ${state.ui.highContrast ? "checked" : ""} /> Higher contrast</label>
-        <button type="button" data-action="save-display">Save display</button>
-      </div>
-      ${
-        Date.now() < (state.ui.intentionSkipUntil || 0) || skipIntentionThisSession
-          ? `<p class="muted">Intention checks are paused.
-               <button type="button" data-action="resume-intention-checks">Resume now</button></p>`
-          : ""
-      }
-    </div>
-    <div class="card">
-      <h2>Permissions</h2>
-      <p>Usage: <strong>${state.tutorial.permissions.usage ? "on" : "off"}</strong>
-         · Notifications: <strong>${state.tutorial.permissions.notifications ? "on" : "off"}</strong>
-         · Block admin: <strong>${state.tutorial.permissions.blockAdmin ? "on" : "off"}</strong></p>
-      <p class="muted">Can arm blocks: <strong>${canArmBlocks(state) ? "yes" : "no"}</strong></p>
-      <div class="row">
-        <button type="button" data-action="revoke-usage" ${state.tutorial.permissions.usage ? "" : "disabled"}>Revoke usage</button>
-        <button type="button" data-action="revoke-admin" ${state.tutorial.permissions.blockAdmin ? "" : "disabled"}>Revoke block admin</button>
-        ${
-          state.tutorial.permissions.notifications
-            ? '<button type="button" data-action="notify-test">Test notification</button>'
-            : '<button type="button" data-action="grant-notifications">Allow notifications</button>'
-        }
-      </div>
-    </div>
-    <div class="card">
-      <h2>Take AIly with you</h2>
-      <p class="muted">${
-        backupIsStale()
-          ? "No recent backup on this device. Export a file before you switch browsers or install the Windows package — the PWA and the .exe do not share storage."
-          : "Export stays on this device until you save the file. Import replaces current local state after confirmation."
-      }</p>
-      <div class="row">
-        <button type="button" class="primary" data-action="export-backup">Export backup</button>
-        <label class="chk file-pick">
-          <span class="file-pick-label">Import backup…</span>
-          <input type="file" id="import-backup" accept="application/json,.json" hidden />
-        </label>
-        <button type="button" data-action="export-audit">Export audit TSV</button>
-        <button type="button" data-action="clear-audit">Clear activity log</button>
-        <button type="button" data-action="seed-demo">Load sample journey</button>
-        <button type="button" data-action="undo" ${undoStack.length ? "" : "disabled"}>Undo last</button>
-        <button type="button" data-action="reset-demo">Reset demo data</button>
-        <button type="button" data-action="open-help">Keyboard help</button>
-      </div>
-      <p class="muted">Version ${SITE_VERSION.id} · ${SITE_VERSION.tagline}</p>
-      <p class="muted">Local store ≈ ${formatBytes(storageRoughBytes())} · undo stack ${undoStack.length}</p>
-      ${
-        state.ui.lastExportAt
-          ? `<p class="muted">Last backup: ${escapeHtml(state.ui.lastExportAt.slice(0, 19).replace("T", " "))}</p>`
-          : `<p class="muted">No backup exported yet this device.</p>`
-      }
-    </div>
-  `;
-  $("#import-backup")?.addEventListener("change", onImportBackup);
+  setupViewModule.renderSetupPanel({
+    element,
+    state,
+    tauri: isTauriShell(),
+    standalone,
+    canInstallPwa: !!deferredInstall,
+    windowsDownloadUrl: WINDOWS_DOWNLOAD_URL,
+    backupStale: backupIsStale(),
+    undoCount: undoStack.length,
+    intentionPaused: Date.now() < (state.ui.intentionSkipUntil || 0) || skipIntentionThisSession,
+    onImport: onImportBackup,
+  });
+}
+
+function renderSetup() {
+  const element = $("#panel-setup");
+  if (setupViewModule) {
+    paintSetup(element);
+    return;
+  }
+  element.setAttribute("aria-busy", "true");
+  element.innerHTML = "<p class='muted'>Loading Setup…</p>";
+  setupViewPromise ||= import("./setup-view.js");
+  void setupViewPromise
+    .then((module) => {
+      setupViewModule = module;
+      if (state.ui.tab === "setup") paintSetup(element);
+    })
+    .catch(() => renderDeferredLoadError(element, "Setup"));
 }
 
 function paintTutorial() {
@@ -2484,6 +2482,7 @@ function acceptAllyProposal(index) {
     targetId: p.targetId,
     estimateMin: p.estimateMin,
     mustKeep: !!p.mustKeep,
+    fromPlan: true,
   };
   if (shouldAskIntention(payload.estimateMin)) {
     pendingIntention = payload;
@@ -2501,6 +2500,7 @@ function acceptAllAllyProposals() {
   const preview = acceptAllPreviewFromState(allyProposal.proposals);
   allyProposal = null;
   let n = 0;
+  const addedIds = [];
   for (const p of preview.added) {
     const draft = {
       id: uid(),
@@ -2513,7 +2513,11 @@ function acceptAllAllyProposals() {
       status: "pending",
     };
     state.commitments.push(draft);
+    addedIds.push(draft.id);
     n += 1;
+  }
+  if (addedIds.length) {
+    pushUndo({ type: "ally-accept", payload: addedIds.map((id) => ({ id })) });
   }
   const skipped = preview.skipped.length;
   appendAudit(state, "ally.accept_all", `${n} commitments${skipped ? ` skip:${skipped}` : ""}`);
@@ -2530,8 +2534,8 @@ function acceptAllAllyProposals() {
   }
   showToast(
     skipped
-      ? `Added ${n}; skipped ${skipped} (capacity, dup, or inactive).`
-      : `Added ${n} proposed commitment${n === 1 ? "" : "s"}.`,
+      ? `Added ${n}; skipped ${skipped} (capacity, dup, or inactive). Undo the plan change anytime. Consent is unchanged.`
+      : `Added ${n} proposed commitment${n === 1 ? "" : "s"}. Undo the plan change anytime. Consent is unchanged.`,
     "ok",
     4500
   );
@@ -2581,8 +2585,9 @@ function queueCommitment(payload) {
       return;
     }
   }
+  const addedId = uid();
   state.commitments.push({
-    id: uid(),
+    id: addedId,
     targetId: payload.targetId,
     planDate: todayISO(),
     text: payload.text,
@@ -2591,6 +2596,9 @@ function queueCommitment(payload) {
     priority: 0,
     status: "pending",
   });
+  if (payload.fromPlan) {
+    pushUndo({ type: "ally-accept", payload: [{ id: addedId }] });
+  }
   appendAudit(state, "commitment.add", payload.text);
   pendingIntention = null;
   // Clear form fields when present
@@ -2598,12 +2606,19 @@ function queueCommitment(payload) {
   persist();
   if (!preview.ok) {
     showToast(
-      `Added — but this overfills capacity (${errorLabel(preview.error)}). Replan when ready.`,
+      payload.fromPlan
+        ? `Added — but this overfills capacity (${errorLabel(preview.error)}). Undo the plan change anytime. Consent is unchanged.`
+        : `Added — but this overfills capacity (${errorLabel(preview.error)}). Replan when ready.`,
       "error",
       5500
     );
   } else {
-    showToast("Commitment added — protect that time.", "ok");
+    showToast(
+      payload.fromPlan
+        ? "Proposal added. Undo the plan change anytime. Consent is unchanged."
+        : "Commitment added — protect that time.",
+      "ok"
+    );
   }
 }
 
@@ -2695,22 +2710,6 @@ function onImportBackup(e) {
   };
   reader.onerror = () => showToast("Could not read backup file.", "error");
   reader.readAsText(file);
-}
-
-async function storageRoughBytes() {
-  try {
-    const raw = localStorage.getItem("aily.v1.state");
-    return raw ? raw.length * 2 : 0; // UTF-16-ish browser estimate
-  } catch {
-    return 0;
-  }
-}
-
-function formatBytes(n) {
-  if (!Number.isFinite(n) || n <= 0) return "0 B";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 async function downloadBackup() {
@@ -3375,7 +3374,14 @@ document.addEventListener("click", async (e) => {
       weekOther: [],
       today,
     });
-    const msg = `Replan will keep ${preview.keep.length}, drop ${preview.drop.length}, shrink ${preview.shrink.length}. Apply?`;
+    const explained = explainReplanChange({
+      weeklyCapacityHours: state.user.weeklyCapacityHours,
+      nightsPerWeek: state.user.nightsPerWeek,
+      pending: today,
+      preview,
+      targets: state.targets,
+    });
+    const msg = `${explained.text} Replan will keep ${preview.keep.length}, drop ${preview.drop.length}, shrink ${preview.shrink.length}. Apply?`;
     if (!confirm(msg)) return;
     const undoPayload = [];
     for (const d of preview.drop) {
@@ -3956,7 +3962,7 @@ document.addEventListener("click", async (e) => {
       intention: state.ui.dailyIntention,
       note: state.ui.dailyNote,
       todayPlannedMin: plannedMinutes(),
-      todayUsageMin: dayUsageMinutes(),
+      ...usageHonestyFields(usageReading()),
       week,
       days: days.days,
       reflection: weekReflection(week),
@@ -4487,7 +4493,7 @@ document.addEventListener("click", async (e) => {
       intention: state.ui.dailyIntention,
       note: state.ui.dailyNote,
       todayPlannedMin: plannedMinutes(),
-      todayUsageMin: dayUsageMinutes(),
+      ...usageHonestyFields(usageReading()),
       week,
       days: days.days,
       reflection: weekReflection(week),

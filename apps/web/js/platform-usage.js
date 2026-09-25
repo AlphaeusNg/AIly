@@ -6,6 +6,8 @@
  * Never invent cloud exfil.
  */
 
+import { presentUsageTotal } from "./usage.js";
+
 /** @typedef {{ app: string, mins: number, ts: string, source?: string, packageName?: string }} UsageSample */
 
 /**
@@ -227,4 +229,124 @@ export function usageBackendHonesty(backend) {
     return "Windows local foreground totals since AIly opened — process names only; no titles, paths, or historical activity.";
   }
   return backend.label || backend.id;
+}
+
+function journeyBackend(platform) {
+  if (platform === "web") {
+    return { id: "web-session", available: true, label: "browser" };
+  }
+  if (platform === "windows") {
+    return { id: "windows-foreground-session", available: true, label: "windows" };
+  }
+  if (platform === "android") {
+    return { id: "android-usagestats", available: true, label: "android" };
+  }
+  return { id: "unsupported", available: false, label: "unsupported" };
+}
+
+/**
+ * In-memory model of deny, grant, revoke, suspend/resume, restart, and midnight.
+ * This is not a physical Android device or an installed Windows session.
+ * Suspend does not claim the Windows monitor thread paused — that process was not run.
+ * A suspended shell simply does not record; resume does not backfill the gap.
+ * Android `readOsDay` shows only a snapshot the harness supplies.
+ */
+export function createUsageJourneyModel({ platform, day = "2026-09-25" } = {}) {
+  const supported = platform === "web" || platform === "windows" || platform === "android";
+  const backend = journeyBackend(platform);
+  let consent = false;
+  let osGranted = platform === "web";
+  let suspended = false;
+  let currentDay = day;
+  let measured = [];
+  let manual = [];
+
+  const samplesFor = (rows) => rows
+    .filter((row) => row.day === currentDay)
+    .map((row) => ({
+      app: row.app,
+      mins: row.mins,
+      ts: `${row.day}T12:00:00`,
+      ...(row.source ? { source: row.source } : {}),
+    }));
+
+  const present = () => {
+    const native = platform === "windows" || platform === "android";
+    let status = "granted";
+    if (!supported) status = "unsupported";
+    else if (native && !osGranted) status = "denied";
+    else if (!consent) status = "denied";
+    const granted = supported && consent && (platform === "web" || osGranted);
+    return presentUsageTotal({
+      backend,
+      permission: granted ? "granted" : "denied",
+      status,
+      platformSamples: samplesFor(measured),
+      manualSamples: samplesFor(manual),
+      day: currentDay,
+    });
+  };
+
+  return {
+    physicalDevice: false,
+    claimsNativeMonitorPaused: false,
+    limitation: "Harness model only. Physical Android and installed Windows were not run.",
+    present,
+    deny() {
+      consent = false;
+      if (platform !== "web") osGranted = false;
+      if (platform === "windows" || platform === "android") measured = [];
+      return present();
+    },
+    grant() {
+      if (!supported) return present();
+      consent = true;
+      if (platform !== "web") osGranted = true;
+      return present();
+    },
+    revoke() {
+      consent = false;
+      if (platform === "windows" || platform === "android") measured = [];
+      return present();
+    },
+    suspend() {
+      suspended = true;
+      return present();
+    },
+    resume() {
+      suspended = false;
+      return present();
+    },
+    record(mins, options = {}) {
+      if (!supported) return { accepted: false, reason: "unsupported" };
+      if (!consent || (platform !== "web" && !osGranted)) return { accepted: false, reason: "denied" };
+      if (suspended) return { accepted: false, reason: "gap" };
+      if (options.manual === true) {
+        manual.push({ app: "note", mins, day: currentDay });
+        return { accepted: true, measured: false };
+      }
+      measured.push({ app: "App", mins, day: currentDay, source: backend.id });
+      return { accepted: true, measured: true };
+    },
+    restart() {
+      suspended = false;
+      measured = [];
+      if (platform !== "web") consent = false;
+      return present();
+    },
+    readOsDay(mins) {
+      if (platform !== "android" || !consent || !osGranted || suspended) {
+        return { accepted: false, reason: "unavailable" };
+      }
+      measured = Number.isFinite(mins) && mins > 0
+        ? [{ app: "App", mins, day: currentDay, source: backend.id }]
+        : [];
+      return present();
+    },
+    midnight(nextDay) {
+      currentDay = nextDay;
+      if (platform === "android") measured = [];
+      return present();
+    },
+  };
 }

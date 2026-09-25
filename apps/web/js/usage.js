@@ -18,6 +18,8 @@ export function appendUsageSample(samples, entry, opts = {}) {
   const ts = typeof entry.ts === "string" && entry.ts ? entry.ts : new Date().toISOString();
   const mergeWindowMin = Number.isFinite(entry.mergeWindowMin) ? entry.mergeWindowMin : 15;
   const maxSamples = Number.isFinite(opts.maxSamples) ? opts.maxSamples : 200;
+  const source = usageSource(entry.source);
+  const visitId = source === "web-session" && typeof entry.visitId === "string" ? entry.visitId : "";
 
   // Merge into the latest same-app sample if within the window (keeps lists readable).
   if (list.length && mergeWindowMin > 0) {
@@ -25,6 +27,8 @@ export function appendUsageSample(samples, entry, opts = {}) {
     if (
       top &&
       top.app === app &&
+      (typeof top.source === "string" ? top.source : "") === source &&
+      (top.visitId || "") === visitId &&
       typeof top.ts === "string" &&
       Number.isFinite(top.mins)
     ) {
@@ -44,8 +48,121 @@ export function appendUsageSample(samples, entry, opts = {}) {
     }
   }
 
-  list.unshift({ app, mins, ts });
+  const row = { app, mins, ts };
+  if (source) row.source = source;
+  if (visitId) row.visitId = visitId;
+  list.unshift(row);
   return { samples: list.slice(0, maxSamples), added: true, merged: false };
+}
+
+const MEASURED_SOURCES = new Set([
+  "web-session",
+  "android-usagestats",
+  "windows-foreground-session",
+]);
+
+function usageSource(value) {
+  const source = typeof value === "string" ? value.trim() : "";
+  return MEASURED_SOURCES.has(source) ? source : "";
+}
+
+/**
+ * What a usage total is allowed to mean.
+ * Unsupported installations never produce a measured window.
+ */
+export function measurementWindow(backend) {
+  if (!backend || backend.available === false) return unsupportedWindow();
+  if (backend.id === "web-session") {
+    return {
+      id: "browser-visit",
+      label: "browser visit",
+      source: "web-session",
+      measured: true,
+      resets: "Resets when this page loads again.",
+      gaps: "Hidden, unfocused, or closed time is a gap. Other apps and devices are not included.",
+    };
+  }
+  if (backend.id === "windows-foreground-session") {
+    return {
+      id: "windows-session",
+      label: "installed Windows session",
+      source: "windows-foreground-session",
+      measured: true,
+      resets: "Resets at local midnight, on revoke, and when AIly restarts.",
+      gaps: "Only foreground process names while this installed app is open and tracking. Not a full day and not other devices.",
+    };
+  }
+  if (backend.id === "android-usagestats") {
+    return {
+      id: "android-day",
+      label: "Android day",
+      source: "android-usagestats",
+      measured: true,
+      resets: "Resets at local midnight.",
+      gaps: "Read on demand for this phone’s current day after consent. No background collector. Other devices are not included.",
+    };
+  }
+  return unsupportedWindow();
+}
+
+function unsupportedWindow() {
+  return {
+    id: "unsupported",
+    label: "not measured",
+    source: "",
+    measured: false,
+    resets: "There is no measurement window on this installation.",
+    gaps: "Unsupported totals are not measured usage.",
+  };
+}
+
+function minutesOnDay(samples, day, source, visitId) {
+  if (!Array.isArray(samples) || typeof day !== "string") return 0;
+  return samples.reduce((total, sample) => {
+    if (!sample || sample.source !== source) return total;
+    if (source === "web-session" && visitId !== undefined && sample.visitId !== visitId) return total;
+    if (typeof sample.ts !== "string" || !sample.ts.startsWith(day)) return total;
+    return total + (Number.isFinite(sample.mins) ? sample.mins : 0);
+  }, 0);
+}
+
+/**
+ * Measured minutes for the active window, or null when nothing was measured.
+ * A null total must not be rendered as 0m of device usage.
+ */
+export function presentUsageTotal({
+  backend,
+  permission,
+  status,
+  platformSamples,
+  manualSamples,
+  day,
+  visitId,
+} = {}) {
+  const window = measurementWindow(backend);
+  const native = !!(backend && backend.id && backend.id !== "web-session");
+  const blockedStatus = native
+    && ["unsupported", "denied", "revoked", "error", "waiting", "checking"].includes(status);
+  const measured = window.measured && permission === "granted" && !blockedStatus;
+  const minutes = measured
+    ? minutesOnDay(platformSamples, day, window.source, visitId) + minutesOnDay(manualSamples, day, window.source, visitId)
+    : null;
+  const manualMinutes = (Array.isArray(manualSamples) ? manualSamples : []).reduce((total, sample) => {
+    if (!sample || sample.source) return total;
+    if (day && (typeof sample.ts !== "string" || !sample.ts.startsWith(day))) return total;
+    return total + (Number.isFinite(sample.mins) ? sample.mins : 0);
+  }, 0);
+  return {
+    measured,
+    minutes,
+    manualMinutes,
+    source: measured ? window.source : "",
+    windowId: measured ? window.id : "unsupported",
+    windowLabel: measured ? window.label : "not measured",
+    explanation: measured
+      ? `${window.resets} ${window.gaps}`
+      : "Not measured. Denied, revoked, or unsupported access is not a device total.",
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   appendUsageSample,
   createSessionTracker,
+  presentUsageTotal,
   removeUsageSampleAt,
   summarizeDayByApp,
   totalMinutesForDay,
@@ -99,5 +100,66 @@ t += 60_000;
 const mins2 = tracker2.flush();
 assert.equal(mins2, 1, "only visible active time counts (30s+60s)");
 assert.equal(flushed[0].mins, 1);
+
+const sourced = appendUsageSample([], {
+  app: "AIly",
+  mins: 2,
+  ts: "2026-09-25T10:00:00",
+  source: "web-session",
+});
+assert.equal(sourced.samples[0].source, "web-session");
+const manualBeside = appendUsageSample(sourced.samples, {
+  app: "AIly",
+  mins: 9,
+  ts: "2026-09-25T10:02:00",
+});
+assert.equal(manualBeside.merged, false, "manual notes do not merge into a measured visit");
+assert.equal(manualBeside.samples[0].source, undefined);
+
+const browser = presentUsageTotal({
+  backend: { id: "web-session", available: true },
+  permission: "granted",
+  status: "granted",
+  platformSamples: [],
+  manualSamples: manualBeside.samples,
+  day: "2026-09-25",
+});
+assert.equal(browser.measured, true);
+assert.equal(browser.minutes, 2);
+assert.equal(browser.manualMinutes, 9);
+assert.equal(browser.windowLabel, "browser visit");
+assert.match(browser.explanation, /Resets when this page loads/);
+assert.match(browser.explanation, /not included/);
+const scopedRows = appendUsageSample(sourced.samples, {
+  app: "AIly", mins: 3, ts: "2026-09-25T10:01:00", source: "web-session", visitId: "current",
+}).samples;
+assert.equal(scopedRows.length, 2, "different visits never merge");
+assert.equal(presentUsageTotal({
+  backend: { id: "web-session", available: true }, permission: "granted", status: "granted",
+  manualSamples: scopedRows, day: "2026-09-25", visitId: "current",
+}).minutes, 3, "only the current visit contributes measured minutes");
+
+const unsupported = presentUsageTotal({
+  backend: { id: "android-usagestats", available: false },
+  permission: "granted",
+  status: "unsupported",
+  platformSamples: [{ app: "Mail", mins: 400, ts: "2026-09-25T12:00:00", source: "android-usagestats" }],
+  manualSamples: [],
+  day: "2026-09-25",
+});
+assert.equal(unsupported.measured, false);
+assert.equal(unsupported.minutes, null, "unsupported totals are not a measured zero");
+assert.equal(unsupported.windowLabel, "not measured");
+
+const denied = presentUsageTotal({
+  backend: { id: "windows-foreground-session", available: true },
+  permission: "denied",
+  status: "denied",
+  platformSamples: [{ app: "Editor", mins: 20, ts: "2026-09-25T12:00:00", source: "windows-foreground-session" }],
+  manualSamples: [],
+  day: "2026-09-25",
+});
+assert.equal(denied.measured, false);
+assert.equal(denied.minutes, null);
 
 console.log("test-usage.mjs: usage session and sample helpers passed");

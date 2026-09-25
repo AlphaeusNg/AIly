@@ -263,11 +263,14 @@ export function formatWeekHonestyText(input = {}) {
   const note = typeof input.note === "string" ? input.note.trim() : "";
   lines.push(intention ? `Intention: ${intention}` : "Intention: (none)");
   if (note) lines.push(`Note: ${note}`);
-  if (Number.isFinite(input.todayPlannedMin) || Number.isFinite(input.todayUsageMin)) {
+  if (Number.isFinite(input.todayPlannedMin) || Number.isFinite(input.todayUsageMin) || input.usageMeasured === false) {
+    const usageBit = input.usageMeasured === false
+      ? "usage: not measured"
+      : `usage samples: ${Number.isFinite(input.todayUsageMin) ? input.todayUsageMin : 0}m${
+          input.usageWindow ? ` · ${input.usageWindow}` : ""
+        }`;
     lines.push(
-      `Today planned: ${Number.isFinite(input.todayPlannedMin) ? input.todayPlannedMin : 0}m · usage samples: ${
-        Number.isFinite(input.todayUsageMin) ? input.todayUsageMin : 0
-      }m`
+      `Today planned: ${Number.isFinite(input.todayPlannedMin) ? input.todayPlannedMin : 0}m · ${usageBit}`
     );
   }
   lines.push(

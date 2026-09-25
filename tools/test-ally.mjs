@@ -1,6 +1,14 @@
 /** Tests for local propose-only ally helpers. */
 import assert from "node:assert/strict";
-import { pickNextCommitment, previewAcceptAll, proposeDayPlan, rankCommitments, returnNudge } from "../apps/web/js/ally.js";
+import {
+  explainPlanChange,
+  explainReplanChange,
+  pickNextCommitment,
+  previewAcceptAll,
+  proposeDayPlan,
+  rankCommitments,
+  returnNudge,
+} from "../apps/web/js/ally.js";
 
 const noTargets = proposeDayPlan({
   targets: [],
@@ -173,6 +181,48 @@ const preview = previewAcceptAll({
   ],
   planDate: "2026-08-18",
 });
+const explained = explainPlanChange({
+  proposals: plan.proposals,
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  existingToday: [],
+  targets,
+});
+assert.equal(explained.touchesConsent, false, "a proposal does not touch consent");
+assert.match(explained.capacity, /Day soft cap is 150m/);
+assert.match(explained.priorities, /must-keep/i);
+assert.match(explained.targets, /Ship AIly/);
+assert.match(explained.text, /Proposal only/);
+const emptyExplanation = explainPlanChange({
+  proposals: [],
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  existingToday: [{ estimateMin: 30, status: "pending", targetId: "a" }],
+  targets,
+});
+assert.match(emptyExplanation.targets, /No target receives new time/);
+assert.equal(emptyExplanation.touchesConsent, false);
+
+const replanExplanation = explainReplanChange({
+  weeklyCapacityHours: 10,
+  nightsPerWeek: 4,
+  pending: [
+    { id: "keep", targetId: "a", estimateMin: 30, mustKeep: true, priority: 0 },
+    { id: "drop", targetId: "b", estimateMin: 45, mustKeep: false, priority: 2 },
+  ],
+  preview: {
+    today: [{ id: "keep", estimateMin: 30 }],
+    drop: ["drop"],
+    shrink: [],
+  },
+  targets,
+});
+assert.equal(replanExplanation.touchesConsent, false, "replan explanation does not touch consent");
+assert.match(replanExplanation.capacity, /Pending work is 75m/);
+assert.match(replanExplanation.capacity, /leave 30m/);
+assert.match(replanExplanation.priorities, /Higher priority numbers/);
+assert.match(replanExplanation.targets, /Health/);
+
 assert.equal(preview.added.length, 2, "preview adds the two unique active proposals");
 assert.equal(preview.addedMin, 75);
 assert.ok(

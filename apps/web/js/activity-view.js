@@ -47,6 +47,7 @@ function friendlyAuditTool(tool) {
     "plan.copy_one_tomorrow": "Copied item to tomorrow",
     "undo.defer_tomorrow": "Undid defer-to-tomorrow",
     "undo.replan": "Undid replan",
+    "undo.plan": "Undid plan change",
     "block.arm": "Armed block",
     "block.arm_focus": "Armed for focus",
     "block.disarm": "Disarmed block",

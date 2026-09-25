@@ -18,7 +18,7 @@ const precached = [...assetsBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1
 for (const kept of ["./", "./index.html", "./offline.html", "./css/app.css", "./js/app.js", "./js/store.js", "./js/capacity.js", "./js/target.js"]) {
   assert.ok(precached.includes(kept), `install precache keeps first-paint ${kept}`);
 }
-for (const deferred of ["./js/activity-view.js", "./js/block-view.js", "./js/tutorial-view.js", "./js/platform-usage.js"]) {
+for (const deferred of ["./js/activity-view.js", "./js/block-view.js", "./js/tutorial-view.js", "./js/platform-usage.js", "./js/setup-view.js"]) {
   assert.ok(!precached.includes(deferred), `install precache omits lazy ${deferred}`);
 }
 

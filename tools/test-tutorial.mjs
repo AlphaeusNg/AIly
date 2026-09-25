@@ -100,6 +100,7 @@ assert.deepEqual(
 );
 
 const appSource = readFileSync(new URL("../apps/web/js/app.js", import.meta.url), "utf8");
+const setupSource = readFileSync(new URL("../apps/web/js/setup-view.js", import.meta.url), "utf8");
 assert.match(
   appSource,
   /requestNotificationPermission\(\)/,
@@ -115,6 +116,11 @@ assert.doesNotMatch(
   /tutorial\.permissions\.notifications\s*=\s*true/,
   "no UI path may claim notification permission before the browser grants it",
 );
+assert.doesNotMatch(
+  setupSource,
+  /tutorial\.permissions\.notifications\s*=\s*true/,
+  "setup recovery UI does not grant notifications by itself",
+);
 for (const event of [
   "permission.denied",
   "permission.dismissed",
@@ -125,7 +131,7 @@ for (const event of [
   assert.ok(appSource.includes(event), `notification outcome is audited as ${event}`);
 }
 assert.match(
-  appSource,
+  setupSource,
   /data-action="grant-notifications"/,
   "Setup provides a retry path after an optional denied or dismissed prompt",
 );

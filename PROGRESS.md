@@ -4,7 +4,7 @@ This file is the durable status, opportunity backlog, verification record, and
 cycle log for autonomous improvement work. Product direction remains in
 `/home/alph/projects/plans/aily-heavy-plan.md`.
 
-Last updated: 2026-09-13 (AIly Cycle 45)
+Last updated: 2026-09-25 (AIly Cycle 46)
 
 ## Current state
 
@@ -12,7 +12,11 @@ Last updated: 2026-09-13 (AIly Cycle 45)
   usage slice; local ally propose (JS+Rust), full daily loop,
   consent-gated Android daily UsageStats reads, and consent-gated Windows
   foreground-process totals since the installed app opened.
-- Deployment version: `2026.09.13.1`; Windows and Android package version `0.1.4`.
+- Deployment version: `2026.09.25.1`; Windows and Android package version `0.1.4`.
+- Physical Android devices and installed Windows hardware were not run in
+  Cycle 46. Usage deny, grant, revoke, suspend/resume, restart, and midnight
+  rollover are covered by an in-process harness that says so. Unsupported
+  totals stay unlabeled as measured usage.
 - Windows delivery is a scoped Edge/Chrome PWA, a local preview launcher, and a
   tested Tauri 2 NSIS release (`v0.1.4`, `AIly-setup.exe`, unsigned). The exact
   public installer has passed build, silent install, launch, and uninstall
@@ -41,7 +45,10 @@ Last updated: 2026-09-13 (AIly Cycle 45)
 
 | Priority | Opportunity | Category | Impact | Effort / risk | Evidence / dependencies | Status |
 |---|---|---|---|---|---|---|
-| 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: Android current-day reads and Windows session totals landed; Linux and physical-device dogfood remain | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| 1 | Extend and device-dogfood real OS usage tracking (Android/Windows/Linux) | Product spine | High: harness now models deny/grant/revoke/suspend/restart/midnight; physical devices were not run | Large / medium | Physical Android permission/read journey + Windows package dogfood | In progress |
+| — | Show the measurement window beside usage totals | Honesty / UX | High: one number could be read as a full day on every device | Small / low | Window label plus reset/gap copy; unsupported totals are not measured | Completed in Cycle 46 |
+| — | Explain a proposed plan change and offer undo | Ally UX | High: accept could change the day without saying what the cap, priorities, and targets did | Small / low | Propose-only explanation; undo drops the accepted items; consent untouched | Completed in Cycle 46 |
+| — | Extract Setup and recovery from the Today module | Maintainability | Medium: `app.js` still owned the settings screen | Small / low | Lazy `setup-view.js` using the existing view-module pattern | Completed in Cycle 46 |
 | — | Isolate every decision modal and keep keyboard focus inside it | Accessibility / correctness | High: dialog users could tab or shortcut into the background, and focus was not reliably restored | Small-medium / low | Native `inert`, shared focus loop, explicit close/initial controls, Chromium journey | Completed in Cycle 45 |
 | — | Override Capacitor CLI xmldom to the patched 0.9.12 line | Security / maintenance | High: Dependabot flagged ten high/medium advisories on development-scope `@xmldom/xmldom` 0.9.10 | Tiny / low | npm override, lock 0.9.12, packaging contract, `npm audit` 0 | Completed in Cycle 44 |
 | — | Stop precaching lazy tab modules on first PWA install | Performance / first paint | High: install still downloaded Activity/Blocks/tutorial views and platform-usage before Today painted | Small / low | First-paint ASSETS, runtime cache-on-first-use, SITE_VERSION-coupled cache | Completed in Cycle 43 |
@@ -63,7 +70,7 @@ Last updated: 2026-09-13 (AIly Cycle 45)
 | — | Collapse the phone tab bar and calm Today / intention density | Ally UX | High: 7 cramped tabs and action-dump rows hid the pause | Small / low | 5-tab + More sheet, row overflow, folded notices, Fewer checks | Completed in Cycle 27 |
 | — | Make the Windows preview launcher parse and keep the PWA identity scoped | Correctness / packaging | High: Windows PowerShell could not parse the launcher; `id: "/"` collided with the portfolio origin | Small / low | ASCII launcher, extracted static server, relative manifest id, and 19 server assertions | Completed in Cycle 26 |
 | — | Apply the Android JavaScript output cap after invalid-row rejection | Correctness / robustness | Medium | Small / low | Invalid prefixes, valid output ordering, and the independent 50-sample bound are directly covered | Completed in Cycle 25 |
-| 2 | Real hard-block OS enforcement | Product spine | High: UI simulation only | Large / medium | Break-glass dogfood landed | Backlog |
+| 2 | Real hard-block OS enforcement (Ship C) | Product spine | High: UI simulation only | Large / medium | Needs one platform prototype with consent, expiry, restart recovery, and break-glass before any wider support. This environment cannot prove Windows or Android enforcement | Blocked |
 | 3 | On-device model for richer propose (still propose-only) | Product | Medium | Large / medium | Heuristic ally.js landed | Backlog |
 | — | Restrict service-worker fetches to AIly scope/current cache and own their lifetime | Correctness / isolation | Critical: the worker could intercept sibling requests, read foreign caches, and detach writes | Small-medium / low | Behavioral scope, ownership, lifetime, fallback, and write-failure fixture | Completed in Cycle 24 |
 | — | Add a consent-gated Android UsageStats adapter | Product spine / privacy | High: Capacitor APK can show real current-day app totals without background collection | Medium / low | Native plugin, dual grants, bounded live results, adapter/JVM contracts | Completed in Cycle 23 |
@@ -86,6 +93,46 @@ Last updated: 2026-09-13 (AIly Cycle 45)
 | — | Preserve user priority during forced replans | Bug / test gap | Critical: wrong work was sacrificed | Small / low | Reproduced in both implementations | Completed in Cycle 1 |
 
 ## Cycle log
+
+### Cycle 46 — Honest usage windows, plan-change undo, Setup split (2026-09-25)
+
+**Why this won:** Usage totals could be read as a full day on every device, and
+deny, suspend/resume, restart, and midnight rollover were not in the harness.
+Accepting an ally plan did not explain the cap, priorities, or targets, and
+did not offer undo. Setup and recovery still lived in the Today module.
+
+**Changes**
+
+- Added an in-process usage journey model for deny, grant, revoke,
+  suspend/resume, restart, and midnight rollover. It records that no physical
+  Android device or installed Windows session was run. Unsupported, denied,
+  and revoked totals are not presented as measured minutes.
+- Usage totals now name the window: browser visit, installed Windows session,
+  or Android day, with a compact reset and gap explanation.
+- A proposed plan explains the day soft cap, must-keep / priority order, and
+  targets affected. Accepting is still explicit. Undo drops those items and
+  does not change consent.
+- Moved Setup and recovery into lazy `setup-view.js`. First-paint precache
+  still omits it.
+- Documented that Ship C still needs one platform prototype with consent,
+  expiry, restart recovery, and break-glass before any wider support. No OS
+  process killing, firewall rule, or hard block was added.
+- Coupled the service-worker cache and deployment stamp at `2026.09.25.1`.
+
+**Verification evidence**
+
+- Physical devices were not run.
+- Focused Node suites cover the journey model, measurement window, plan
+  explanation, Setup lazy-load contract, and service-worker precache omit.
+- `npm test` passed: Rust fmt, Clippy `-D warnings`, 18 Rust tests, the Node
+  domain/static/policy suites, and 9 Chromium journeys. Physical devices were
+  not part of that gate.
+
+**Scores**
+
+- Usage honesty: 6/10 -> 9/10.
+- Plan-change clarity: 5/10 -> 9/10.
+- Today module size: 6/10 -> 7/10.
 
 ### Cycle 45 — Keep modal decisions isolated and keyboard-complete (2026-09-13)
 

@@ -474,3 +474,94 @@ export function returnNudge(ctx) {
     chooseNext: "I'll choose next",
   };
 }
+
+function plannedMinutes(items) {
+  return (Array.isArray(items) ? items : []).reduce(
+    (total, item) => total + (
+      item && item.status !== "dropped" && Number.isFinite(item.estimateMin) ? item.estimateMin : 0
+    ),
+    0,
+  );
+}
+
+function targetTitle(targets, targetId) {
+  const title = (Array.isArray(targets) ? targets : []).find((target) => target && target.id === targetId)?.title;
+  return typeof title === "string" && title.trim() ? title.trim() : "Unknown target";
+}
+
+/**
+ * Short explanation for a propose-only plan. Does not mutate or touch consent.
+ */
+export function explainPlanChange({
+  proposals,
+  weeklyCapacityHours,
+  nightsPerWeek,
+  existingToday,
+  targets,
+} = {}) {
+  const daily = Math.round(dailySoftCapMinutes(weeklyCapacityHours, nightsPerWeek));
+  const used = Math.round(plannedMinutes(existingToday));
+  const items = Array.isArray(proposals) ? proposals : [];
+  const added = Math.round(plannedMinutes(items.map((item) => ({ ...item, status: "pending" }))));
+  const remain = Math.max(0, daily - used - added);
+  const mustKeep = items.filter((item) => item && item.mustKeep).length;
+  const byTarget = new Map();
+  for (const item of items) {
+    if (!item) continue;
+    const title = targetTitle(targets, item.targetId);
+    const mins = Number.isFinite(item.estimateMin) ? item.estimateMin : 0;
+    byTarget.set(title, (byTarget.get(title) || 0) + mins);
+  }
+  const capacity = `Day soft cap is ${daily}m. ${used}m is already planned; this proposal adds ${added}m and would leave ${remain}m.`;
+  const priorities = mustKeep
+    ? `Must-keep stays protected (${mustKeep} in this proposal). Other proposed items are optional. Existing priority numbers are not changed.`
+    : "Nothing in this proposal is must-keep. Existing must-keep items stay protected. Higher priority numbers are sacrificed first if you later replan.";
+  const targetBits = [...byTarget.entries()].map(([title, mins]) => `${title} (${Math.round(mins)}m)`);
+  const targetsLine = targetBits.length
+    ? `Targets affected: ${targetBits.join(", ")}.`
+    : "No target receives new time.";
+  return {
+    capacity,
+    priorities,
+    targets: targetsLine,
+    touchesConsent: false,
+    text: `${capacity} ${priorities} ${targetsLine} Proposal only — nothing changes until you accept, and consent stays as it is.`,
+  };
+}
+
+/**
+ * Explanation shown before a forced replan is applied. Propose-only ally
+ * callers can share it; applying the replan stays the user's choice.
+ */
+export function explainReplanChange({
+  weeklyCapacityHours,
+  nightsPerWeek,
+  pending,
+  preview,
+  targets,
+} = {}) {
+  const daily = Math.round(dailySoftCapMinutes(weeklyCapacityHours, nightsPerWeek));
+  const list = Array.isArray(pending) ? pending : [];
+  const before = Math.round(plannedMinutes(list.map((item) => ({ ...item, status: "pending" }))));
+  const after = Math.round(plannedMinutes((preview?.today || []).map((item) => ({ ...item, status: "pending" }))));
+  const affected = new Set([
+    ...(Array.isArray(preview?.drop) ? preview.drop : []),
+    ...(Array.isArray(preview?.shrink) ? preview.shrink.map((item) => item?.id) : []),
+  ]);
+  const names = [];
+  for (const item of list) {
+    if (!item || !affected.has(item.id)) continue;
+    const title = targetTitle(targets, item.targetId);
+    if (!names.includes(title)) names.push(title);
+  }
+  const capacity = `Day soft cap is ${daily}m. Pending work is ${before}m; this replan would leave ${after}m.`;
+  const priorities = "Must-keep items stay protected. Higher priority numbers are less important and are shrunk or dropped first.";
+  const targetsLine = names.length ? `Targets affected: ${names.join(", ")}.` : "No target loses time.";
+  return {
+    capacity,
+    priorities,
+    targets: targetsLine,
+    touchesConsent: false,
+    text: `${capacity} ${priorities} ${targetsLine}`,
+  };
+}
