@@ -125,8 +125,15 @@ did not offer undo. Setup and recovery still lived in the Today module.
 - Focused Node suites cover the journey model, measurement window, plan
   explanation, Setup lazy-load contract, and service-worker precache omit.
 - `npm test` passed: Rust fmt, Clippy `-D warnings`, 18 Rust tests, the Node
-  domain/static/policy suites, and 9 Chromium journeys. Physical devices were
+  domain/static/policy suites, and 11 Chromium journeys. Physical devices were
   not part of that gate.
+- Release review found that persisted browser samples were incorrectly counted
+  as the current visit. Samples now carry a visit identifier, do not merge across
+  visits, and only the current visit contributes to the measured total or chart.
+  A Chromium reload regression checks that historical samples remain saved
+  while the current visit starts at zero.
+- Integrated upstream's Usage partial-refresh change, preserving input focus
+  and entered form values during measurement updates; its browser journey passes.
 
 **Scores**
 
