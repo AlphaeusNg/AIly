@@ -2696,6 +2696,7 @@ function onImportBackup(e) {
     const result = importState(String(reader.result || ""));
     if (!result.ok) {
       showToast(`Import failed: ${result.error}`, "error", 5000);
+      e.target.value = "";
       return;
     }
     if (!confirm("Replace all local AIly data with this backup?")) {
@@ -2734,7 +2735,10 @@ function onImportBackup(e) {
     syncUsageTracker();
     e.target.value = "";
   };
-  reader.onerror = () => showToast("Could not read backup file.", "error");
+  reader.onerror = () => {
+    showToast("Could not read backup file.", "error");
+    e.target.value = "";
+  };
   reader.readAsText(file);
 }
 

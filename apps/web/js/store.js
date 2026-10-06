@@ -433,14 +433,21 @@ export function importState(raw) {
     if (!isRecord(parsed)) {
       return { ok: false, error: "Backup must be a JSON object" };
     }
-    const body = isRecord(parsed.state) ? parsed.state : parsed;
-    if (parsed.format && parsed.format !== "aily.backup.v1" && !isRecord(parsed.state)) {
-      // Allow raw state dumps without format wrapper for power users.
-      if (!("version" in parsed) && !("targets" in parsed) && !("user" in parsed)) {
-        return { ok: false, error: "Unrecognized backup format" };
-      }
+    // Only the AIly wrapper may unwrap `state`. Foreign files (for example a
+    // ChristoDay backup) also nest a record under `state`.
+    if (parsed.format === "aily.backup.v1" && isRecord(parsed.state)) {
+      return { ok: true, state: hydrateState(parsed.state) };
     }
-    return { ok: true, state: hydrateState(body) };
+    if (Object.hasOwn(parsed, "format") && parsed.format !== "aily.backup.v1") {
+      return { ok: false, error: "Not an AIly backup" };
+    }
+    const rawDump = ["version", "user", "targets", "commitments"].some((key) =>
+      Object.hasOwn(parsed, key)
+    );
+    if (!rawDump) {
+      return { ok: false, error: "Not an AIly backup" };
+    }
+    return { ok: true, state: hydrateState(parsed) };
   } catch (err) {
     const message =
       err && typeof err === "object" && "message" in err
