@@ -203,3 +203,34 @@ test("labels failed backup import and reset as session-only recovery", async ({ 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("#setup-name")).toHaveValue("Original profile");
 });
+
+test("rejects a foreign backup without confirming or wiping setup", async ({ page }) => {
+  const seed = readyState();
+  seed.user.displayName = "Kept profile";
+  await page.addInitScript(({ seed }) => {
+    localStorage.setItem("aily.v1.state", JSON.stringify(seed));
+  }, { seed });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await page.locator('.side [data-nav="setup"]').click();
+  const name = page.locator("#setup-name");
+  await expect(name).toBeVisible();
+  const keptName = await name.inputValue();
+
+  const dialogs = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    dialog.dismiss();
+  });
+
+  await page.locator("#import-backup").setInputFiles({
+    name: "package.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ name: "x", scripts: {} })),
+  });
+
+  await expect(page.locator("#toast-host")).toContainText("Import failed");
+  expect(dialogs, "foreign backup must not ask to replace local data").toEqual([]);
+  await expect(name).toHaveValue(keptName);
+  await expect(page.locator("#import-backup")).toHaveValue("");
+});

@@ -269,7 +269,25 @@ assert.equal(imported.state.user.weeklyCapacityHours, 12, "import restores capac
 assert.equal(imported.state.user.displayName, "Alphaeus", "import restores display name");
 assert.equal(imported.state.targets[0].title, "Ship", "import restores targets");
 assert.equal(importState("{not-json").ok, false, "import rejects corrupt JSON");
-assert.equal(importState("{}").ok, true, "import hydrates an empty object to defaults");
+const emptyImport = importState("{}");
+assert.equal(emptyImport.ok, false, "import rejects an empty object");
+assert.equal(emptyImport.error, "Not an AIly backup");
+const packageLike = importState('{"name":"x","scripts":{}}');
+assert.equal(packageLike.ok, false, "import rejects a package.json-like file");
+assert.equal(packageLike.error, "Not an AIly backup");
+const christoDay = importState(
+  '{"product":"ChristoDay","schemaVersion":1,"state":{"days":{}}}'
+);
+assert.equal(christoDay.ok, false, "import rejects a ChristoDay backup");
+assert.equal(christoDay.error, "Not an AIly backup");
+const foreignFormat = importState('{"format":"other.v1","state":{"user":{}}}');
+assert.equal(foreignFormat.ok, false, "import rejects a foreign backup format");
+assert.equal(foreignFormat.error, "Not an AIly backup");
+const rawDump = importState(
+  JSON.stringify({ version: 1, targets: [{ id: "t9", title: "Raw", metrics: [] }] })
+);
+assert.equal(rawDump.ok, true, "import accepts a raw AIly state dump");
+assert.equal(rawDump.state.targets[0].title, "Raw");
 assert.match(appSource, /export-backup/, "Setup exposes export backup");
 assert.match(appSource, /importState/, "UI uses tested import helper");
 
