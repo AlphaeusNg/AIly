@@ -1955,7 +1955,6 @@ function renderReview() {
   const attentionLabel = reading.measured
     ? `${reading.minutes | 0}m · ${escapeHtml(reading.windowLabel)}`
     : "not measured";
-  const maxDayPlan = Math.max(1, ...breakdown.days.map((x) => x.plannedMin));
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
@@ -1985,7 +1984,6 @@ function renderReview() {
       <ul class="list week-day-list">
         ${breakdown.days
           .map((day) => {
-            const pct = Math.min(100, Math.round((day.plannedMin / maxDayPlan) * 100));
             const label = day.date === d ? "Today" : day.date.slice(5);
             const donePct =
               day.plannedMin > 0 ? Math.min(100, Math.round((day.doneMin / day.plannedMin) * 100)) : 0;
@@ -1993,7 +1991,7 @@ function renderReview() {
               <strong>${label}</strong>
               <span class="muted">${day.plannedMin|0}m plan · ${day.doneMin|0}m done · ${day.openCount} open</span>
               <div class="capacity-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${donePct}" aria-label="Day completion">
-                <div class="capacity-meter-fill ${meterClass(day.plannedMin > 0 ? day.doneMin / day.plannedMin : 0)}" style="width:${pct}%"></div>
+                <div class="capacity-meter-fill ${meterClass(day.plannedMin > 0 ? day.doneMin / day.plannedMin : 0)}" style="width:${donePct}%"></div>
               </div>
             </li>`;
           })

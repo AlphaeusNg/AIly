@@ -2181,3 +2181,8 @@ latest release API before encoding a major.
 input/recovery actions working when localStorage writes fail, with an honest UI
 status. Workspace next: rotate after publishing this infrastructure-focused
 AIly cycle.
+
+
+## 2026-10-07 — Make review bars match completed time
+
+Weekly review bars now use the same completion percentage as their accessible meter values, including unfinished and partially completed days. Target progress keeps its own percentage. Version and worker cache advance together. The complete Rust/Node gate and 13 Chromium checks passed; physical Android/Windows validation remains outstanding.

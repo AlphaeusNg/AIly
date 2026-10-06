@@ -85,3 +85,17 @@ test("cold open builds Today only, then lazy-loads Targets", async ({ page }) =>
   await page.locator('[data-nav="today"]').click();
   await expect(page.locator("#panel-today")).toContainText("First Today item");
 });
+
+
+test("review completion bars match completed time, including an unfinished day", async ({ page }) => {
+  const seed = readyTodayState();
+  seed.ui.tab = "review";
+  seed.commitments.push({ ...seed.commitments[0], id: "commit-2", status: "done" });
+  await page.addInitScript((state) => localStorage.setItem("aily.v1.state", JSON.stringify(state)), seed);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const row = page.locator(".week-day-list li").filter({ has: page.getByText("Today", { exact: true }) });
+  await expect(row.getByRole("meter")).toHaveAttribute("aria-valuenow", "50");
+  await expect(row.locator(".capacity-meter-fill")).toHaveAttribute("style", "width:50%");
+  await page.locator('[data-nav="targets"]').click();
+  await expect(page.getByRole("meter", { name: "Target progress" })).toHaveAttribute("aria-valuenow", "10");
+});
