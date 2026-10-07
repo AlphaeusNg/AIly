@@ -1,6 +1,6 @@
 [package]
 name = "aily-desktop"
-version = "0.1.5"
+version = "0.1.6"
 description = "AIly — Your AI Ally (Windows shell)"
 authors = ["Alphaeus Ng"]
 edition = "2021"

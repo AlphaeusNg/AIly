@@ -2191,3 +2191,8 @@ Weekly review bars now use the same completion percentage as their accessible me
 ## 2026-10-07 — Patch the Capacitor Android proxy vulnerability
 
 Capacitor Android/core/CLI advance to 7.6.9 and the locked brace-expansion dependency is patched. npm audit reports zero vulnerabilities; this does not cover Rust dependencies. Package/Android/Tauri versions advance to 0.1.5 (Android version code 5), with a minimum-patched-version regression. The web stamp and worker cache advance to 2026.10.07.2. Validation: complete Rust/Node gate, 13 Chromium journeys, Android JVM tests, rebuilt debug APK and APK identity/version/signature verification passed. Installed Android copies need a rebuilt APK update. Physical device validation remains outstanding; Windows installer verification runs on hosted CI.
+
+
+## 2026-10-07 — Measure usage bars against their actual window
+
+Usage bars now represent shares of the labeled measured total, with accessible meter values in minutes. Unavailable measurements show a gap message, and manual notes remain separate. A two-app Windows fixture verifies a 2/3 share paints 67% with matching meter values. Web/worker version 2026.10.07.3 and native package version 0.1.6 (Android code 6). Validation: complete Rust/Node gate and 13 Chromium journeys, Android JVM tests, rebuilt APK and package/signature verification passed. Physical-device validation remains outstanding; Windows installer checks run on hosted CI.

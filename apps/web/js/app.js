@@ -2059,7 +2059,7 @@ function usageTotalsInnerHtml() {
         && (reading.source !== "web-session" || sample.visitId === usageVisitId))
     : [];
   const byApp = summarizeDayByApp(measuredRows, todayISO());
-  const maxMins = byApp.reduce((m, x) => Math.max(m, x.mins), 0) || 1;
+  const measuredTotal = Math.max(1, reading.minutes || 0);
   return `<h2>Today’s logged attention</h2>
       <p class="ally-line"><strong data-usage-total-mins>${reading.measured ? `${reading.minutes | 0}m` : "Not measured"}</strong>
         <span class="usage-window-label">${escapeHtml(reading.windowLabel)}</span>.
@@ -2068,18 +2068,20 @@ function usageTotalsInnerHtml() {
       <p class="muted usage-window">${escapeHtml(reading.explanation)}</p>
       ${
         byApp.length
-          ? `<div class="usage-bars">${byApp
+          ? `<p class="muted">Share of this measured window</p><div class="usage-bars">${byApp
               .map(
                 (row) => `<div class="usage-bar-row" title="${escapeHtml(row.app)}">
                   <div>
                     <div>${escapeHtml(row.app)}</div>
-                    <div class="usage-bar-track"><div class="usage-bar-fill" style="width:${Math.round((row.mins / maxMins) * 100)}%"></div></div>
+                    <div class="usage-bar-track" role="meter" aria-label="${escapeHtml(row.app)} share of ${escapeHtml(reading.windowLabel)}" aria-valuemin="0" aria-valuemax="${measuredTotal}" aria-valuenow="${Math.min(measuredTotal, row.mins)}" aria-valuetext="${row.mins|0} minutes of ${reading.minutes|0} measured minutes"><div class="usage-bar-fill" style="width:${Math.min(100, Math.round((row.mins / measuredTotal) * 100))}%"></div></div>
                   </div>
                   <div class="usage-bar-mins">${row.mins|0}m</div>
                 </div>`
               )
               .join("")}</div>`
-          : `<p class="muted">No samples yet — use an app for a full minute, refresh native totals, or log another app below.</p>`
+          : reading.measured
+            ? `<p class="muted">No measured app totals yet. Use AIly for a full minute or refresh native totals. Manual notes remain separate.</p>`
+            : `<p class="muted" data-usage-gap>Measurement unavailable for this window. ${escapeHtml(reading.explanation)}</p>`
       }`;
 }
 

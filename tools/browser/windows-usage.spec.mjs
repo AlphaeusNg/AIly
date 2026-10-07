@@ -41,7 +41,8 @@ test("starts, renders, and revokes honest Windows session usage", async ({ page 
           if (command === "list_windows_session_usage") {
             return {
               day,
-              samples: [{ processName: "editor.exe", label: "Editor", foregroundMs: 125_000 }],
+              samples: [{ processName: "editor.exe", label: "Editor", foregroundMs: 125_000 },
+              { processName: "browser.exe", label: "Browser", foregroundMs: 65_000 }],
             };
           }
           throw new Error(`unexpected command: ${command}`);
@@ -57,6 +58,13 @@ test("starts, renders, and revokes honest Windows session usage", async ({ page 
   await expect(page.locator("#panel-usage")).toContainText("Editor");
   await expect(page.locator("#panel-usage")).toContainText("2m");
   await expect(page.locator("#panel-usage")).toContainText("since AIly opened");
+  const meters = page.locator("#panel-usage .usage-bar-track");
+  await expect(meters).toHaveCount(2);
+  await expect(meters.first()).toHaveAttribute("role", "meter");
+  await expect(meters.first()).toHaveAttribute("aria-valuemax", "3");
+  await expect(meters.first()).toHaveAttribute("aria-valuenow", "2");
+  await expect(meters.first().locator(".usage-bar-fill")).toHaveAttribute("style", "width:67%");
+
 
   await page.getByRole("button", { name: "Setup", exact: true }).click();
   page.on("dialog", (dialog) => dialog.accept());
