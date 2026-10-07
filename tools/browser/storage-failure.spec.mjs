@@ -234,3 +234,29 @@ test("rejects a foreign backup without confirming or wiping setup", async ({ pag
   await expect(name).toHaveValue(keptName);
   await expect(page.locator("#import-backup")).toHaveValue("");
 });
+
+test('an older file read cannot replace a newer imported profile', async ({ page }) => {
+  await page.addInitScript(() => {
+    const Original = FileReader;
+    window.FileReader = class extends Original {
+      readAsText(file) {
+        if (file.name === 'slow.json') window.__releaseOldBackup = () => super.readAsText(file);
+        else super.readAsText(file);
+      }
+    };
+  });
+  await openWithWriteFailure(page, readyState({tab:'setup'}));
+  const older = readyState({tab:'setup'});
+  older.user.displayName = 'Older profile';
+  const newer = readyState({tab:'setup'});
+  newer.user.displayName = 'Newest profile';
+  let dialogs = 0;
+  page.on('dialog', dialog => { dialogs++; return dialog.accept(); });
+  await page.locator('#import-backup').setInputFiles({name:'slow.json',mimeType:'application/json',buffer:Buffer.from(exportState(older))});
+  await page.locator('#import-backup').setInputFiles({name:'new.json',mimeType:'application/json',buffer:Buffer.from(exportState(newer))});
+  await expect(page.locator('#setup-name')).toHaveValue('Newest profile');
+  await page.evaluate(() => window.__releaseOldBackup());
+  await page.waitForTimeout(100);
+  await expect(page.locator('#setup-name')).toHaveValue('Newest profile');
+  expect(dialogs).toBe(1);
+});

@@ -2196,3 +2196,7 @@ Capacitor Android/core/CLI advance to 7.6.9 and the locked brace-expansion depen
 ## 2026-10-07 — Measure usage bars against their actual window
 
 Usage bars now represent shares of the labeled measured total, with accessible meter values in minutes. Unavailable measurements show a gap message, and manual notes remain separate. A two-app Windows fixture verifies a 2/3 share paints 67% with matching meter values. Web/worker version 2026.10.07.3 and native package version 0.1.6 (Android code 6). Validation: complete Rust/Node gate and 13 Chromium journeys, Android JVM tests, rebuilt APK and package/signature verification passed. Physical-device validation remains outstanding; Windows installer checks run on hosted CI.
+
+## 2026-10-07 — Ignore superseded backup file reads
+
+Only the newest selected backup may confirm replacement or show a read error. The file input clears as soon as reading starts, allowing the same file to be selected again. Complete Rust/Node gate and 14 Chromium journeys passed, including out-of-order reads under denied storage; Android JVM tests/build and signed APK identity/version verification passed. Web stamp 2026.10.07.4; native package 0.1.7. Physical-device checks and the moderate glib dependency migration remain open.

@@ -2688,11 +2688,15 @@ async function grantAndComplete(chapter) {
   syncUsageTracker();
 }
 
+let backupImportGeneration = 0;
 function onImportBackup(e) {
   const file = e.target?.files?.[0];
   if (!file) return;
+  const generation = ++backupImportGeneration;
+  e.target.value = "";
   const reader = new FileReader();
   reader.onload = () => {
+    if (generation !== backupImportGeneration) return;
     const result = importState(String(reader.result || ""));
     if (!result.ok) {
       showToast(`Import failed: ${result.error}`, "error", 5000);
@@ -2736,6 +2740,7 @@ function onImportBackup(e) {
     e.target.value = "";
   };
   reader.onerror = () => {
+    if (generation !== backupImportGeneration) return;
     showToast("Could not read backup file.", "error");
     e.target.value = "";
   };
