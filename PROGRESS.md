@@ -2186,3 +2186,8 @@ AIly cycle.
 ## 2026-10-07 — Make review bars match completed time
 
 Weekly review bars now use the same completion percentage as their accessible meter values, including unfinished and partially completed days. Target progress keeps its own percentage. Version and worker cache advance together. The complete Rust/Node gate and 13 Chromium checks passed; physical Android/Windows validation remains outstanding.
+
+
+## 2026-10-07 — Patch the Capacitor Android proxy vulnerability
+
+Capacitor Android/core/CLI advance to 7.6.9 and the locked brace-expansion dependency is patched. npm audit reports zero vulnerabilities; this does not cover Rust dependencies. Package/Android/Tauri versions advance to 0.1.5 (Android version code 5), with a minimum-patched-version regression. The web stamp and worker cache advance to 2026.10.07.2. Validation: complete Rust/Node gate, 13 Chromium journeys, Android JVM tests, rebuilt debug APK and APK identity/version/signature verification passed. Installed Android copies need a rebuilt APK update. Physical device validation remains outstanding; Windows installer verification runs on hosted CI.

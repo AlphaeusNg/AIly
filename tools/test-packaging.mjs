@@ -151,4 +151,12 @@ assert.equal(
   "the lockfile should resolve @xmldom/xmldom 0.9.12",
 );
 
+for (const dependency of ["android", "core", "cli"]) {
+  const version = packageLock.packages?.[`node_modules/@capacitor/${dependency}`]?.version;
+  assert.ok(version, `Capacitor ${dependency} is locked`);
+  const [major, minor, patch] = version.split(".").map(Number);
+  assert.ok(major === 7 && (minor > 6 || (minor === 6 && patch >= 9)),
+    `Capacitor ${dependency} includes the Android proxy security patch`);
+}
+
 console.log("test-packaging.mjs: Android version, verified build, release, and docs contracts ok");
