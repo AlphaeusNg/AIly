@@ -17,6 +17,7 @@ const required = [
   "css/app.css",
   "js/app.js",
   "js/activity-view.js",
+  "js/focus-actions.js",
   "js/block-view.js",
   "js/setup-view.js",
   "js/store.js",
@@ -113,7 +114,7 @@ assert.match(sw, /capacity\.js/, "SW caches capacity module");
 assert.match(sw, /app\.js/, "SW caches the first-paint app module");
 assert.match(sw, /css\/app\.css/, "SW caches the app stylesheet");
 const assetsBlock = /const ASSETS = \[([\s\S]*?)\];/.exec(sw)?.[1] || "";
-for (const deferred of ["activity-view.js", "block-view.js", "tutorial-view.js", "platform-usage.js", "setup-view.js"]) {
+for (const deferred of ["activity-view.js", "block-view.js", "tutorial-view.js", "platform-usage.js", "setup-view.js", "focus-actions.js"]) {
   assert.doesNotMatch(
     assetsBlock,
     new RegExp(`${deferred.replace(".", "\\.")}`),

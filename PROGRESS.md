@@ -2200,3 +2200,9 @@ Usage bars now represent shares of the labeled measured total, with accessible m
 ## 2026-10-07 — Ignore superseded backup file reads
 
 Only the newest selected backup may confirm replacement or show a read error. The file input clears as soon as reading starts, allowing the same file to be selected again. Complete Rust/Node gate and 14 Chromium journeys passed, including out-of-order reads under denied storage; Android JVM tests/build and signed APK identity/version verification passed. Web stamp 2026.10.07.4; native package 0.1.7. Physical-device checks and the moderate glib dependency migration remain open.
+
+## 2026-10-11 — Load focus-session actions on demand
+
+Extracted start, pause and resume orchestration into a lazily imported focus-actions module. Cold Today does not request it; subsequent actions reuse it. Superseded pending actions, manual end and replaced state cannot start an old request later; failed imports can retry. Cheap timer and expiry checks remain in the shell. This advances AILY-07; Today rendering extraction remains open. Web version 2026.10.11.1; native version 0.1.8/code 8.
+
+Validation: Complete Rust/Clippy/Node gate and 16 Chromium journeys, including on-demand start/pause/resume/end. Android JVM tests and debug APK assembly passed. Physical-device journey and the native glib advisory remain open.

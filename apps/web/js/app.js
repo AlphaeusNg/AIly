@@ -1091,33 +1091,31 @@ function isFocusPaused() {
   return (state.ui.focusPausedRemainingMs || 0) > 0;
 }
 
-function startFocusMinutes(mins) {
-  const m = Number(mins);
-  if (!Number.isFinite(m) || m < 1) return;
-  state.ui.focusPausedRemainingMs = 0;
-  state.ui.focusSessionEndsAt = Date.now() + m * 60_000;
-  let armed = 0;
-  if (canArmBlocks(state)) {
-    for (const r of state.blockRules || []) {
-      if (!r.armed && (r.appKeys || []).length) {
-        r.armed = true;
-        armed += 1;
-        appendAudit(state, "block.arm_focus", r.appKeys.join(","));
-      }
-    }
+
+let focusActionsPromise;
+let focusActionGeneration = 0;
+function ensureFocusActions() {
+  if (!focusActionsPromise) {
+    focusActionsPromise = import("./focus-actions.js").then(({ createFocusActions }) =>
+      createFocusActions({ getState: () => state, canArmBlocks, appendAudit, persist, showToast })
+    ).catch((error) => { focusActionsPromise = null; throw error; });
   }
-  appendAudit(state, "focus.start", `${m}m`);
-  persist();
-  showToast(
-    armed
-      ? `Focus ${m}m · armed ${armed} rule${armed === 1 ? "" : "s"}.`
-      : canArmBlocks(state)
-        ? `Focus ${m}m started.`
-        : `Focus ${m}m started (grants needed to auto-arm blocks).`,
-    "ok",
-    4000
-  );
+  return focusActionsPromise;
 }
+async function runFocusAction(name, ...args) {
+  const generation = ++focusActionGeneration;
+  const requestedState = state;
+  try {
+    const actions = await ensureFocusActions();
+    if (generation !== focusActionGeneration || state !== requestedState) return;
+    actions[name](...args);
+  } catch {
+    if (generation === focusActionGeneration) showToast("Could not load focus controls. Try again.", "error");
+  }
+}
+function startFocusMinutes(mins) { return runFocusAction("startFocusMinutes", mins); }
+function pauseFocusSession() { return runFocusAction("pauseFocusSession"); }
+function resumeFocusSession() { return runFocusAction("resumeFocusSession"); }
 
 function endFocusSessionIfNeeded() {
   if (isFocusPaused()) return false;
@@ -1137,31 +1135,6 @@ function endFocusSessionIfNeeded() {
   return true;
 }
 
-function pauseFocusSession() {
-  const ends = state.ui.focusSessionEndsAt || 0;
-  if (!ends || ends <= Date.now()) {
-    showToast("No active focus to pause.", "error");
-    return;
-  }
-  state.ui.focusPausedRemainingMs = Math.max(0, ends - Date.now());
-  state.ui.focusSessionEndsAt = 0;
-  appendAudit(state, "focus.pause", `${Math.ceil(state.ui.focusPausedRemainingMs / 60000)}m`);
-  persist();
-  showToast("Focus paused. Resume when ready.", "ok");
-}
-
-function resumeFocusSession() {
-  const rem = state.ui.focusPausedRemainingMs || 0;
-  if (rem <= 0) {
-    showToast("No paused focus to resume.", "error");
-    return;
-  }
-  state.ui.focusSessionEndsAt = Date.now() + rem;
-  state.ui.focusPausedRemainingMs = 0;
-  appendAudit(state, "focus.resume", `${Math.ceil(rem / 60000)}m`);
-  persist();
-  showToast("Focus resumed.", "ok");
-}
 
 function isMorningLocal() {
   const h = new Date().getHours();
@@ -3089,6 +3062,7 @@ document.addEventListener("click", async (e) => {
     skipCheckIn();
   }
   if (action === "end-focus") {
+    focusActionGeneration += 1;
     state.ui.focusSessionEndsAt = 0;
     state.ui.focusPausedRemainingMs = 0;
     let disarmed = 0;

@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { defaultState } from "../../apps/web/js/store.js";
 
+// Observe deferred module requests directly; offline behavior has its own journey.
+test.use({ serviceWorkers: "block" });
+
 function todayLocal() {
   const date = new Date();
   const part = (value) => String(value).padStart(2, "0");
@@ -98,4 +101,44 @@ test("review completion bars match completed time, including an unfinished day",
   await expect(row.locator(".capacity-meter-fill")).toHaveAttribute("style", "width:50%");
   await page.locator('[data-nav="targets"]').click();
   await expect(page.getByRole("meter", { name: "Target progress" })).toHaveAttribute("aria-valuenow", "10");
+});
+
+test("focus actions load on demand and preserve start, pause, resume and end", async ({ page }) => {
+  const requested = [];
+  page.on("request", (request) => { if (request.url().includes("focus-actions.js")) requested.push(request.url()); });
+  await openReady(page);
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  expect(requested).toHaveLength(0);
+  await page.locator('[data-action="start-focus-25"]').click();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  expect(requested).toHaveLength(1);
+  await page.locator('[data-action="pause-focus"]').click();
+  await expect(page.locator('[data-action="resume-focus"]')).toBeVisible();
+  await page.locator('[data-action="resume-focus"]').click();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  await page.locator('[data-action="end-focus"]').click();
+  await expect(page.locator('[data-action="start-focus-25"]')).toBeVisible();
+  expect(requested).toHaveLength(1);
+});
+
+
+test("latest focus duration wins while its module is still loading", async ({ page }) => {
+  let release;
+  const waiting = new Promise((resolve) => { release = resolve; });
+  let requested = false;
+  await page.route("**/focus-actions.js", async (route) => {
+    requested = true;
+    await waiting;
+    await route.continue();
+  });
+  await openReady(page);
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await page.locator('[data-action="start-focus-15"]').click();
+  await expect.poll(() => requested).toBe(true);
+  await page.locator('[data-action="start-focus-25"]').click();
+  release();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  const remaining = await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).ui.focusSessionEndsAt - Date.now());
+  expect(remaining).toBeGreaterThan(24 * 60_000);
+  expect(remaining).toBeLessThanOrEqual(25 * 60_000);
 });
