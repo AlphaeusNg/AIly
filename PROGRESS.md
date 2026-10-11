@@ -2206,3 +2206,9 @@ Only the newest selected backup may confirm replacement or show a read error. Th
 Extracted start, pause and resume orchestration into a lazily imported focus-actions module. Cold Today does not request it; subsequent actions reuse it. Superseded pending actions, manual end and replaced state cannot start an old request later; failed imports can retry. Cheap timer and expiry checks remain in the shell. This advances AILY-07; Today rendering extraction remains open. Web version 2026.10.11.1; native version 0.1.8/code 8.
 
 Validation: Complete Rust/Clippy/Node gate and 16 Chromium journeys, including on-demand start/pause/resume/end. Android JVM tests and debug APK assembly passed. Physical-device journey and the native glib advisory remain open.
+
+## 2026-10-11 — Prepare deferred focus controls for offline first use
+
+After page load, the service worker prepares the deferred focus module at idle without importing it into the first-paint app. A prepared PWA can start and pause its first focus session offline. The module remains outside critical install assets. Web 2026.10.11.3; native 0.1.9/code 9.
+
+Validation: Complete Rust/Clippy/Node gate, 17 Chromium journeys including real offline first use, Android JVM/build and APK identity/version/signature checks; npm audit zero. Physical-device and native-glib remediation remain open.

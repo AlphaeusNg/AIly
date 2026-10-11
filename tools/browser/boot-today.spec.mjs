@@ -142,3 +142,23 @@ test("latest focus duration wins while its module is still loading", async ({ pa
   expect(remaining).toBeGreaterThan(24 * 60_000);
   expect(remaining).toBeLessThanOrEqual(25 * 60_000);
 });
+
+test.describe("offline focus controls", () => {
+  test.use({ serviceWorkers: "allow" });
+  test("first focus action works offline after the shell is prepared", async ({ page, context }) => {
+    await openReady(page);
+    await expect(page.locator("body")).toHaveClass(/app-ready/);
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(async () => {
+      const keys = await caches.keys();
+      const key = keys.find((name) => name.startsWith("aily-"));
+      return key ? Boolean(await (await caches.open(key)).match(new URL("js/focus-actions.js", location.href))) : false;
+    })).toBe(true);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    await context.setOffline(true);
+    await page.locator('[data-action="start-focus-25"]').click();
+    await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+    await page.locator('[data-action="pause-focus"]').click();
+    await expect(page.locator('[data-action="resume-focus"]')).toBeVisible();
+  });
+});

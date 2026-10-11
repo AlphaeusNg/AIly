@@ -1,6 +1,6 @@
 /* AIly service worker — offline shell for PWA install on Windows/Android */
 const CACHE_PREFIX = "aily-";
-const CACHE = "aily-2026.10.11.1";
+const CACHE = "aily-2026.10.11.3";
 const SCOPE_URL = new URL(self.registration.scope);
 // First-paint shell only. Lazy tab/native modules cache on first fetch.
 const ASSETS = [
@@ -72,6 +72,14 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+  if (event.data?.type === "CACHE_FOCUS_CONTROLS") {
+    const asset = "./js/focus-actions.js";
+    event.waitUntil(caches.open(CACHE).then(async (cache) => {
+      if (!await cache.match(asset)) await cache.add(asset);
+    }).catch((error) => {
+      console.warn("AIly deferred focus cache unavailable", error);
+    }));
   }
 });
 
