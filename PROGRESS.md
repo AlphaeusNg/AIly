@@ -2212,3 +2212,9 @@ Validation: Complete Rust/Clippy/Node gate and 16 Chromium journeys, including o
 After page load, the service worker prepares the deferred focus module at idle without importing it into the first-paint app. A prepared PWA can start and pause its first focus session offline. The module remains outside critical install assets. Web 2026.10.11.3; native 0.1.9/code 9.
 
 Validation: Complete Rust/Clippy/Node gate, 17 Chromium journeys including real offline first use, Android JVM/build and APK identity/version/signature checks; npm audit zero. Physical-device and native-glib remediation remain open.
+
+## 2026-10-13 — Preserve composition during Today entry and release 0.1.10
+
+Today commitment and metric Enter handlers wait for IME composition to finish. Modal cancellation and global shortcuts also leave composition alone. Native version 0.1.10, Android code 10.
+
+Validation: Complete Rust/Node gate and 18 Chromium journeys; Android JVM/build and APK identity/version/signature checks passed. npm audit: zero.

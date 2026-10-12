@@ -345,6 +345,7 @@ function scheduleModalAccessibilitySync() {
 }
 
 function handleModalKeydown(event) {
+  if (event.isComposing || event.keyCode === 229) return;
   const modal = topVisibleModal();
   if (!modal) return;
   if (event.key === "Escape") {
@@ -1762,12 +1763,14 @@ function renderToday() {
     </ul>
   `;
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector('[data-action="add-commit"]')?.click();
     }
   });
   $("#today-metric-value")?.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector('[data-action="today-log-metric"]')?.click();
@@ -4751,7 +4754,7 @@ document.addEventListener("aily:idle-tick", () => {
 
 // Light keyboard nav for desktop dogfood (ignore when typing).
 document.addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.metaKey || e.ctrlKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
     if (e.key === "Escape") e.target.blur();

@@ -162,3 +162,18 @@ test.describe("offline focus controls", () => {
     await expect(page.locator('[data-action="resume-focus"]')).toBeVisible();
   });
 });
+
+
+test('Today waits for composition to finish before adding a commitment', async ({page}) => {
+  await openReady(page);
+  const field = page.locator('#new-commit-text');
+  await field.fill('Composed commitment');
+  await page.locator('#new-commit-min').fill('15');
+  await field.evaluate(input => input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',isComposing:true,bubbles:true,cancelable:true})));
+  await expect(field).toHaveValue('Composed commitment');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('aily.v1.state')).commitments.length)).toBe(1);
+  await field.press('Enter');
+  await expect(page.locator('#panel-today')).toContainText('Composed commitment');
+  await expect(field).toHaveValue('');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('aily.v1.state')).commitments.length)).toBe(2);
+});
