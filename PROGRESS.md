@@ -2218,3 +2218,20 @@ Validation: Complete Rust/Clippy/Node gate, 17 Chromium journeys including real 
 Today commitment and metric Enter handlers wait for IME composition to finish. Modal cancellation and global shortcuts also leave composition alone. Native version 0.1.10, Android code 10.
 
 Validation: Complete Rust/Node gate and 18 Chromium journeys; Android JVM/build and APK identity/version/signature checks passed. npm audit: zero.
+
+## 2026-10-13 — Verify local Android builds before staging
+
+The Linux/WSL build helper now stages the canonical `dist/AIly-debug.apk`
+instead of an artifact permanently labeled `0.1.0`. Before replacing a staged
+APK it verifies the built package's identity, current package version and
+signature using the same verifier as hosted packaging. A failed verification
+preserves the previous staged artifact. The installation guide documents the
+verified helper; its isolated toolchain regression runs in `npm test`.
+
+Validation: Complete Rust/Clippy/Node gate and all 18 Chromium journeys passed.
+Android JVM tests passed. The real build helper assembled and verified a signed
+`com.alphaeusng.aily` version `0.1.10` APK (4,228,689 bytes). `npm ci` audit
+reported zero vulnerabilities; `git diff --check` passed. This changes local
+build tooling only, so web `2026.10.13.1` and native `0.1.10` remain current;
+no new package release is needed. Physical-device validation and the native
+glib advisory remain open.

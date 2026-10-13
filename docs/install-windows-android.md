@@ -119,6 +119,11 @@ cd android && ./gradlew assembleDebug
 # APK: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+On Linux or WSL with a full JDK and Android SDK, `bash tools/build-android.sh`
+builds the APK, checks its package identity, current version and signature, then
+stages `dist/AIly-debug.apk`. Failed verification leaves any previously staged
+APK in place.
+
 Install APK on a device with USB debugging, or copy the APK to the phone.
 
 To enable Android-reported daily app totals, open **Usage**, choose **Open Android usage

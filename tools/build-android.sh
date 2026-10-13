@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build AIly debug APK (Linux/WSL). Requires Android SDK + JDK with javac.
+# Build and verify AIly debug APK (Linux/WSL). Requires Android SDK + full JDK.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+build_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$build_root"
 
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 if [ -x "$HOME/.local/jdk-21/bin/javac" ]; then
@@ -19,10 +19,13 @@ if [ ! -d "$ANDROID_HOME/platforms" ]; then
   exit 1
 fi
 
+package_version="$(node -p "require('./package.json').version")"
 npx cap sync android
 echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 (cd android && ./gradlew assembleDebug ${JAVA_HOME:+-Dorg.gradle.java.home="$JAVA_HOME"})
+apk_source="android/app/build/outputs/apk/debug/app-debug.apk"
+bash tools/verify-android-apk.sh "$apk_source" "$package_version"
 mkdir -p dist
-cp -f android/app/build/outputs/apk/debug/app-debug.apk "dist/AIly-0.1.0-debug.apk"
-echo "Built dist/AIly-0.1.0-debug.apk"
-ls -lh "dist/AIly-0.1.0-debug.apk"
+cp -f "$apk_source" dist/AIly-debug.apk
+echo "Built and verified dist/AIly-debug.apk ($package_version)"
+ls -lh dist/AIly-debug.apk
