@@ -160,6 +160,7 @@ export function defaultState() {
       checkInOpen: false,
       focusSessionEndsAt: 0,
       focusPausedRemainingMs: 0,
+      customFocusMinutes: 25,
       dailyIntention: "",
       dailyNote: "",
       density: "comfortable",
@@ -285,6 +286,10 @@ export function hydrateState(saved) {
       focusPausedRemainingMs: Number.isFinite(savedUi.focusPausedRemainingMs)
         ? Math.max(0, savedUi.focusPausedRemainingMs)
         : defaults.ui.focusPausedRemainingMs,
+      customFocusMinutes: Number.isInteger(savedUi.customFocusMinutes)
+        && savedUi.customFocusMinutes >= 1 && savedUi.customFocusMinutes <= 180
+        ? savedUi.customFocusMinutes
+        : defaults.ui.customFocusMinutes,
       dailyIntention: text(savedUi.dailyIntention, 280),
       dailyNote: text(savedUi.dailyNote, 500),
       density: savedUi.density === "compact" ? "compact" : defaults.ui.density,

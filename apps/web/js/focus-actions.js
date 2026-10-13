@@ -1,9 +1,10 @@
 /** Focus actions load only when a session control is used. */
 export function createFocusActions({ getState, canArmBlocks, appendAudit, persist, showToast }) {
-  function startFocusMinutes(mins) {
+  function startFocusMinutes(mins, { rememberCustom = false } = {}) {
     const state = getState();
     const m = Number(mins);
-    if (!Number.isFinite(m) || m < 1) return;
+    if (!Number.isInteger(m) || m < 1 || m > 180) return;
+    if (rememberCustom) state.ui.customFocusMinutes = m;
     state.ui.focusPausedRemainingMs = 0;
     state.ui.focusSessionEndsAt = Date.now() + m * 60_000;
     let armed = 0;

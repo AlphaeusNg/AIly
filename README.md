@@ -16,8 +16,11 @@ AIly walks you through setup (no terminal), tracks the journey, can watch app us
 
 **Android:** same URL → Add to Home screen, or the [debug APK](https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-debug.apk). Verify hashes with [`SHA256SUMS.txt`](https://github.com/AlphaeusNg/AIly/releases/latest/download/SHA256SUMS.txt).
 
+In **Today**, open **Custom duration** to start a focus timer for 1–180 whole
+minutes. AIly remembers your last custom duration on this device.
+
 PWA, `.exe`, and APK are three different things. The PWA will not give you OS admin or app blocks.
 
-Working in this repo? See **[AGENTS.md](AGENTS.md)** for layout, tests, privacy rules, and native builds. Extra docs: [install](docs/install-windows-android.md), [architecture](docs/architecture.md), [tutorial](docs/tutorial.md), [privacy](docs/privacy.md), [blocking](docs/blocking.md).
+Working in this repo? See **[AGENTS.md](AGENTS.md)** for layout, tests, privacy rules, and native builds. Extra docs: [install](docs/install-windows-android.md), [architecture](docs/architecture.md), [tutorial](docs/tutorial.md), [privacy](docs/privacy.md), [blocking](docs/blocking.md), [feature roadmap](docs/FEATURE_ROADMAP.md).
 
 MIT. See [LICENSE](LICENSE).

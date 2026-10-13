@@ -1114,7 +1114,7 @@ async function runFocusAction(name, ...args) {
     if (generation === focusActionGeneration) showToast("Could not load focus controls. Try again.", "error");
   }
 }
-function startFocusMinutes(mins) { return runFocusAction("startFocusMinutes", mins); }
+function startFocusMinutes(mins, options) { return runFocusAction("startFocusMinutes", mins, options); }
 function pauseFocusSession() { return runFocusAction("pauseFocusSession"); }
 function resumeFocusSession() { return runFocusAction("resumeFocusSession"); }
 
@@ -1550,7 +1550,16 @@ function renderToday() {
                <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
                <button type="button" class="primary" data-action="start-focus-50">Focus 50m</button>
-             </p>`
+             </p>
+             <details class="custom-focus">
+               <summary>Custom duration</summary>
+               <form id="custom-focus-form" class="row">
+                 <label for="custom-focus-min">Minutes (1–180)</label>
+                 <input id="custom-focus-min" type="number" min="1" max="180" step="1" required value="${state.ui.customFocusMinutes}" style="width:5rem" />
+                 <button type="submit">Start custom focus</button>
+               </form>
+               <p class="muted">OS app blocking is not available in this build.</p>
+             </details>`
       }
     </div>
     ${
@@ -1762,6 +1771,13 @@ function renderToday() {
         .join("") || (nextThing ? "" : emptyTodayCta())}
     </ul>
   `;
+  $("#custom-focus-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("#custom-focus-min");
+    const minutes = input?.valueAsNumber;
+    if (!input?.reportValidity() || !Number.isInteger(minutes) || minutes < 1 || minutes > 180) return;
+    startFocusMinutes(minutes, { rememberCustom: true });
+  });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {

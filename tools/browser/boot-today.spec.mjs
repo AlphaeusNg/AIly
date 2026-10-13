@@ -156,7 +156,9 @@ test.describe("offline focus controls", () => {
     })).toBe(true);
     await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
     await context.setOffline(true);
-    await page.locator('[data-action="start-focus-25"]').click();
+    await page.getByText("Custom duration", { exact: true }).click();
+    await page.getByLabel("Minutes (1–180)").fill("10");
+    await page.getByRole("button", { name: "Start custom focus", exact: true }).click();
     await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
     await page.locator('[data-action="pause-focus"]').click();
     await expect(page.locator('[data-action="resume-focus"]')).toBeVisible();
@@ -176,4 +178,50 @@ test('Today waits for composition to finish before adding a commitment', async (
   await expect(page.locator('#panel-today')).toContainText('Composed commitment');
   await expect(field).toHaveValue('');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('aily.v1.state')).commitments.length)).toBe(2);
+});
+
+test("custom focus validates input, remembers duration and stays compact", async ({ page }) => {
+  const seed = readyTodayState();
+  seed.blockRules = [{ id: "rule", appKeys: ["distractor"], mode: "soft_delay", armed: false }];
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.addInitScript((state) => {
+    if (!localStorage.getItem("aily.v1.state")) localStorage.setItem("aily.v1.state", JSON.stringify(state));
+  }, seed);
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await expect(page.locator(".custom-focus")).not.toHaveAttribute("open");
+  await page.getByText("Custom duration", { exact: true }).click();
+  const input = page.getByLabel("Minutes (1–180)");
+  const start = page.getByRole("button", { name: "Start custom focus", exact: true });
+  await expect(input).toHaveValue("25");
+  for (const value of ["", "0", "181", "12.5"]) {
+    await input.fill(value);
+    await start.click();
+    await expect(input).toBeVisible();
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")));
+    expect(saved.ui.focusSessionEndsAt).toBe(0);
+    expect(saved.ui.customFocusMinutes).toBe(25);
+    expect(saved.blockRules[0].armed).toBe(false);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await input.fill("40");
+  await input.press("Enter");
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  const started = await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")));
+  expect(started.ui.focusSessionEndsAt - Date.now()).toBeGreaterThan(39 * 60_000);
+  expect(started.ui.customFocusMinutes).toBe(40);
+  expect(started.tutorial.permissions).toEqual(seed.tutorial.permissions);
+  expect(started.blockRules[0].armed).toBe(false);
+  await page.reload();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  await page.locator('[data-action="end-focus"]').click();
+  await page.getByText("Custom duration", { exact: true }).click();
+  await expect(input).toHaveValue("40");
+  await page.locator('[data-action="start-focus-15"]').click();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+  await page.locator('[data-action="end-focus"]').click();
+  await page.getByText("Custom duration", { exact: true }).click();
+  await expect(input).toHaveValue("40");
+  await start.click();
+  await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
 });

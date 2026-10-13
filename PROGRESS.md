@@ -2235,3 +2235,28 @@ reported zero vulnerabilities; `git diff --check` passed. This changes local
 build tooling only, so web `2026.10.13.1` and native `0.1.10` remain current;
 no new package release is needed. Physical-device validation and the native
 glib advisory remain open.
+
+## 2026-10-14 — Choose and remember a custom focus duration
+
+Researched selectable focus-session duration using Microsoft's official Focus
+help and MDN's number-input validation documentation. The dated
+`docs/FEATURE_ROADMAP.md` records evidence, acceptance criteria and next
+priorities before implementation.
+
+Today now offers a collapsed Custom duration control for 1–180 whole minutes,
+started by button or Enter. Successful custom starts remember the duration in
+existing local preferences and backups. Invalid saved preferences fall back to
+25; invalid input cannot start a session or change consent. Quick starts retain
+the custom preference. The same deferred controls, audit, pause/resume, early
+end and existing block-consent gates apply. The disclosure states that OS app
+blocking is unavailable. Web/worker `2026.10.14.1`; native `0.1.11`, Android code 11.
+
+Validation: Complete Rust/Clippy/Node gate and 19 Chromium journeys passed,
+including custom persistence across reload, invalid input, unchanged permissions,
+320px overflow and prepared offline custom start. Domain tests cover all consent
+combinations and backup boundaries. Android JVM tests and real debug APK build
+passed; the shared verifier checked identity `com.alphaeusng.aily`, version
+`0.1.11` and signature (4,229,062 bytes). npm audit reported zero vulnerabilities;
+diff and documentation/package contracts passed. Hosted installed-Windows checks
+and tag package publication follow the push. Physical-device checks, OS
+hard-block enforcement and native glib remediation remain open.
