@@ -363,6 +363,23 @@ body.app-ready .app-shell[hidden] {
   border: 0;
 }
 
+/* The skip link becomes a visible, sized control when reached by keyboard. */
+a.sr-only:focus {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 30;
+  width: auto;
+  height: auto;
+  max-width: calc(100% - 1.5rem);
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  clip: auto;
+  background: var(--panel);
+  color: var(--text);
+  outline: 2px solid var(--accent);
+}
+
 .intention-modal .intention-body {
   margin: 0.25rem 0 0.75rem;
   line-height: 1.5;
@@ -558,9 +575,14 @@ button.ghost:hover {
   border-radius: 999px;
 }
 
+.panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 0;
   max-width: 1100px;
   width: 100%;
@@ -693,6 +715,8 @@ select,
 button,
 textarea {
   font: inherit;
+  min-width: 0;
+  max-width: 100%;
 }
 
 input,
@@ -705,6 +729,7 @@ select {
 }
 
 button {
+  overflow-wrap: anywhere;
   background: #21262d;
   border: 1px solid var(--border);
   color: var(--text);
@@ -777,6 +802,7 @@ button:hover {
 }
 
 .chk {
+  min-height: 24px;
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -816,6 +842,7 @@ button:hover {
 }
 
 button.version-btn {
+  min-height: 24px;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -843,10 +870,13 @@ button.version-btn:hover {
 
 .modal {
   width: min(520px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 1.25rem 1.35rem 1.1rem;
+  padding: 1.25rem clamp(0.75rem, 3vw, 1.35rem) 1.1rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
@@ -937,6 +967,7 @@ button.version-btn:hover {
 }
 
 .one-thing-card {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1008,6 +1039,11 @@ button.version-btn:hover {
   margin-left: auto;
 }
 
+.custom-focus > summary,
+.commit-overflow > summary {
+  min-height: 24px;
+}
+
 .commit-overflow > summary {
   list-style: none;
   cursor: pointer;
@@ -1076,7 +1112,7 @@ button.version-btn:hover {
     bottom: 0;
     z-index: 12;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.15rem;
     border-right: 0;
     border-top: 1px solid var(--border);

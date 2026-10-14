@@ -86,7 +86,7 @@ assert.match(
 );
 
 const css = read("css/app.css");
-assert.match(css, /grid-template-columns:\s*repeat\(5,\s*1fr\)/, "phone bar is a 5-column grid");
+assert.match(css, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/, "phone bar is a 5-column grid");
 assert.match(css, /nav-more-trigger/, "CSS hides More on desktop and shows it on phones");
 assert.match(css, /\.commit-row\.is-must-keep/, "must-keep rows use a left accent");
 assert.match(

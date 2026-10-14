@@ -2260,3 +2260,24 @@ passed; the shared verifier checked identity `com.alphaeusng.aily`, version
 diff and documentation/package contracts passed. Hosted installed-Windows checks
 and tag package publication follow the push. Physical-device checks, OS
 hard-block enforcement and native glib remediation remain open.
+
+
+## 2026-10-14 — Keep controls and dialogs inside the viewport
+
+Audited seven sizing/settings configurations and 14 app states, with local
+before/after screenshots and measurements recorded in `docs/UI_SIZING_AUDIT.md`.
+Long target choices no longer expand narrow pages; enlarged forms, headings and
+navigation reflow. Dialogs scroll within the viewport, including Help and
+check-in at enlarged text sizes. Small disclosures, checkbox labels and the
+version-copy control receive compact 24px minimum heights. The keyboard skip
+link becomes visible with a usable hit box on focus. The next-commitment
+action can wrap. No usage, consent or block semantics changed.
+
+Validation: Complete Rust/Clippy/Node gate and 25 Chromium journeys passed,
+including six new sizing matrices; affected browser checks reran after the final
+modal-padding adjustment. All 98 measured final states fit horizontally.
+Android JVM tests and rebuilt APK identity/version/signature verification
+passed. npm audit: zero vulnerabilities. Web/worker `2026.10.14.2`; native
+`0.1.12`, Android code 12. Hosted installed-Windows checks and package release
+verification follow the push. Physical-device/OS font scaling, virtual keyboards
+and the native glib remediation remain open.
