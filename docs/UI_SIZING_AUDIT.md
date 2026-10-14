@@ -78,3 +78,11 @@ Android JVM tests and a real debug APK build passed, including package identity,
 version and signature verification. Web/worker stamp: `2026.10.14.2`. Native
 version: `0.1.12`, Android code 12. Hosted installed-Windows checks and verified
 package release publication follow the main push.
+
+## Packaging follow-up
+
+The initial native 0.1.12 version edit changed two unrelated Cargo.lock package
+versions; hosted Windows validation rejected them. Restored the original
+find-msvc-tools and winapi-util 0.1.11 records with unchanged checksums. The failed tag
+remains immutable; corrected installers are released as native 0.1.13 / code 13.
+Web layout stamp stays 2026.10.14.2.

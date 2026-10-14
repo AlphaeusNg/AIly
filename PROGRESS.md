@@ -2281,3 +2281,12 @@ passed. npm audit: zero vulnerabilities. Web/worker `2026.10.14.2`; native
 `0.1.12`, Android code 12. Hosted installed-Windows checks and package release
 verification follow the push. Physical-device/OS font scaling, virtual keyboards
 and the native glib remediation remain open.
+
+### Sizing release packaging correction — 2026-10-14
+
+Hosted Windows validation caught a native-version replacement that also changed
+find-msvc-tools and winapi-util lock entries, retaining their previous checksums.
+Restored both original 0.1.11 dependency records. The already pushed v0.1.12 tag
+was not rewritten; its package workflow failed and published no release assets.
+Scoped native package fields advance to 0.1.13/code 13; web sizing release remains
+2026.10.14.2. No dependency graph upgrade or runtime UI change is intended.
