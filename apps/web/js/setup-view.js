@@ -44,7 +44,7 @@ export function renderSetupPanel({
   element.innerHTML = `
     <header class="panel-head">
       <h1>Setup</h1>
-      <p class="muted">Tutorial checklist — AIly walks you through everything.</p>
+      <p class="muted">AIly walks you through setup.</p>
     </header>
     <div class="capacity-card">
       <h2>Setup progress</h2>

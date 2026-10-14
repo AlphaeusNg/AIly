@@ -2290,3 +2290,9 @@ Restored both original 0.1.11 dependency records. The already pushed v0.1.12 tag
 was not rewritten; its package workflow failed and published no release assets.
 Scoped native package fields advance to 0.1.13/code 13; web sizing release remains
 2026.10.14.2. No dependency graph upgrade or runtime UI change is intended.
+
+## 2026-10-15 — Say the return and setup lines in fewer words
+
+Return copy names the minutes away and whether focus is still on. Morning check-in, review, blocks, and break-glass say what happens on this device. The install line still says the PWA stays in this browser, the Windows package is unsigned, and neither install blocks apps. Web/worker `2026.10.15.1`. Native package stays `0.1.13`.
+
+Validation: ally, block, tutorial, shell, and service-worker node gates passed, with syntax checks on the changed web files. Cargo, Android, and the Chromium suite were not rerun.

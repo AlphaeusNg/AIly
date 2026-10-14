@@ -815,10 +815,6 @@ function sessionMinutes() {
 function allyTimeMessage(dailyCap, planned, reading) {
   const session = sessionMinutes();
   const parts = [];
-  const name = (state.user.displayName || "").trim();
-  if (name) {
-    parts.push(`Hi <strong>${escapeHtml(name)}</strong>.`);
-  }
   parts.push(
     `You've planned <strong>${formatClockHours(planned)}</strong> of a <strong>${formatClockHours(dailyCap)}</strong> day.`
   );
@@ -1615,7 +1611,7 @@ function renderToday() {
         }
         if (isMorningLocal() && isReady(state) && state.ui.lastCheckInDate !== todayISO()) {
           notices.push(
-            `<div class="banner warn">Morning pause — set today’s intention before the day runs you. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
+            `<div class="banner warn">Set today’s intention. <button type="button" class="primary" data-action="open-checkin">Check in</button></div>`
           );
         }
         if (isEveningLocal() && pendingReviewCount() > 0) {
@@ -1950,7 +1946,7 @@ function renderReview() {
   el.innerHTML = `
     <header class="panel-head">
       <h1>Review</h1>
-      <p class="muted">Evening honesty — evidence toward targets, or structured no-impact.</p>
+      <p class="muted">Did today's time match your targets?</p>
     </header>
     ${
       state.ui.dailyIntention
@@ -2305,7 +2301,7 @@ function paintTutorial() {
         persist();
         showToast(
           state.user.displayName
-            ? `Welcome, ${state.user.displayName}. Protect the time that matters.`
+            ? `Protect the time that matters, ${state.user.displayName}.`
             : "You're ready. Set an intention and protect the time that matters.",
           "ok",
           4500

@@ -67,7 +67,7 @@ export function validateBreakGlassComplete({
   }
   const text = typeof reason === "string" ? reason.trim() : "";
   if (requireReason && text.length < 2) {
-    return { ok: false, error: "Add a short reason — no shame, just honesty" };
+    return { ok: false, error: "Add a short reason. It stays on this device." };
   }
   return { ok: true };
 }

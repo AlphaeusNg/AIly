@@ -453,13 +453,13 @@ export function returnNudge(ctx) {
       : "What do you want the next stretch to be for?";
   let text;
   if (ctx?.focusActive) {
-    text = `Welcome back (${awayRounded}m away). Focus is still on — is this still what you want?${planHint}`;
+    text = `Away for ${awayRounded}m. Focus is still on.${planHint}`;
   } else if (intention) {
-    text = `Welcome back (${awayRounded}m away). Your intention was “${intention.slice(0, 80)}”. Still true?${planHint}`;
+    text = `Away for ${awayRounded}m. Your intention was “${intention.slice(0, 80)}”.${planHint}`;
   } else if (open > 0) {
-    text = `Welcome back (${awayRounded}m away).${planHint} Pause — re-choose the next stretch intentionally.`;
+    text = `Away for ${awayRounded}m.${planHint}`;
   } else {
-    text = `Welcome back (${awayRounded}m away). Pause — what do you want the next stretch to be for?`;
+    text = `Away for ${awayRounded}m.`;
   }
   return {
     question,

@@ -21,7 +21,7 @@ export function renderBlocksPanel({
   element.innerHTML = `
     <header class="panel-head">
       <h1>Blocks</h1>
-      <p class="muted">Self-admin productivity blocks — ally, not prison. Break-glass always.</p>
+      <p class="muted">Rules for apps you list. Break-glass always.</p>
     </header>
     ${
       canArm

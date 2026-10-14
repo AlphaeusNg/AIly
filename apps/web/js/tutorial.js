@@ -5,7 +5,7 @@ export const CHAPTERS = [
     id: "meet",
     title: "Meet AIly",
     required: true,
-    body: `Hi — I'm **AIly**, your AI Ally.
+    body: `I'm **AIly**, your AI Ally.
 
 I help you hit the **targets you set**. I'll walk you through setup on this computer — no terminal, no tech maze.
 
@@ -55,7 +55,7 @@ Data stays on this device by default. You can revoke anytime in Setup.`,
     required: false,
     body: `Grant AIly power to **block** those apps during focus windows you set.
 
-You can always **break glass** (unlock with a short delay + reason). AIly logs it so your journey stays honest — no shame, just clarity.`,
+You can always **break glass** (unlock with a short delay + reason). AIly logs it on this device.`,
     grant: "blockAdmin",
   },
   {

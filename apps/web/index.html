@@ -39,7 +39,7 @@
         <img src="assets/logo.svg" width="36" height="36" alt="" />
         <div class="install-copy">
           <strong>Update ready</strong>
-          <span class="muted">A newer AIly shell is waiting — reload to use it.</span>
+          <span class="muted">Reload to use the newer AIly.</span>
         </div>
         <button type="button" class="primary" data-action="apply-update">Reload</button>
         <button type="button" data-action="dismiss-update" aria-label="Dismiss">✕</button>
@@ -48,7 +48,7 @@
         <img src="assets/logo.svg" width="36" height="36" alt="" />
         <div class="install-copy">
           <strong>Get AIly on this device</strong>
-          <span class="muted">PWA now (no OS admin). Windows package is AIly-setup.exe from Releases — unsigned dogfood, no app blocks yet.</span>
+          <span class="muted">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</span>
         </div>
         <button type="button" class="primary" id="install-pwa-btn" data-action="install-app">Install PWA</button>
         <a class="primary" id="install-windows-link" href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener">Windows package</a>
@@ -159,7 +159,7 @@
     <div id="return-nudge-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="return-nudge-title">
       <div class="modal intention-modal">
         <div class="modal-top">
-          <span class="muted">Welcome back</span>
+          <span class="muted">You stepped away</span>
           <button type="button" data-action="return-choose-next" data-modal-close aria-label="Close">✕</button>
         </div>
         <h2 id="return-nudge-title">Still protecting this?</h2>
@@ -179,7 +179,7 @@
           <button type="button" data-action="checkin-skip" data-modal-close aria-label="Skip">✕</button>
         </div>
         <h2 id="checkin-title">What do you want to protect today?</h2>
-        <p class="muted">Pause before the day runs you. One sentence is enough — AIly will keep it visible on Today.</p>
+        <p class="muted">One sentence is enough. AIly shows it on Today.</p>
         <label class="form-label">My intention
           <input id="checkin-intention" type="text" maxlength="280" placeholder="e.g. Ship the hard part before lunch" data-modal-initial />
         </label>
@@ -213,7 +213,7 @@
         <h2 id="breakglass-title">Unlock for a moment</h2>
         <p id="breakglass-body" class="intention-body"></p>
         <p class="breakglass-countdown" id="breakglass-countdown" aria-live="polite">—</p>
-        <label class="form-label">Why? <span class="muted">(logged locally — no shame)</span>
+        <label class="form-label">Why? <span class="muted">Logged on this device.</span>
           <input id="breakglass-reason" type="text" maxlength="200" placeholder="e.g. need one message from Slack" data-modal-initial />
         </label>
         <div class="modal-actions">
