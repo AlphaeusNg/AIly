@@ -106,6 +106,7 @@ test("fresh Today hides planning tools and keeps one primary action", async ({ p
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(propose).toBeVisible();
+  await expect(propose).toHaveAttribute("data-label", "Ask AIly to propose a plan");
   await expect(commitment).toBeVisible();
   await expect(page.locator("#panel-today button.primary:visible")).toHaveCount(1);
   await expect(page.locator("#panel-today button.primary:visible")).toHaveText("Create a target");
@@ -132,7 +133,9 @@ test("install options open in one tap at 390px", async ({ page }) => {
   const options = banner.locator("#install-options");
   const summary = options.locator("summary");
   const windows = options.getByRole("link", { name: "Windows package", exact: true });
-  await expect(summary).toHaveText("Install options");
+  await expect(summary).toHaveAttribute("aria-label", "Install options");
+  await expect(summary).toHaveAttribute("data-label", "Install options");
+  await summary.hover();
   await expect(summary).toBeVisible();
   await expect(windows).toBeHidden();
   await expect(options.locator(".install-desc")).toBeHidden();
@@ -141,6 +144,7 @@ test("install options open in one tap at 390px", async ({ page }) => {
 
   await summary.click();
   await expect(windows).toBeVisible();
+  expect(await summary.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("hidden");
   await expect(options.locator(".install-desc")).toBeVisible();
   await expect(banner.getByRole("button", { name: "Install PWA", exact: true })).toBeVisible();
   await expect(banner.getByRole("button", { name: "Dismiss", exact: true })).toBeVisible();
@@ -180,6 +184,8 @@ test("planning controls keep primary styling once a target exists", async ({ pag
   await expect(page.locator('[data-action="open-checkin"]')).toHaveClass(/primary/);
   await expect(page.locator('[data-action="start-focus-50"]')).toHaveClass(/primary/);
   await expect(page.locator('[data-action="ally-propose"]')).toHaveClass(/primary/);
+  await expect(page.locator('[data-action="ally-propose"]')).toHaveText("Ask AIly to propose a plan");
+  await expect(page.locator('[data-action="ally-propose"]')).not.toHaveAttribute("data-label");
   await expect(page.locator('[data-action="add-commit"]')).toHaveClass(/primary/);
   await expect(page.locator('[data-action="start-focus-15"]')).not.toHaveClass(/primary/);
   await expect(page.locator('[data-action="start-focus-25"]')).not.toHaveClass(/primary/);
@@ -197,4 +203,101 @@ test("Add to plan starts expanded when today already has commitments", async ({ 
   await expect(page.getByRole("button", { name: "Ask AIly to propose a plan", exact: true })).toBeVisible();
   await expect(page.locator("#new-commit-text")).toBeVisible();
   await expect(page.locator('[data-action="export-today-plan"]')).toBeVisible();
+});
+
+
+test("secondary icons expose names and keyboard tooltips within a narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openFreshToday(page);
+  const toggle = page.getByRole("button", { name: "Add to plan", exact: true });
+  // Reach the toggle using actual keyboard navigation, ensuring :focus-visible.
+  await page.keyboard.press("Tab");
+  for (let step = 0; step < 100 && !(await toggle.evaluate((el) => el === document.activeElement)); step++) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(toggle).toBeFocused();
+  const tooltip = await toggle.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { opacity: style.opacity, visibility: style.visibility, content: style.content,
+      left: el.getBoundingClientRect().left + el.clientLeft + parseFloat(style.left), width: parseFloat(style.width) };
+  });
+  expect(tooltip.opacity).toBe("1");
+  expect(tooltip.visibility).toBe("visible");
+  expect(tooltip.content).toBe('"Add to plan"');
+  expect(tooltip.left).toBeGreaterThanOrEqual(8);
+  expect(tooltip.left + tooltip.width).toBeLessThanOrEqual(382);
+  await page.keyboard.press("Enter");
+  for (const control of await page.locator("#panel-today .icon-control, #install-banner .icon-control, #update-banner .icon-control").all()) {
+    const label = await control.getAttribute("aria-label");
+    expect(label).toBeTruthy();
+    await expect(control).toHaveAttribute("data-label", label);
+    await expect(control).toHaveText("");
+    await expect(control.locator("svg")).toHaveAttribute("aria-hidden", "true");
+    await expect(control.locator("svg")).toHaveAttribute("focusable", "false");
+  }
+  const summary = page.locator("#install-options summary");
+  await summary.focus();
+  const rightTooltip = await summary.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { left: el.getBoundingClientRect().left + el.clientLeft + parseFloat(style.left), width: parseFloat(style.width) };
+  });
+  expect(rightTooltip.left).toBeGreaterThanOrEqual(8);
+  expect(rightTooltip.left + rightTooltip.width).toBeLessThanOrEqual(382);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await toggle.evaluate((el) => getComputedStyle(el, "::after").transitionDuration)).toBe("0s");
+});
+
+
+test("Today management controls retain accessible words as icon labels", async ({ page }) => {
+  const state = profileWithTarget({ commitments: true });
+  state.ui.dailyIntention = "Make time to read";
+  state.commitments.push({ ...state.commitments[0], id: "done-1", text: "Finished item", status: "done" });
+  await page.addInitScript((saved) => {
+    localStorage.setItem("aily.v1.state", JSON.stringify(saved));
+  }, state);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await dismissTutorial(page);
+  for (const name of ["Export plan", "Copy plan", "Move open → tomorrow", "Drop done from list", "Clone yesterday", "Edit", "Clear"]) {
+    const control = page.getByRole("button", { name, exact: true });
+    await expect(control).toHaveAttribute("aria-label", name);
+    await expect(control).toHaveAttribute("data-label", name);
+    await expect(control).toHaveText("");
+  }
+  await page.getByRole("button", { name: "Ask AIly to propose a plan", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Clear proposal", exact: true })).toHaveAttribute("data-label", "Clear proposal");
+});
+
+
+test("Clone yesterday hover shows a compact tooltip at desktop width", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openFreshToday(page);
+  await page.locator("#add-to-plan-toggle").click();
+  const clone = page.getByRole("button", { name: "Clone yesterday", exact: true });
+  await clone.hover();
+  const tooltip = await clone.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { visibility: style.visibility, position: style.position, width: parseFloat(style.width) };
+  });
+  expect(tooltip.visibility).toBe("visible");
+  expect(tooltip.position).toBe("absolute");
+  expect(tooltip.width).toBeLessThan(240);
+});
+
+test("focus tooltip stays above its control near the mobile bottom nav", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openFreshToday(page);
+  const control = page.locator("#add-to-plan-toggle");
+  await control.evaluate((el) => {
+    el.style.position = "fixed";
+    el.style.bottom = "60px";
+  });
+  await control.focus();
+  await expect(control).toHaveClass(/tooltip-above/);
+  const tooltip = await control.evaluate((el) => {
+    const style = getComputedStyle(el, "::after");
+    return { visibility: style.visibility, bottom: parseFloat(style.bottom), height: el.clientHeight };
+  });
+  expect(tooltip.visibility).toBe("visible");
+  expect(tooltip.bottom).toBeGreaterThanOrEqual(tooltip.height + 6);
 });

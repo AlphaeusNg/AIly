@@ -1328,3 +1328,83 @@ body.high-contrast .banner.danger {
   border-color: #f87171;
   background: #450a0a;
 }
+
+/* Secondary actions share accessible names and control-anchored word tooltips. */
+.icon-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0.5rem;
+  vertical-align: middle;
+  cursor: pointer;
+}
+summary.icon-control {
+  list-style: none;
+}
+summary.icon-control::-webkit-details-marker {
+  display: none;
+}
+.icon-control svg {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.icon-control::after {
+  content: attr(data-label);
+  display: none;
+  position: absolute;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 16px));
+  left: 0;
+  top: calc(100% + 6px);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel, #18202c);
+  color: var(--text, #fff);
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+.icon-control.tooltip-right::after {
+  left: auto;
+  right: 0;
+}
+.icon-control.tooltip-wrap::after {
+  white-space: normal;
+}
+.icon-control.tooltip-above::after {
+  bottom: calc(100% + 6px);
+  top: auto;
+}
+.icon-control:hover,
+.icon-control:focus-visible {
+  z-index: 1001;
+}
+.icon-control:hover::after,
+.icon-control:focus-visible::after {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+}
+details[open] > summary.icon-control::after {
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-control::after {
+    transition: none !important;
+  }
+}

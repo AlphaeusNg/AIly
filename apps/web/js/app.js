@@ -76,6 +76,25 @@ import {
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
+
+const ICON_PATHS = {
+  "clone-yesterday": "M9 5H5v14h14v-4 M9 3h12v12H9z",
+  "export-today-plan": "M12 15V3m-4 4 4-4 4 4 M5 13v7h14v-7",
+  "copy-today-plan": "M9 9h12v12H9z M15 9V3H3v12h6",
+  "defer-pending-tomorrow": "M4 12h16m-6-6 6 6-6 6",
+  "hide-done-today": "m5 7 4 4 8-8 M5 17h14",
+  "ally-clear": "m6 6 12 12M6 18 18 6",
+  "undo": "M9 4 3 10l6 6 M3 10h11a6 6 0 0 1 0 12",
+  "ally-propose": "m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z",
+  "add": "M12 5v14M5 12h14",
+  "edit": "m4 16-1 5 5-1L20 8l-4-4z",
+  "clear": "m6 6 12 12M6 18 18 6",
+  "notice": "M12 8v5m0 3v1 M12 3 2 21h20z",
+  "pause": "M8 4v16M16 4v16",
+  "extend": "M12 5v14M5 12h14",
+  "end": "M5 5h14v14H5z",
+};
+
 function createWebSessionBackend() {
   return {
     id: "web-session",
@@ -1552,8 +1571,8 @@ function renderToday() {
       ${
         state.ui.dailyIntention
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
-             <button type="button" class="ghost" data-action="open-checkin">Edit</button>
-             <button type="button" class="ghost" data-action="clear-intention">Clear</button></p>`
+             ${secondaryIcon("Edit", "edit", 'data-action="open-checkin"')}
+             ${secondaryIcon("Clear", "clear", 'data-action="clear-intention"')}</p>`
           : `<p class="ally-line"><button type="button" class="${leadClass}" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
@@ -1567,10 +1586,10 @@ function renderToday() {
              ${
                isFocusPaused()
                  ? `<button type="button" class="primary" data-action="resume-focus">Resume</button>`
-                 : `<button type="button" data-action="pause-focus">Pause</button>
-                    <button type="button" data-action="extend-focus-10">+10m</button>`
+                 : `${secondaryIcon("Pause", "pause", 'data-action="pause-focus"')}
+                    ${secondaryIcon("+10m", "extend", 'data-action="extend-focus-10"')}`
              }
-             <button type="button" data-action="end-focus">End early</button></p>`
+             ${secondaryIcon("End early", "end", 'data-action="end-focus"')}</p>`
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
@@ -1589,7 +1608,7 @@ function renderToday() {
     </div>
     ${
       !check.ok
-        ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
+        ? `<div class="banner danger">${errorLabel(check.error)} ${secondaryIcon("Force replan", "notice", 'data-action="replan"')}</div>`
         : ""
     }
     ${
@@ -1597,12 +1616,12 @@ function renderToday() {
         const notices = [];
         if (state.blockRules.some((r) => r.armed)) {
           notices.push(
-            `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. <button type="button" data-action="goto-blocks">Manage blocks</button></div>`
+            `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. ${secondaryIcon("Manage blocks", "notice", 'data-action="goto-blocks"')}</div>`
           );
         }
         if (!isReady(state)) {
           notices.push(
-            `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>`
+            `<div class="banner warn">Finish Setup so AIly can guide your full journey. ${secondaryIcon("Continue tutorial", "notice", 'data-action="open-tutorial"')}</div>`
           );
         }
         if (invalidCommitments.length) {
@@ -1611,7 +1630,7 @@ function renderToday() {
       They cannot block today’s plan. Recreate anything you still need, then remove these damaged records.
       <ul>${invalidCommitments.slice(0, 3).map((item) => `<li><strong>${escapeHtml(item.text)}</strong> — ${escapeHtml(item.reason)}</li>`).join("")}</ul>
       ${invalidCommitments.length > 3 ? `<p>And ${invalidCommitments.length - 3} more.</p>` : ""}
-      <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
+      ${secondaryIcon("Remove quarantined items", "notice", 'data-action="discard-invalid-commitments"')}
     </div>`);
         }
         if (check.ok) {
@@ -1629,7 +1648,7 @@ function renderToday() {
             stale.length === 1 ? "" : "s"
           } from earlier days (~${mins|0}m). Recover with honesty — not guilt.
           <button type="button" class="primary" data-action="pull-stale-today">Pull to today</button>
-          <button type="button" data-action="drop-stale">Drop stale</button>
+          ${secondaryIcon("Drop stale", "notice", 'data-action="drop-stale"')}
         </div>`);
         }
         const overs = softCapOverTargets();
@@ -1645,7 +1664,7 @@ function renderToday() {
         }
         if (isEveningLocal() && pendingReviewCount() > 0) {
           notices.push(
-            `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
+            `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. ${secondaryIcon("Review with honesty", "notice", 'data-action="goto-review"')}</div>`
           );
         }
         if (backupIsStale()) {
@@ -1655,33 +1674,33 @@ function renderToday() {
         }
         if (!notices.length) return "";
         return `<details class="today-notices">
-          <summary>${notices.length} notice${notices.length === 1 ? "" : "s"}</summary>
+          <summary class="icon-control" aria-label="${notices.length} notice${notices.length === 1 ? "" : "s"}" data-label="${notices.length} notice${notices.length === 1 ? "" : "s"}">${controlIcon(ICON_PATHS.notice)}</summary>
           ${notices.join("")}
         </details>`;
       })()
     }
     ${(() => {
       const manage = [
-        today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : "",
-        today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : "",
+        today.length ? secondaryIcon("Export plan", "export-today-plan", 'data-action="export-today-plan"') : "",
+        today.length ? secondaryIcon("Copy plan", "copy-today-plan", 'data-action="copy-today-plan"') : "",
         today.some((c) => c.status === "pending")
-          ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>`
+          ? secondaryIcon("Move open → tomorrow", "defer-pending-tomorrow", 'data-action="defer-pending-tomorrow"')
           : "",
         today.some((c) => c.status === "done")
-          ? `<button type="button" data-action="hide-done-today">Drop done from list</button>`
+          ? secondaryIcon("Drop done from list", "hide-done-today", 'data-action="hide-done-today"')
           : "",
-        allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : "",
+        allyProposal ? secondaryIcon("Clear proposal", "ally-clear", 'data-action="ally-clear"') : "",
         undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
-          ? `<button type="button" data-action="undo">Undo accepted plan change</button>`
+          ? secondaryIcon("Undo accepted plan change", "undo", 'data-action="undo"')
           : "",
       ].filter(Boolean);
       return manage.length ? `<div class="row">${manage.join("")}</div>` : "";
     })()}
-    <button type="button" class="plan-tools-toggle" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">Add to plan</button>
+    <button type="button" class="plan-tools-toggle icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${controlIcon(ICON_PATHS.add)}</button>
     <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
     <div class="row">
-      <button type="button" class="${leadClass}" data-action="ally-propose">Ask AIly to propose a plan</button>
-      <button type="button" data-action="clone-yesterday">Clone yesterday</button>
+      ${leadClass === "primary" ? `<button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>` : secondaryIcon("Ask AIly to propose a plan", "ally-propose", 'data-action="ally-propose"')}
+      ${secondaryIcon("Clone yesterday", "clone-yesterday", 'data-action="clone-yesterday"')}
     </div>
     ${
       allyProposal
@@ -4906,3 +4925,34 @@ document.addEventListener("keydown", (e) => {
     if (undoStack.length) undoLast();
   }
 });
+
+function secondaryIcon(label, icon, attributes = "") {
+  return `<button type="button" class="icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${controlIcon(ICON_PATHS[icon] || ICON_PATHS.notice)}</button>`;
+}
+
+function controlIcon(path) {
+  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+}
+
+// Anchor tooltips to their controls and flip them away from viewport edges/nav.
+function positionControlTooltip(event) {
+  const control = event.target.closest?.(".icon-control");
+  if (!control) return;
+  const rect = control.getBoundingClientRect();
+  const tooltip = getComputedStyle(control, "::after");
+  const context = document.createElement("canvas").getContext("2d");
+  context.font = `${tooltip.fontWeight} ${tooltip.fontSize} ${tooltip.fontFamily}`;
+  const labelWidth = context.measureText(control.dataset.label || "").width
+    + parseFloat(tooltip.paddingLeft) + parseFloat(tooltip.paddingRight)
+    + parseFloat(tooltip.borderLeftWidth) + parseFloat(tooltip.borderRightWidth);
+  const maxWidth = Math.min(240, window.innerWidth - 16);
+  control.classList.toggle("tooltip-wrap", labelWidth > maxWidth);
+  control.classList.toggle("tooltip-right", rect.left + Math.min(labelWidth, maxWidth) > window.innerWidth - 8);
+  const nav = document.querySelector("nav.side");
+  const navPosition = nav && getComputedStyle(nav).position;
+  const navTop = nav && ["fixed", "sticky"].includes(navPosition)
+    ? nav.getBoundingClientRect().top : window.innerHeight;
+  control.classList.toggle("tooltip-above", rect.bottom + 48 > Math.min(window.innerHeight, navTop));
+}
+document.addEventListener("pointerover", positionControlTooltip);
+document.addEventListener("focusin", positionControlTooltip);
