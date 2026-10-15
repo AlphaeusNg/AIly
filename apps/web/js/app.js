@@ -215,6 +215,17 @@ let pendingIntention = null;
 let pendingBreakGlass = null;
 /** @type {null | { summary: string, proposals: Array }} */
 let allyProposal = null;
+/**
+ * Session-only “Add to plan” disclosure.
+ * null follows the plan: collapsed when today is empty, open when it already has commitments.
+ */
+let planToolsExpanded = null;
+let installOptionsPinnedOpen = false;
+
+function planToolsIsOpen(todayCount) {
+  if (planToolsExpanded == null) return todayCount > 0 || !!allyProposal;
+  return planToolsExpanded;
+}
 /** @type {BeforeInstallPromptEvent | null} */
 let deferredInstall = null;
 /** @type {ServiceWorkerRegistration | null} */
@@ -1233,12 +1244,27 @@ function renderInstallBanner() {
       ? "Install the browser PWA — no OS admin, no app blocks"
       : "This browser has not offered a PWA install prompt yet";
   }
-  const win = $("#install-windows-link");
-  if (win) win.href = WINDOWS_DOWNLOAD_URL;
+  for (const win of $$("[data-windows-package]")) win.href = WINDOWS_DOWNLOAD_URL;
+  syncInstallOptionsForViewport();
   const update = $("#update-banner");
   if (update) {
     const waiting = !!(swRegistration && swRegistration.waiting && !updateBannerDismissed);
     update.classList.toggle("hidden", !waiting);
+  }
+}
+
+function syncInstallOptionsForViewport() {
+  const options = $("#install-options");
+  if (!options || typeof window.matchMedia !== "function") return;
+  const narrow = window.matchMedia("(max-width: 600px)").matches;
+  if (!narrow) {
+    if (!options.open) installOptionsPinnedOpen = true;
+    options.open = true;
+    return;
+  }
+  if (installOptionsPinnedOpen) {
+    options.open = false;
+    installOptionsPinnedOpen = false;
   }
 }
 
@@ -1435,6 +1461,9 @@ function renderToday() {
   const cap = state.user.weeklyCapacityHours;
   const daily = dailySoftCapMinutes(cap, state.user.nightsPerWeek);
   const today = todayCommitments();
+  const hasActiveTargets = state.targets.some((t) => t.status === "active");
+  const leadClass = hasActiveTargets ? "primary" : "";
+  const planOpen = planToolsIsOpen(today.length);
   const nextThing = pickNextCommitment(today);
   const invalidCommitments = state.recovery?.invalidCommitments || [];
   const used = plannedMinutes();
@@ -1525,7 +1554,7 @@ function renderToday() {
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
              <button type="button" class="ghost" data-action="open-checkin">Edit</button>
              <button type="button" class="ghost" data-action="clear-intention">Clear</button></p>`
-          : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
+          : `<p class="ally-line"><button type="button" class="${leadClass}" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
         state.ui.dailyNote
@@ -1545,7 +1574,7 @@ function renderToday() {
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
-               <button type="button" class="primary" data-action="start-focus-50">Focus 50m</button>
+               <button type="button" class="${leadClass}" data-action="start-focus-50">Focus 50m</button>
              </p>
              <details class="custom-focus">
                <summary>Custom duration</summary>
@@ -1631,19 +1660,28 @@ function renderToday() {
         </details>`;
       })()
     }
-    <div class="row">
-      <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
-      <button type="button" data-action="clone-yesterday">Clone yesterday</button>
-      ${today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : ""}
-      ${today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : ""}
-      ${today.some((c) => c.status === "pending") ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>` : ""}
-      ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
-      ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
-      ${
+    ${(() => {
+      const manage = [
+        today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : "",
+        today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : "",
+        today.some((c) => c.status === "pending")
+          ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>`
+          : "",
+        today.some((c) => c.status === "done")
+          ? `<button type="button" data-action="hide-done-today">Drop done from list</button>`
+          : "",
+        allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : "",
         undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
           ? `<button type="button" data-action="undo">Undo accepted plan change</button>`
-          : ""
-      }
+          : "",
+      ].filter(Boolean);
+      return manage.length ? `<div class="row">${manage.join("")}</div>` : "";
+    })()}
+    <button type="button" class="plan-tools-toggle" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">Add to plan</button>
+    <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
+    <div class="row">
+      <button type="button" class="${leadClass}" data-action="ally-propose">Ask AIly to propose a plan</button>
+      <button type="button" data-action="clone-yesterday">Clone yesterday</button>
     </div>
     ${
       allyProposal
@@ -1722,7 +1760,8 @@ function renderToday() {
         .join("")}</select>
       <input id="new-commit-min" type="number" min="15" step="15" value="30" style="width:5rem" />
       <label class="chk"><input type="checkbox" id="new-commit-keep" /> must-keep</label>
-      <button type="button" class="primary" data-action="add-commit">Add</button>
+      <button type="button" class="${leadClass}" data-action="add-commit">Add</button>
+    </div>
     </div>
     <ul class="list today-rest">
       ${rankCommitments(today)
@@ -1773,6 +1812,11 @@ function renderToday() {
     const minutes = input?.valueAsNumber;
     if (!input?.reportValidity() || !Number.isInteger(minutes) || minutes < 1 || minutes > 180) return;
     startFocusMinutes(minutes, { rememberCustom: true });
+  });
+  $("#add-to-plan-toggle")?.addEventListener("click", () => {
+    planToolsExpanded = !planOpen;
+    renderToday();
+    $("#add-to-plan-toggle")?.focus();
   });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
     if (e.isComposing || e.keyCode === 229) return;
@@ -2460,6 +2504,7 @@ function cloneYesterday() {
 }
 
 function runAllyPropose() {
+  planToolsExpanded = true;
   const result = proposeDayPlan({
     targets: state.targets,
     weeklyCapacityHours: state.user.weeklyCapacityHours,
@@ -4626,6 +4671,8 @@ document.addEventListener("click", async (e) => {
     }
   }
 });
+
+window.matchMedia?.("(max-width: 600px)")?.addEventListener?.("change", syncInstallOptionsForViewport);
 
 window.addEventListener("online", () => {
   renderNetStatus();

@@ -191,6 +191,71 @@ body.app-ready .app-shell[hidden] {
   flex-shrink: 0;
 }
 
+.install-options {
+  display: none;
+}
+
+.install-options > summary {
+  cursor: pointer;
+  min-height: 24px;
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.install-desc {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.plan-tools-toggle {
+  margin: 0.85rem 0 0.15rem;
+}
+
+.plan-tools-panel[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  #install-banner.install-banner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon title dismiss"
+      "pwa pwa pwa"
+      "options options options";
+    align-items: center;
+    column-gap: 0.55rem;
+    row-gap: 0.4rem;
+    padding: 0.55rem 0.75rem;
+    padding-top: max(0.55rem, var(--safe-top));
+  }
+  #install-banner > img {
+    grid-area: icon;
+  }
+  #install-banner > .install-copy {
+    grid-area: title;
+    flex: unset;
+    min-width: 0;
+  }
+  #install-banner > #install-pwa-btn {
+    grid-area: pwa;
+    justify-self: start;
+  }
+  #install-banner > .install-dismiss {
+    grid-area: dismiss;
+  }
+  #install-banner .install-desc-wide,
+  #install-banner .install-windows-wide {
+    display: none !important;
+  }
+  #install-banner > .install-options {
+    display: block;
+    grid-area: options;
+    min-width: 0;
+  }
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -1006,12 +1071,20 @@ button.version-btn:hover {
   border-top: 1px solid var(--border);
 }
 
-.install-banner a.primary {
+.install-banner a.primary,
+.install-windows-wide {
   text-decoration: none;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+}
+
+.install-windows-wide {
+  display: inline-flex;
+}
+
+#install-banner .install-options[open] a.primary {
+  display: inline-flex;
 }
 
 .today-rest {

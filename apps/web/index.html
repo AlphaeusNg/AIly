@@ -48,11 +48,16 @@
         <img src="assets/logo.svg" width="36" height="36" alt="" />
         <div class="install-copy">
           <strong>Get AIly on this device</strong>
-          <span class="muted">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</span>
+          <span class="muted install-desc-wide">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</span>
         </div>
         <button type="button" class="primary" id="install-pwa-btn" data-action="install-app">Install PWA</button>
-        <a class="primary" id="install-windows-link" href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener">Windows package</a>
-        <button type="button" data-action="dismiss-install" aria-label="Dismiss">✕</button>
+        <a class="primary install-windows-wide" id="install-windows-link" data-windows-package href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener">Windows package</a>
+        <button type="button" class="install-dismiss" data-action="dismiss-install" aria-label="Dismiss">✕</button>
+        <details class="install-options" id="install-options">
+          <summary>Install options</summary>
+          <p class="muted install-desc">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</p>
+          <a class="primary" data-windows-package href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener">Windows package</a>
+        </details>
       </div>
 
       <header class="topbar">
