@@ -2296,3 +2296,10 @@ Scoped native package fields advance to 0.1.13/code 13; web sizing release remai
 Return copy names the minutes away and whether focus is still on. Morning check-in, review, blocks, and break-glass say what happens on this device. The install line still says the PWA stays in this browser, the Windows package is unsigned, and neither install blocks apps. Web/worker `2026.10.15.1`. Native package stays `0.1.13`.
 
 Validation: ally, block, tutorial, shell, and service-worker node gates passed, with syntax checks on the changed web files. Cargo, Android, and the Chromium suite were not rerun.
+
+
+## 2026-10-16 — Retain a visible keyboard destination when closing Today tools
+
+The new Today overflow menu now restores its trigger before native Tab or Shift+Tab traversal. Previously Shift+Tab could drop focus to the document body after hiding the current menu item. Extended the existing keyboard/viewport/action journey to cover both traversal directions. Web deployment stamp: 2026.10.16.1; native package version remains 0.1.13.
+
+Validation: complete npm gate passed: Rust formatting, strict Clippy, Rust/shared contracts, all browser-domain and workflow suites, recursive syntax, and all 42 Chromium journeys. The new keyboard regression failed before the fix.

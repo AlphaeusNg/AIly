@@ -551,6 +551,18 @@ test("Today More menu supports keyboard, viewport clamping and existing actions"
   await expect(page.getByRole("menuitem", { name: "Copy plan", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await expect(page.getByRole("menuitem", { name: "Export plan", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement !== document.body
+    && !document.activeElement.closest("[hidden]"))).toBe(true);
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Tab");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement !== document.body
+    && !document.activeElement.closest("[hidden]"))).toBe(true);
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
   const box = await menu.boundingBox();
   const navBox = await page.locator("nav.side").boundingBox();
   await expect(menu).toHaveClass(/menu-up/);

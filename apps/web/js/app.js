@@ -1848,7 +1848,7 @@ function renderToday() {
       const items = [...moreMenu.querySelectorAll('[role="menuitem"]')];
       const index = items.indexOf(document.activeElement);
       items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
-    } else if (event.key === "Tab") closeTodayMenu();
+    } else if (event.key === "Tab") closeTodayMenu(true);
   });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
     if (e.isComposing || e.keyCode === 229) return;
