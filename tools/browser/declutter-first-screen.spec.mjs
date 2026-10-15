@@ -531,6 +531,9 @@ test("Today More menu supports keyboard, viewport clamping and existing actions"
   await page.locator("#add-to-plan-toggle").click();
   await page.getByRole("button", { name: "Deep work 50m", exact: true }).click();
   await page.locator('[data-action="intention-confirm"]').click();
+  // Modal focus restoration runs on the next frame. Wait until the shell is
+  // interactive before starting a separate keyboard journey on the CI runner.
+  await expect(page.locator("#app-shell")).not.toHaveAttribute("inert", "");
   const trigger = page.locator("#today-more-toggle");
   const menu = page.getByRole("menu", { name: "More options" });
   await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
@@ -542,6 +545,7 @@ test("Today More menu supports keyboard, viewport clamping and existing actions"
     window.scrollBy(0, row.bottom - (nav.top - 16));
   });
   await trigger.focus();
+  await expect(trigger).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("group", { name: "Share plan" })).toBeVisible();
@@ -556,12 +560,14 @@ test("Today More menu supports keyboard, viewport clamping and existing actions"
   expect(await page.evaluate(() => document.activeElement !== document.body
     && !document.activeElement.closest("[hidden]"))).toBe(true);
   await trigger.focus();
+  await expect(trigger).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Tab");
   await expect(menu).toBeHidden();
   expect(await page.evaluate(() => document.activeElement !== document.body
     && !document.activeElement.closest("[hidden]"))).toBe(true);
   await trigger.focus();
+  await expect(trigger).toBeFocused();
   await page.keyboard.press("ArrowDown");
   const box = await menu.boundingBox();
   const navBox = await page.locator("nav.side").boundingBox();

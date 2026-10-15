@@ -2303,3 +2303,5 @@ Validation: ally, block, tutorial, shell, and service-worker node gates passed, 
 The new Today overflow menu now restores its trigger before native Tab or Shift+Tab traversal. Previously Shift+Tab could drop focus to the document body after hiding the current menu item. Extended the existing keyboard/viewport/action journey to cover both traversal directions. Web deployment stamp: 2026.10.16.1; native package version remains 0.1.13.
 
 Validation: complete npm gate passed: Rust formatting, strict Clippy, Rust/shared contracts, all browser-domain and workflow suites, recursive syntax, and all 42 Chromium journeys. The new keyboard regression failed before the fix.
+
+Hosted follow-up: CI exposed a race in the existing menu journey immediately after closing the intention modal. The shell remains inert until the scheduled focus-restoration frame; the test now waits for that documented transition and verifies trigger focus before sending ArrowDown. Eight consecutive CI-mode menu runs and the complete npm gate (42 Chromium journeys) passed. This follow-up changes only test synchronization; web assets and package versions are unchanged.
