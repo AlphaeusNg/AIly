@@ -1,3 +1,5 @@
+import { icon, hydrateIcons } from "./icons.js";
+hydrateIcons();
 import { SITE_VERSION } from "./version.js";
 import {
   checkSoftCapSum,
@@ -77,23 +79,7 @@ import {
   weekReflection,
 } from "./journey.js";
 
-const ICON_PATHS = {
-  "clone-yesterday": "M9 5H5v14h14v-4 M9 3h12v12H9z",
-  "export-today-plan": "M12 15V3m-4 4 4-4 4 4 M5 13v7h14v-7",
-  "copy-today-plan": "M9 9h12v12H9z M15 9V3H3v12h6",
-  "defer-pending-tomorrow": "M4 12h16m-6-6 6 6-6 6",
-  "hide-done-today": "m5 7 4 4 8-8 M5 17h14",
-  "ally-clear": "m6 6 12 12M6 18 18 6",
-  "undo": "M9 4 3 10l6 6 M3 10h11a6 6 0 0 1 0 12",
-  "ally-propose": "m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z",
-  "add": "M12 5v14M5 12h14",
-  "edit": "m4 16-1 5 5-1L20 8l-4-4z",
-  "clear": "m6 6 12 12M6 18 18 6",
-  "notice": "M12 8v5m0 3v1 M12 3 2 21h20z",
-  "pause": "M8 4v16M16 4v16",
-  "extend": "M12 5v14M5 12h14",
-  "end": "M5 5h14v14H5z",
-};
+
 
 function createWebSessionBackend() {
   return {
@@ -239,7 +225,6 @@ let allyProposal = null;
  * null follows the plan: collapsed when today is empty, open when it already has commitments.
  */
 let planToolsExpanded = null;
-let installOptionsPinnedOpen = false;
 
 function planToolsIsOpen(todayCount) {
   if (planToolsExpanded == null) return todayCount > 0 || !!allyProposal;
@@ -1172,7 +1157,7 @@ function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   const focusLabel = focusRemainingLabel();
   if (focusLabel) {
-    const titleBit = focusLabel.replace(" (paused)", "⏸");
+    const titleBit = focusLabel;
     document.title = `Focus ${titleBit} · AIly`;
     return `AIly · Focus ${focusLabel}`;
   }
@@ -1264,26 +1249,10 @@ function renderInstallBanner() {
       : "This browser has not offered a PWA install prompt yet";
   }
   for (const win of $$("[data-windows-package]")) win.href = WINDOWS_DOWNLOAD_URL;
-  syncInstallOptionsForViewport();
   const update = $("#update-banner");
   if (update) {
     const waiting = !!(swRegistration && swRegistration.waiting && !updateBannerDismissed);
     update.classList.toggle("hidden", !waiting);
-  }
-}
-
-function syncInstallOptionsForViewport() {
-  const options = $("#install-options");
-  if (!options || typeof window.matchMedia !== "function") return;
-  const narrow = window.matchMedia("(max-width: 600px)").matches;
-  if (!narrow) {
-    if (!options.open) installOptionsPinnedOpen = true;
-    options.open = true;
-    return;
-  }
-  if (installOptionsPinnedOpen) {
-    options.open = false;
-    installOptionsPinnedOpen = false;
   }
 }
 
@@ -1571,8 +1540,8 @@ function renderToday() {
       ${
         state.ui.dailyIntention
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
-             ${secondaryIcon("Edit", "edit", 'data-action="open-checkin"')}
-             ${secondaryIcon("Clear", "clear", 'data-action="clear-intention"')}</p>`
+             <span class="icon-actions">${secondaryIcon("Edit", "edit", 'data-action="open-checkin"')}
+             ${secondaryIcon("Clear", "clear", 'data-action="clear-intention"')}</span></p>`
           : `<p class="ally-line"><button type="button" class="${leadClass}" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
@@ -1583,13 +1552,14 @@ function renderToday() {
       ${
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong id="today-focus-remaining">${focusRemainingLabel()}</strong> left.
+             <span class="icon-actions">
              ${
                isFocusPaused()
                  ? `<button type="button" class="primary" data-action="resume-focus">Resume</button>`
                  : `${secondaryIcon("Pause", "pause", 'data-action="pause-focus"')}
                     ${secondaryIcon("+10m", "extend", 'data-action="extend-focus-10"')}`
              }
-             ${secondaryIcon("End early", "end", 'data-action="end-focus"')}</p>`
+             ${secondaryIcon("End early", "end", 'data-action="end-focus"')}</span></p>`
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
@@ -1621,7 +1591,7 @@ function renderToday() {
         }
         if (!isReady(state)) {
           notices.push(
-            `<div class="banner warn">Finish Setup so AIly can guide your full journey. ${secondaryIcon("Continue tutorial", "notice", 'data-action="open-tutorial"')}</div>`
+            `<div class="banner warn">Finish Setup so AIly can guide your full journey. ${secondaryIcon("Continue tutorial", "setup", 'data-action="open-tutorial"')}</div>`
           );
         }
         if (invalidCommitments.length) {
@@ -1675,7 +1645,7 @@ function renderToday() {
         if (!notices.length) return "";
         const noticeLabel = `${notices.length} notice${notices.length === 1 ? "" : "s"}`;
         return `<details class="today-notices">
-          <summary aria-expanded="false" aria-label="${noticeLabel}">${controlIcon(ICON_PATHS.notice)}<span>${noticeLabel}</span></summary>
+          <summary aria-expanded="false" aria-label="${noticeLabel}">${icon("notice")}<span>${noticeLabel}</span></summary>
           ${notices.join("")}
         </details>`;
       })()
@@ -1695,9 +1665,8 @@ function renderToday() {
           ? secondaryIcon("Undo accepted plan change", "undo", 'data-action="undo"')
           : "",
       ].filter(Boolean);
-      return manage.length ? `<div class="row">${manage.join("")}</div>` : "";
+      return `<div class="today-toolbar icon-row"><button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${icon("add")}</button>${manage.join("")}</div>`;
     })()}
-    <button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${controlIcon(ICON_PATHS.add)}</button>
     <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
     <div class="row">
       ${leadClass === "primary" ? `<button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>` : secondaryIcon("Ask AIly to propose a plan", "ally-propose", 'data-action="ally-propose"')}
@@ -1768,7 +1737,7 @@ function renderToday() {
       <button type="button" class="chip" data-action="quick-commit" data-text="Review + close loops" data-min="30">Review 30m</button>
       <button type="button" class="chip" data-action="quick-commit" data-text="Learn / read with intention" data-min="30">Learn 30m</button>
     </div>
-    <div class="row">
+    <div class="row commitment-form">
       <input id="new-commit-text" placeholder="Next commitment…" />
       <select id="new-commit-target">${state.targets
         .filter((t) => t.status === "active")
@@ -1799,19 +1768,19 @@ function renderToday() {
                 : ""
             }
             <details class="commit-overflow">
-              <summary aria-label="More actions">⋯</summary>
+              <summary class="icon-control" data-label="More actions" aria-label="More actions">${icon("more")}</summary>
               <div class="commit-overflow-menu">
                 ${
                   c.status !== "done"
                     ? `<button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
-                       <button type="button" data-action="estimate-minus" data-id="${c.id}" title="−15 minutes">−15m</button>
+                       <button type="button" data-action="estimate-minus" data-id="${c.id}" title="-15 minutes">-15m</button>
                        <button type="button" data-action="estimate-plus" data-id="${c.id}" title="+15 minutes">+15m</button>
                        <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
                        <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
-                       <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
+                       <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P-</button>
                        ${
                          c.status === "pending"
-                           ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>
+                           ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">${icon("defer-pending-tomorrow")}<span>Tomorrow</span></button>
                               <button type="button" data-action="copy-one-tomorrow" data-id="${c.id}" title="Copy to tomorrow">+tmr</button>`
                            : ""
                        }`
@@ -1966,7 +1935,7 @@ function renderTargets() {
               ${
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
-                     <button type="button" data-action="nudge-metric-back" data-id="${t.id}">− progress</button>
+                     <button type="button" data-action="nudge-metric-back" data-id="${t.id}">Reduce progress</button>
                      <button type="button" data-action="snap-metric-goal" data-id="${t.id}">Snap to goal</button>
                      <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
                      <button type="button" data-action="edit-step" data-id="${t.id}">Step size</button>
@@ -2069,7 +2038,7 @@ function renderReview() {
         ? `<div class="row">
              <button type="button" data-action="review-all-done-metric">All done + metric</button>
              <button type="button" data-action="review-all-noimpact">All no-impact</button>
-             <button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>
+             <button type="button" data-action="defer-pending-tomorrow">Move open to tomorrow</button>
            </div>`
         : ""
     }
@@ -4700,7 +4669,6 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-window.matchMedia?.("(max-width: 600px)")?.addEventListener?.("change", syncInstallOptionsForViewport);
 
 window.addEventListener("online", () => {
   renderNetStatus();
@@ -4935,12 +4903,8 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-function secondaryIcon(label, icon, attributes = "") {
-  return `<button type="button" class="icon-button icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${controlIcon(ICON_PATHS[icon] || ICON_PATHS.notice)}</button>`;
-}
-
-function controlIcon(path) {
-  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+function secondaryIcon(label, iconName, attributes = "") {
+  return `<button type="button" class="icon-button icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${icon(iconName)}</button>`;
 }
 
 // Anchor tooltips to their controls and flip them away from viewport edges/nav.

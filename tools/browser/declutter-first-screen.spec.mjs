@@ -108,6 +108,17 @@ test("fresh Today hides planning tools and keeps one primary action", async ({ p
   await expect(propose).toBeVisible();
   await expect(propose).toHaveAttribute("data-label", "Ask AIly to propose a plan");
   await expect(commitment).toBeVisible();
+  for (const chip of await page.locator(".quick-chips .chip").all()) {
+    expect((await chip.boundingBox()).height).toBeLessThan(40);
+  }
+  const add = page.locator('[data-action="add-commit"]');
+  expect((await add.boundingBox()).height).toBeLessThan(48);
+  expect(await add.evaluate(el => {
+    const text = document.createRange();
+    text.selectNodeContents(el);
+    return text.getClientRects().length;
+  })).toBe(1);
+
   await expect(page.locator("#panel-today button.primary:visible")).toHaveCount(1);
   await expect(page.locator("#panel-today button.primary:visible")).toHaveText("Create a target");
 
@@ -132,12 +143,19 @@ test("install options open in one tap at 390px", async ({ page }) => {
 
   const options = banner.locator("#install-options");
   const summary = options.locator("summary");
-  const windows = options.getByRole("link", { name: "Windows package", exact: true });
+  const windows = banner.getByRole("link", { name: "Windows package", exact: true });
+
+  const styles = await banner.locator(".icon-control").evaluateAll(els => els.map(el => {
+    const css = getComputedStyle(el);
+    return [css.backgroundColor, css.border, css.borderRadius];
+  }));
+  expect(styles.length).toBe(3);
+  for (const style of styles) expect(style).toEqual(styles[0]);
   await expect(summary).toHaveAttribute("aria-label", "Install options");
   await expect(summary).toHaveAttribute("data-label", "Install options");
   await summary.hover();
   await expect(summary).toBeVisible();
-  await expect(windows).toBeHidden();
+  await expect(windows).toBeVisible();
   await expect(options.locator(".install-desc")).toBeHidden();
   const title = await banner.locator(".install-copy").boundingBox();
   expect(title?.width || 0).toBeGreaterThan(140);
@@ -154,7 +172,7 @@ test("install options open in one tap at 390px", async ({ page }) => {
 });
 
 test("desktop install banner keeps the description and Windows package visible", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 1366, height: 800 });
   await openFreshToday(page);
 
   const banner = page.locator("#install-banner");
@@ -165,8 +183,11 @@ test("desktop install banner keeps the description and Windows package visible",
 
   await expect(banner.getByRole("link", { name: "Windows package", exact: true })).toBeVisible();
   await expect(banner.locator(".install-desc-wide")).toBeVisible();
-  await expect(banner.locator("#install-options")).toBeHidden();
-  await expect(banner.locator("summary")).toBeHidden();
+  await expect(banner.locator("#install-options")).toBeVisible();
+  await expect(banner.locator("#install-options")).not.toHaveAttribute("open");
+  await expect(banner.locator("#install-options .install-desc")).toBeHidden();
+
+  await expect(banner.locator("summary")).toBeVisible();
   await expect(banner.getByRole("button", { name: "Install PWA", exact: true })).toBeVisible();
   const fit = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
   expect(fit).toBe(true);
@@ -395,14 +416,14 @@ async function expectIconSquares(page) {
         radius: style.borderRadius,
       };
     });
-    expect(Math.abs(box.width - 32)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box.height - 32)).toBeLessThanOrEqual(1);
-    expect(box.radius).toBe("8px");
+    expect(Math.abs(box.width - 40)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 40)).toBeLessThanOrEqual(1);
+    expect(box.radius).toBe("12px");
     expect(box.radius).not.toContain("50%");
   }
 }
 
-test("icon buttons are 32px rounded squares", async ({ page }) => {
+test("icon buttons are 40px rounded squares", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openFreshToday(page);
   await page.keyboard.press("?");
@@ -434,3 +455,59 @@ test("focus tooltip stays above its control near the mobile bottom nav", async (
   expect(tooltip.visibility).toBe("visible");
   expect(tooltip.bottom).toBeGreaterThanOrEqual(tooltip.height + 6);
 });
+
+for (const width of [1366, 390]) {
+  test(`shared icon rules and inline folds at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = profileWithTarget({ commitments: true });
+    state.ui.installBannerDismissed = false;
+    state.commitments.push({ ...state.commitments[0], id: "done-1", text: "Finished item", status: "done" });
+    await page.addInitScript(state => localStorage.setItem("aily.v1.state", JSON.stringify(state)), state);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).toHaveClass(/app-ready/);
+    const toggle = page.locator("#add-to-plan-toggle");
+    const rootVars = await page.evaluate(() => {
+      const css = getComputedStyle(document.documentElement);
+      return [css.getPropertyValue("--icon-btn-size").trim(), css.getPropertyValue("--icon-btn-radius").trim()];
+    });
+    expect(rootVars).toEqual(["40px", "12px"]);
+    await page.evaluate(() => document.documentElement.style.setProperty("--icon-btn-size", "44px"));
+    expect(await toggle.evaluate(el => el.getBoundingClientRect().width)).toBe(44);
+    await page.evaluate(() => document.documentElement.style.removeProperty("--icon-btn-size"));
+    await expectIconSquares(page);
+    for (const control of await page.locator(".icon-control:visible").all()) {
+      const hit = await control.evaluate(el => {
+        const css = getComputedStyle(el, "::before");
+        return [parseFloat(css.width), parseFloat(css.height)];
+      });
+      expect(hit[0]).toBeGreaterThanOrEqual(48);
+      expect(hit[1]).toBeGreaterThanOrEqual(48);
+    }
+    const icons = page.locator("button svg, nav svg, .today-notices svg");
+    for (const svg of await icons.all()) {
+      await expect(svg).toHaveAttribute("stroke", "currentColor");
+      await expect(svg).toHaveAttribute("stroke-width", "2");
+    }
+    for (const el of await page.locator("button, nav, .today-notices > summary").all()) {
+      expect(await el.textContent()).not.toMatch(/[\u2190-\u2BFF\u{1F300}-\u{1FAFF}]/u);
+    }
+    for (const selector of [".today-toolbar", ".install-actions"]) {
+      const row = page.locator(selector);
+      if (!(await row.isVisible())) continue;
+      const boxes = await row.locator(":scope > button, :scope > a, :scope > details > summary").evaluateAll(els => els.map(el => ({ top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom })));
+      expect(boxes.length).toBeGreaterThan(1);
+      expect(Math.max(...boxes.map(b => b.top)) - Math.min(...boxes.map(b => b.top))).toBeLessThanOrEqual(1);
+    }
+    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    const panel = await page.locator("#plan-tools-panel").boundingBox();
+    const row = await page.locator(".today-toolbar").boundingBox();
+    expect(panel.y).toBeGreaterThanOrEqual(row.y + row.height);
+    const options = page.locator("#install-options");
+    if (await options.isVisible()) {
+      await options.locator("summary").click();
+      const content = await options.locator(".install-desc").boundingBox();
+      const actions = await page.locator(".install-actions").boundingBox();
+      expect(content.y).toBeGreaterThanOrEqual(actions.y + actions.height);
+    }
+  });
+}

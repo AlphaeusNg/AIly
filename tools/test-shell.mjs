@@ -16,6 +16,7 @@ const required = [
   "offline.html",
   "css/app.css",
   "js/app.js",
+  "js/icons.js",
   "js/activity-view.js",
   "js/focus-actions.js",
   "js/block-view.js",

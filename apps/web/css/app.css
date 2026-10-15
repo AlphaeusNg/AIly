@@ -1,4 +1,12 @@
 :root {
+  --icon-btn-size: 40px;
+  --icon-btn-radius: 12px;
+  --icon-size: 24px;
+  --icon-stroke: 2;
+  --tap-target: 48px;
+  --icon-gap: 8px;
+  --icon-btn-bg: var(--panel);
+  --icon-btn-border: var(--border);
   --bg: #0e1116;
   --panel: #161b22;
   --border: #2a3340;
@@ -214,45 +222,6 @@ body.app-ready .app-shell[hidden] {
   display: none !important;
 }
 
-@media (max-width: 600px) {
-  #install-banner.install-banner {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "icon title dismiss"
-      "pwa pwa pwa"
-      "options options options";
-    align-items: center;
-    column-gap: 0.55rem;
-    row-gap: 0.4rem;
-    padding: 0.55rem 0.75rem;
-    padding-top: max(0.55rem, var(--safe-top));
-  }
-  #install-banner > img {
-    grid-area: icon;
-  }
-  #install-banner > .install-copy {
-    grid-area: title;
-    flex: unset;
-    min-width: 0;
-  }
-  #install-banner > #install-pwa-btn {
-    grid-area: pwa;
-    justify-self: start;
-  }
-  #install-banner > .install-dismiss {
-    grid-area: dismiss;
-  }
-  #install-banner .install-desc-wide,
-  #install-banner .install-windows-wide {
-    display: none !important;
-  }
-  #install-banner > .install-options {
-    display: block;
-    grid-area: options;
-    min-width: 0;
-  }
-}
 
 .topbar {
   display: flex;
@@ -755,7 +724,7 @@ main {
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--icon-gap);
   align-items: center;
   margin: 0.75rem 0;
 }
@@ -1348,7 +1317,7 @@ body.high-contrast .banner.danger {
   background: #450a0a;
 }
 
-/* Icon-only controls are 32px rounded squares, never circles. */
+/* Shared icon controls and centered touch targets. */
 .icon-button,
 .icon-control,
 summary.icon-control,
@@ -1358,14 +1327,17 @@ summary.icon-control,
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  max-width: 32px;
-  min-height: 32px;
-  max-height: 32px;
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
+  min-width: var(--icon-btn-size);
+  max-width: var(--icon-btn-size);
+  min-height: var(--icon-btn-size);
+  max-height: var(--icon-btn-size);
   padding: 0;
-  border-radius: 8px;
+  border-radius: var(--icon-btn-radius);
+  background: var(--icon-btn-bg);
+  border: 1px solid var(--icon-btn-border);
+  color: var(--text);
   line-height: 1;
   flex: 0 0 auto;
   vertical-align: middle;
@@ -1450,3 +1422,39 @@ details[open] > summary.icon-control::after {
     transition: none !important;
   }
 }
+
+.icon { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--icon-stroke); vertical-align: middle; }
+.icon-button::before, .icon-control::before, [data-modal-close]::before {
+  content: ""; position: absolute;
+  inset: calc((var(--icon-btn-size) - var(--tap-target)) / 2);
+  width: var(--tap-target); height: var(--tap-target);
+  /* Center against the padding box, including controls with a border. */
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+}
+.icon-row {
+  display: flex; align-items: center; gap: var(--icon-gap); flex-wrap: nowrap;
+}
+.today-toolbar { margin: 0.85rem 0; }
+.plan-tools-toggle { margin: 0; }
+#install-banner { flex-wrap: wrap; position: relative; }
+#install-banner .install-actions { position: relative; align-items: flex-start; }
+#install-banner .install-options { display: block; }
+#install-banner .install-windows-wide { display: inline-flex !important; }
+#install-banner .install-options[open] { padding-bottom: 0; }
+#install-banner .install-desc { position: absolute; top: 100%; left: 0; right: 0; margin-top: 8px; }
+#install-banner:has(.install-options[open]) { padding-bottom: 5rem; }
+@media (max-width: 600px) {
+  #install-banner .install-copy { flex-basis: calc(100% - 60px); }
+  #install-banner .install-desc-wide { display: none; }
+  #install-banner .install-actions { flex-basis: 100%; }
+}
+
+.icon-actions { display: inline-flex; align-items: center; gap: var(--icon-gap); flex-wrap: nowrap; vertical-align: middle; }
+
+.quick-chips > .chip { flex: 0 0 auto; white-space: nowrap; }
+.commitment-form > * { flex-shrink: 0; }
+.commitment-form > input:first-child { flex: 1 1 12rem; }
+.commitment-form > select { flex: 1 1 10rem; }
+.commitment-form > .chk,
+.commitment-form > button { white-space: nowrap; }
+#install-banner:has(.install-options[open]) .install-desc-wide { display: none; }
