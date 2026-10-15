@@ -197,8 +197,6 @@ body.app-ready .app-shell[hidden] {
 
 .install-options > summary {
   cursor: pointer;
-  min-height: 24px;
-  width: fit-content;
   color: var(--accent);
   font-size: 0.85rem;
 }
@@ -1147,26 +1145,47 @@ button.version-btn:hover {
 }
 
 .today-notices {
-  margin: 0.75rem 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5rem 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: var(--panel);
-  padding: 0.2rem 0.85rem 0.35rem;
+  padding: 0;
+}
+
+.today-notices[open] {
+  width: 100%;
 }
 
 .today-notices > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0.2rem 0.6rem;
   cursor: pointer;
-  color: var(--muted);
-  padding: 0.45rem 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
   list-style: none;
 }
 
-.today-notices > summary::-webkit-details-marker {
+.today-notices > summary::-webkit-details-marker,
+.today-notices > summary::marker {
   display: none;
+  content: "";
+}
+
+.today-notices > summary svg {
+  flex: 0 0 auto;
+  color: var(--warn);
 }
 
 .today-notices .banner {
-  margin: 0.45rem 0;
+  margin: 0.45rem;
 }
 
 @media (max-width: 720px) {
@@ -1329,16 +1348,26 @@ body.high-contrast .banner.danger {
   background: #450a0a;
 }
 
-/* Secondary actions share accessible names and control-anchored word tooltips. */
-.icon-control {
+/* Icon-only controls are 32px rounded squares, never circles. */
+.icon-button,
+.icon-control,
+summary.icon-control,
+[data-modal-close] {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-width: 40px;
-  min-height: 40px;
-  padding: 0.5rem;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  line-height: 1;
+  flex: 0 0 auto;
   vertical-align: middle;
   cursor: pointer;
 }
@@ -1388,12 +1417,22 @@ summary.icon-control::-webkit-details-marker {
   bottom: calc(100% + 6px);
   top: auto;
 }
-.icon-control:hover,
-.icon-control:focus-visible {
+@media (hover: hover) and (pointer: fine) {
+  .icon-control:hover {
+    z-index: 1001;
+  }
+  .icon-control:hover::after {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+.icon-control:focus-visible,
+.icon-control.is-tip-visible {
   z-index: 1001;
 }
-.icon-control:hover::after,
-.icon-control:focus-visible::after {
+.icon-control:focus-visible::after,
+.icon-control.is-tip-visible::after {
   display: block;
   opacity: 1;
   visibility: visible;
@@ -1404,7 +1443,10 @@ details[open] > summary.icon-control::after {
   visibility: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
-  .icon-control::after {
+  .icon-button,
+  .icon-control,
+  .icon-control::after,
+  [data-modal-close] {
     transition: none !important;
   }
 }

@@ -1673,8 +1673,9 @@ function renderToday() {
           );
         }
         if (!notices.length) return "";
+        const noticeLabel = `${notices.length} notice${notices.length === 1 ? "" : "s"}`;
         return `<details class="today-notices">
-          <summary class="icon-control" aria-label="${notices.length} notice${notices.length === 1 ? "" : "s"}" data-label="${notices.length} notice${notices.length === 1 ? "" : "s"}">${controlIcon(ICON_PATHS.notice)}</summary>
+          <summary aria-expanded="false" aria-label="${noticeLabel}">${controlIcon(ICON_PATHS.notice)}<span>${noticeLabel}</span></summary>
           ${notices.join("")}
         </details>`;
       })()
@@ -1696,7 +1697,7 @@ function renderToday() {
       ].filter(Boolean);
       return manage.length ? `<div class="row">${manage.join("")}</div>` : "";
     })()}
-    <button type="button" class="plan-tools-toggle icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${controlIcon(ICON_PATHS.add)}</button>
+    <button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${controlIcon(ICON_PATHS.add)}</button>
     <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
     <div class="row">
       ${leadClass === "primary" ? `<button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>` : secondaryIcon("Ask AIly to propose a plan", "ally-propose", 'data-action="ally-propose"')}
@@ -1825,6 +1826,14 @@ function renderToday() {
         .join("") || (nextThing ? "" : emptyTodayCta())}
     </ul>
   `;
+  el.querySelectorAll(".today-notices").forEach((details) => {
+    const summary = details.querySelector("summary");
+    const syncNoticeExpanded = () => {
+      summary?.setAttribute("aria-expanded", details.open ? "true" : "false");
+    };
+    syncNoticeExpanded();
+    details.addEventListener("toggle", syncNoticeExpanded);
+  });
   $("#custom-focus-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const input = $("#custom-focus-min");
@@ -4927,7 +4936,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 function secondaryIcon(label, icon, attributes = "") {
-  return `<button type="button" class="icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${controlIcon(ICON_PATHS[icon] || ICON_PATHS.notice)}</button>`;
+  return `<button type="button" class="icon-button icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${controlIcon(ICON_PATHS[icon] || ICON_PATHS.notice)}</button>`;
 }
 
 function controlIcon(path) {
@@ -4935,8 +4944,10 @@ function controlIcon(path) {
 }
 
 // Anchor tooltips to their controls and flip them away from viewport edges/nav.
-function positionControlTooltip(event) {
-  const control = event.target.closest?.(".icon-control");
+function positionControlTooltip(eventOrControl) {
+  const control = eventOrControl?.classList?.contains("icon-control")
+    ? eventOrControl
+    : iconControlFrom(eventOrControl?.target);
   if (!control) return;
   const rect = control.getBoundingClientRect();
   const tooltip = getComputedStyle(control, "::after");
@@ -4954,5 +4965,95 @@ function positionControlTooltip(event) {
     ? nav.getBoundingClientRect().top : window.innerHeight;
   control.classList.toggle("tooltip-above", rect.bottom + 48 > Math.min(window.innerHeight, navTop));
 }
+
+function iconControlFrom(target) {
+  const element = target instanceof Element ? target : target?.parentElement;
+  return element?.closest?.(".icon-control") || null;
+}
+
+const touchTipTimers = new WeakMap();
+const longPressTimers = new WeakMap();
+let lastIconPointerType = "";
+let lastTouchPointerAt = 0;
+
+function locateIconControl(identity) {
+  if (!identity) return null;
+  if (identity.id) {
+    const byId = document.getElementById(identity.id);
+    if (byId?.classList.contains("icon-control")) return byId;
+  }
+  if (identity.action) {
+    return document.querySelector(`.icon-control[data-action="${CSS.escape(identity.action)}"]`);
+  }
+  return null;
+}
+
+function showTouchTip(control) {
+  if (!control) return;
+  positionControlTooltip(control);
+  const pending = touchTipTimers.get(control);
+  if (pending) clearTimeout(pending);
+  control.classList.add("is-tip-visible");
+  touchTipTimers.set(control, setTimeout(() => {
+    control.classList.remove("is-tip-visible");
+    touchTipTimers.delete(control);
+  }, 1500));
+}
+
+function clearLongPress(control) {
+  const timer = longPressTimers.get(control);
+  if (!timer) return;
+  clearTimeout(timer);
+  longPressTimers.delete(control);
+}
+
+function revealTouchTip(control) {
+  const identity = {
+    id: control.id || "",
+    action: control.getAttribute("data-action") || "",
+  };
+  const apply = () => {
+    const live = control.isConnected ? control : locateIconControl(identity);
+    if (live) showTouchTip(live);
+  };
+  apply();
+  // Add to plan and other actions replace the control during this click.
+  queueMicrotask(() => {
+    const live = locateIconControl(identity);
+    if (live) showTouchTip(live);
+  });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  const control = iconControlFrom(event.target);
+  const touchLike = event.pointerType === "touch" || event.pointerType === "pen";
+  if (touchLike) lastTouchPointerAt = Date.now();
+  if (event.pointerType === "mouse" && Date.now() - lastTouchPointerAt < 700) return;
+  if (control) lastIconPointerType = event.pointerType || "";
+  if (!control) return;
+  const hoverNone = window.matchMedia?.("(hover: none)")?.matches;
+  if (!touchLike && !hoverNone) return;
+  clearLongPress(control);
+  longPressTimers.set(control, setTimeout(() => {
+    longPressTimers.delete(control);
+    if (control.isConnected) showTouchTip(control);
+  }, 500));
+}, true);
+
+function endIconLongPress(event) {
+  const control = iconControlFrom(event.target);
+  if (control) clearLongPress(control);
+}
+document.addEventListener("pointerup", endIconLongPress);
+document.addEventListener("pointercancel", endIconLongPress);
+document.addEventListener("pointermove", endIconLongPress);
+
+document.addEventListener("click", (event) => {
+  const control = iconControlFrom(event.target);
+  if (!control) return;
+  if (lastIconPointerType !== "touch" && lastIconPointerType !== "pen") return;
+  revealTouchTip(control);
+});
+
 document.addEventListener("pointerover", positionControlTooltip);
 document.addEventListener("focusin", positionControlTooltip);

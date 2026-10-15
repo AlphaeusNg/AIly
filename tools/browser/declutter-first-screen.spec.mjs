@@ -284,6 +284,139 @@ test("Clone yesterday hover shows a compact tooltip at desktop width", async ({ 
   expect(tooltip.width).toBeLessThan(240);
 });
 
+function noticeLabel(count) {
+  return `${count} notice${count === 1 ? "" : "s"}`;
+}
+
+test("Today notices summary shows the count and reflects open state", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openFreshToday(page);
+
+  const details = page.locator(".today-notices");
+  const summary = details.locator("summary");
+  await expect(details).toHaveCount(1);
+  await expect(details).not.toHaveAttribute("open");
+  const text = (await summary.innerText()).replace(/\s+/g, " ").trim();
+  expect(text).toMatch(/^\d+ notices?$/);
+  const count = Number.parseInt(text, 10);
+  expect(text).toBe(noticeLabel(count));
+  expect(count).toBeGreaterThan(1);
+  await expect(summary).toHaveAttribute("aria-label", text);
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+  const detailsBox = await details.boundingBox();
+  const panelBox = await page.locator("#panel-today").boundingBox();
+  expect(detailsBox.width).toBeGreaterThan(70);
+  expect(detailsBox.width).toBeLessThan(panelBox.width * 0.75);
+
+  await summary.click();
+  await expect(summary).toHaveAttribute("aria-expanded", "true");
+  await expect(details).toHaveAttribute("open", "");
+});
+
+test("a single Today notice uses the singular label", async ({ page }) => {
+  const state = profileWithTarget();
+  state.ui.lastExportAt = new Date().toISOString();
+  state.blockRules = [];
+  await page.addInitScript((saved) => {
+    localStorage.setItem("aily.v1.state", JSON.stringify(saved));
+  }, state);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await dismissTutorial(page);
+
+  const summary = page.locator(".today-notices > summary");
+  await expect(summary).toHaveText("1 notice");
+  await expect(summary).toHaveAttribute("aria-label", "1 notice");
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Today omits the notices strip when nothing needs attention", async ({ page }) => {
+  const state = profileWithTarget();
+  state.ui.lastExportAt = new Date().toISOString();
+  state.user.weeklyCapacityHours = 10;
+  state.targets[0].softCapacityHours = 8;
+  state.targets.push({
+    id: "target-2",
+    title: "Second target",
+    status: "active",
+    softCapacityHours: 8,
+    metrics: [],
+  });
+  state.commitments = [];
+  state.blockRules = [];
+  state.recovery = { invalidCommitments: [] };
+  await page.addInitScript((saved) => {
+    localStorage.setItem("aily.v1.state", JSON.stringify(saved));
+  }, state);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await dismissTutorial(page);
+
+  await expect(page.locator("#panel-today h1")).toHaveText("Today");
+  await expect(page.locator(".banner.danger")).toBeVisible();
+  await expect(page.locator(".today-notices")).toHaveCount(0);
+});
+
+test("touch tap shows a tooltip and still activates the icon control", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  const page = await context.newPage();
+  try {
+    await openFreshToday(page);
+    const toggle = page.locator("#add-to-plan-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.tap();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(toggle).toHaveClass(/is-tip-visible/);
+    expect(await toggle.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("visible");
+    await page.waitForTimeout(2000);
+    await expect(toggle).not.toHaveClass(/is-tip-visible/);
+    expect(await toggle.evaluate((el) => getComputedStyle(el, "::after").visibility)).toBe("hidden");
+  } finally {
+    await context.close();
+  }
+});
+
+async function expectIconSquares(page) {
+  const controls = page.locator(".icon-control:visible, [data-modal-close]:visible");
+  const count = await controls.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index += 1) {
+    const box = await controls.nth(index).evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        width: parseFloat(style.width),
+        height: parseFloat(style.height),
+        radius: style.borderRadius,
+      };
+    });
+    expect(Math.abs(box.width - 32)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 32)).toBeLessThanOrEqual(1);
+    expect(box.radius).toBe("8px");
+    expect(box.radius).not.toContain("50%");
+  }
+}
+
+test("icon buttons are 32px rounded squares", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openFreshToday(page);
+  await page.keyboard.press("?");
+  await expect(page.locator("#help-modal")).toBeVisible();
+  await expectIconSquares(page);
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#help-modal")).toBeHidden();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.keyboard.press("?");
+  await expect(page.locator("#help-modal")).toBeVisible();
+  await expectIconSquares(page);
+});
+
 test("focus tooltip stays above its control near the mobile bottom nav", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openFreshToday(page);
