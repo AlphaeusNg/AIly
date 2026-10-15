@@ -29,7 +29,7 @@ export const ICONS = {
 
 export function icon(name, { label } = {}) {
   const safeLabel = String(label || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="icon">${safeLabel ? `<title>${safeLabel}</title>` : ""}<path d="${ICONS[name] || ICONS.notice}"/></svg>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="icon">${safeLabel ? `<title>${safeLabel}</title>` : ""}<path d="${ICONS[name] || ICONS.notice}"/></svg>`;
 }
 
 export function hydrateIcons(root = document) {

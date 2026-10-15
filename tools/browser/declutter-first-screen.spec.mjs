@@ -223,6 +223,7 @@ test("Add to plan starts expanded when today already has commitments", async ({ 
   await expect(page.locator("#add-to-plan-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "Ask AIly to propose a plan", exact: true })).toBeVisible();
   await expect(page.locator("#new-commit-text")).toBeVisible();
+  await page.getByRole("button", { name: "More options", exact: true }).click();
   await expect(page.locator('[data-action="export-today-plan"]')).toBeVisible();
 });
 
@@ -279,14 +280,17 @@ test("Today management controls retain accessible words as icon labels", async (
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("body")).toHaveClass(/app-ready/);
   await dismissTutorial(page);
-  for (const name of ["Export plan", "Copy plan", "Move open → tomorrow", "Drop done from list", "Clone yesterday", "Edit", "Clear"]) {
+  for (const name of ["Clone yesterday", "Edit", "Clear"]) {
     const control = page.getByRole("button", { name, exact: true });
     await expect(control).toHaveAttribute("aria-label", name);
     await expect(control).toHaveAttribute("data-label", name);
     await expect(control).toHaveText("");
   }
   await page.getByRole("button", { name: "Ask AIly to propose a plan", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Clear proposal", exact: true })).toHaveAttribute("data-label", "Clear proposal");
+  await page.getByRole("button", { name: "More options", exact: true }).click();
+  for (const name of ["Export plan", "Copy plan", "Move open → tomorrow", "Drop done from list", "Clear proposal"]) {
+    await expect(page.getByRole("menuitem", { name, exact: true })).toBeVisible();
+  }
 });
 
 
@@ -414,16 +418,21 @@ async function expectIconSquares(page) {
         width: parseFloat(style.width),
         height: parseFloat(style.height),
         radius: style.borderRadius,
+        background: style.backgroundColor,
+        border: style.borderTopWidth,
+        primary: el.id === "add-to-plan-toggle",
       };
     });
-    expect(Math.abs(box.width - 40)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box.height - 40)).toBeLessThanOrEqual(1);
-    expect(box.radius).toBe("12px");
+    expect(Math.abs(box.width - 32)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 32)).toBeLessThanOrEqual(1);
+    expect(box.radius).toBe("8px");
     expect(box.radius).not.toContain("50%");
+    expect(box.background).toBe("rgba(0, 0, 0, 0)");
+    expect(box.border).toBe(box.primary ? "1px" : "0px");
   }
 }
 
-test("icon buttons are 40px rounded squares", async ({ page }) => {
+test("icon buttons are 32px rounded squares", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openFreshToday(page);
   await page.keyboard.press("?");
@@ -470,7 +479,7 @@ for (const width of [1366, 390]) {
       const css = getComputedStyle(document.documentElement);
       return [css.getPropertyValue("--icon-btn-size").trim(), css.getPropertyValue("--icon-btn-radius").trim()];
     });
-    expect(rootVars).toEqual(["40px", "12px"]);
+    expect(rootVars).toEqual(["32px", "8px"]);
     await page.evaluate(() => document.documentElement.style.setProperty("--icon-btn-size", "44px"));
     expect(await toggle.evaluate(el => el.getBoundingClientRect().width)).toBe(44);
     await page.evaluate(() => document.documentElement.style.removeProperty("--icon-btn-size"));
@@ -480,15 +489,15 @@ for (const width of [1366, 390]) {
         const css = getComputedStyle(el, "::before");
         return [parseFloat(css.width), parseFloat(css.height)];
       });
-      expect(hit[0]).toBeGreaterThanOrEqual(48);
-      expect(hit[1]).toBeGreaterThanOrEqual(48);
+      expect(hit[0]).toBe(44);
+      expect(hit[1]).toBe(44);
     }
     const icons = page.locator("button svg, nav svg, .today-notices svg");
     for (const svg of await icons.all()) {
       await expect(svg).toHaveAttribute("stroke", "currentColor");
-      await expect(svg).toHaveAttribute("stroke-width", "2");
+      await expect(svg).toHaveAttribute("stroke-width", "1.75");
     }
-    for (const el of await page.locator("button, nav, .today-notices > summary").all()) {
+    for (const el of await page.locator("button:not([role=menuitem]), nav, .today-notices > summary").all()) {
       expect(await el.textContent()).not.toMatch(/[\u2190-\u2BFF\u{1F300}-\u{1FAFF}]/u);
     }
     for (const selector of [".today-toolbar", ".install-actions"]) {
@@ -511,3 +520,65 @@ for (const width of [1366, 390]) {
     }
   });
 }
+
+
+test("Today More menu supports keyboard, viewport clamping and existing actions", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(state => localStorage.setItem("aily.v1.state", JSON.stringify(state)), profileWithTarget());
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  await expect(page.locator("#today-more-toggle")).toHaveCount(0);
+  await page.locator("#add-to-plan-toggle").click();
+  await page.getByRole("button", { name: "Deep work 50m", exact: true }).click();
+  await page.locator('[data-action="intention-confirm"]').click();
+  const trigger = page.locator("#today-more-toggle");
+  const menu = page.getByRole("menu", { name: "More options" });
+  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await page.evaluate(() => {
+    document.body.style.paddingBottom = "100vh";
+    const row = document.querySelector(".today-toolbar").getBoundingClientRect();
+    const nav = document.querySelector("nav.side").getBoundingClientRect();
+    window.scrollBy(0, row.bottom - (nav.top - 16));
+  });
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("group", { name: "Share plan" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Tidy today" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export plan", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Copy plan", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByRole("menuitem", { name: "Export plan", exact: true })).toBeFocused();
+  const box = await menu.boundingBox();
+  const navBox = await page.locator("nav.side").boundingBox();
+  await expect(menu).toHaveClass(/menu-up/);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  expect(box.y + box.height).toBeLessThanOrEqual(navBox.y);
+  expect(box.x).toBeGreaterThanOrEqual(8);
+  expect(box.x + box.width).toBeLessThanOrEqual(382);
+  expect(await trigger.evaluate(el => getComputedStyle(el, "::after").display)).toBe("none");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await page.keyboard.press("Space");
+  await page.mouse.click(385, 10);
+  await expect(menu).toBeHidden();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const download = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Export plan", exact: true }).click();
+  await download;
+  await expect(menu).toBeHidden();
+  await page.evaluate(() => { navigator.clipboard.writeText = async text => { window.copiedPlan = text; }; });
+  await trigger.click();
+  await page.getByRole("menuitem", { name: "Copy plan", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.copiedPlan)).toContain("Deep work block");
+  await expect(menu).toBeHidden();
+  await trigger.click();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("menuitem", { name: "Move open → tomorrow", exact: true }).click();
+  await expect(trigger).toHaveCount(0);
+});

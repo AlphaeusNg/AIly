@@ -1651,21 +1651,17 @@ function renderToday() {
       })()
     }
     ${(() => {
-      const manage = [
-        today.length ? secondaryIcon("Export plan", "export-today-plan", 'data-action="export-today-plan"') : "",
-        today.length ? secondaryIcon("Copy plan", "copy-today-plan", 'data-action="copy-today-plan"') : "",
-        today.some((c) => c.status === "pending")
-          ? secondaryIcon("Move open → tomorrow", "defer-pending-tomorrow", 'data-action="defer-pending-tomorrow"')
-          : "",
-        today.some((c) => c.status === "done")
-          ? secondaryIcon("Drop done from list", "hide-done-today", 'data-action="hide-done-today"')
-          : "",
-        allyProposal ? secondaryIcon("Clear proposal", "ally-clear", 'data-action="ally-clear"') : "",
-        undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
-          ? secondaryIcon("Undo accepted plan change", "undo", 'data-action="undo"')
-          : "",
-      ].filter(Boolean);
-      return `<div class="today-toolbar icon-row"><button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${icon("add")}</button>${manage.join("")}</div>`;
+      const item = (label, action) => `<button type="button" role="menuitem" tabindex="-1" data-action="${action}">${icon(action)}<span>${label}</span></button>`;
+      const share = today.length ? item("Export plan", "export-today-plan") + item("Copy plan", "copy-today-plan") : "";
+      const tidy = [
+        today.some(c => c.status === "pending") ? item("Move open → tomorrow", "defer-pending-tomorrow") : "",
+        today.some(c => c.status === "done") ? item("Drop done from list", "hide-done-today") : "",
+        allyProposal ? item("Clear proposal", "ally-clear") : "",
+      ].join("");
+      const undo = undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
+        ? secondaryIcon("Undo accepted plan change", "undo", 'data-action="undo"') : "";
+      const group = (label, id, contents) => contents ? `<div role="group" aria-labelledby="${id}"><h3 class="today-menu-label" id="${id}">${label}</h3>${contents}</div>` : "";
+      return `<div class="today-toolbar icon-row"><button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${icon("add")}</button>${undo}${share || tidy ? `<button type="button" id="today-more-toggle" class="icon-button icon-control" aria-label="More options" data-label="More options" aria-haspopup="menu" aria-expanded="false" aria-controls="today-more-menu">${icon("more")}</button><div id="today-more-menu" class="today-more-menu" role="menu" aria-label="More options" hidden>${group("Share plan", "today-share-label", share)}${group("Tidy today", "today-tidy-label", tidy)}</div>` : ""}</div>`;
     })()}
     <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
     <div class="row">
@@ -1814,6 +1810,45 @@ function renderToday() {
     planToolsExpanded = !planOpen;
     renderToday();
     $("#add-to-plan-toggle")?.focus();
+  });
+  const moreTrigger = $("#today-more-toggle");
+  const moreMenu = $("#today-more-menu");
+  const openTodayMenu = () => {
+    moreMenu.hidden = false;
+    moreMenu.classList.remove("menu-up");
+    moreTrigger.setAttribute("aria-expanded", "true");
+    const row = moreTrigger.closest(".today-toolbar").getBoundingClientRect();
+    const { width, height, top } = moreMenu.getBoundingClientRect();
+    const nav = document.querySelector("nav.side");
+    const navRect = nav?.getBoundingClientRect();
+    const navStyle = nav && getComputedStyle(nav);
+    const bottom = navRect?.height && ["fixed", "sticky"].includes(navStyle.position) && navStyle.visibility !== "hidden"
+      && navRect.top > 0 && navRect.top < innerHeight ? navRect.top : innerHeight;
+    moreMenu.classList.toggle("menu-up", top + height > bottom);
+    moreMenu.style.left = `${Math.max(8 - row.left, Math.min(moreTrigger.getBoundingClientRect().left - row.left, innerWidth - 8 - width - row.left))}px`;
+    moreMenu.querySelector('[role="menuitem"]')?.focus();
+  };
+  moreTrigger?.addEventListener("click", () => {
+    if (moreMenu.hidden) openTodayMenu();
+    else closeTodayMenu(true);
+  });
+  moreTrigger?.addEventListener("keydown", event => {
+    if (["ArrowDown", "Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      openTodayMenu();
+    }
+  });
+  moreMenu?.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTodayMenu(true);
+    } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      const items = [...moreMenu.querySelectorAll('[role="menuitem"]')];
+      const index = items.indexOf(document.activeElement);
+      items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (event.key === "Tab") closeTodayMenu();
   });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
     if (e.isComposing || e.keyCode === 229) return;
@@ -3054,7 +3089,17 @@ function markdownLite(s) {
 }
 
 // Events
+function closeTodayMenu(returnFocus = false) {
+  const menu = $("#today-more-menu");
+  const trigger = $("#today-more-toggle");
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  trigger?.setAttribute("aria-expanded", "false");
+  if (returnFocus) trigger?.focus();
+}
+
 document.addEventListener("click", async (e) => {
+  if (!e.target.closest("#today-more-toggle")) closeTodayMenu(Boolean(e.target.closest('#today-more-menu [role="menuitem"]')));
   if (!topVisibleModal()) {
     const trigger = e.target.closest("button, a[href], input, select, textarea, [tabindex]");
     const descriptor = focusDescriptor(trigger);

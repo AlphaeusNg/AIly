@@ -1,12 +1,10 @@
 :root {
-  --icon-btn-size: 40px;
-  --icon-btn-radius: 12px;
-  --icon-size: 24px;
-  --icon-stroke: 2;
-  --tap-target: 48px;
-  --icon-gap: 8px;
-  --icon-btn-bg: var(--panel);
-  --icon-btn-border: var(--border);
+  --icon-btn-size: 32px;
+  --icon-btn-radius: 8px;
+  --icon-size: 18px;
+  --icon-stroke: 1.75;
+  --icon-btn-target: 44px;
+  --icon-btn-gap: 4px;
   --bg: #0e1116;
   --panel: #161b22;
   --border: #2a3340;
@@ -724,7 +722,7 @@ main {
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--icon-gap);
+  gap: var(--icon-btn-gap);
   align-items: center;
   margin: 0.75rem 0;
 }
@@ -1335,9 +1333,10 @@ summary.icon-control,
   max-height: var(--icon-btn-size);
   padding: 0;
   border-radius: var(--icon-btn-radius);
-  background: var(--icon-btn-bg);
-  border: 1px solid var(--icon-btn-border);
-  color: var(--text);
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  box-shadow: none;
   line-height: 1;
   flex: 0 0 auto;
   vertical-align: middle;
@@ -1349,7 +1348,14 @@ summary.icon-control {
 summary.icon-control::-webkit-details-marker {
   display: none;
 }
-.icon-control svg {
+.icon-button svg, .icon-control svg, [data-modal-close] svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke-width: var(--icon-stroke);
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -1426,13 +1432,12 @@ details[open] > summary.icon-control::after {
 .icon { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--icon-stroke); vertical-align: middle; }
 .icon-button::before, .icon-control::before, [data-modal-close]::before {
   content: ""; position: absolute;
-  inset: calc((var(--icon-btn-size) - var(--tap-target)) / 2);
-  width: var(--tap-target); height: var(--tap-target);
+  width: var(--icon-btn-target); height: var(--icon-btn-target);
   /* Center against the padding box, including controls with a border. */
   left: 50%; top: 50%; transform: translate(-50%, -50%);
 }
 .icon-row {
-  display: flex; align-items: center; gap: var(--icon-gap); flex-wrap: nowrap;
+  display: flex; align-items: center; gap: var(--icon-btn-gap); flex-wrap: nowrap;
 }
 .today-toolbar { margin: 0.85rem 0; }
 .plan-tools-toggle { margin: 0; }
@@ -1449,7 +1454,7 @@ details[open] > summary.icon-control::after {
   #install-banner .install-actions { flex-basis: 100%; }
 }
 
-.icon-actions { display: inline-flex; align-items: center; gap: var(--icon-gap); flex-wrap: nowrap; vertical-align: middle; }
+.icon-actions { display: inline-flex; align-items: center; gap: var(--icon-btn-gap); flex-wrap: nowrap; vertical-align: middle; }
 
 .quick-chips > .chip { flex: 0 0 auto; white-space: nowrap; }
 .commitment-form > * { flex-shrink: 0; }
@@ -1458,3 +1463,35 @@ details[open] > summary.icon-control::after {
 .commitment-form > .chk,
 .commitment-form > button { white-space: nowrap; }
 #install-banner:has(.install-options[open]) .install-desc-wide { display: none; }
+
+.icon-button:hover, .icon-control:hover, [data-modal-close]:hover,
+.icon-button:focus-visible, .icon-control:focus-visible, [data-modal-close]:focus-visible {
+  background: rgba(148,163,184,0.12);
+  color: var(--text);
+}
+#add-to-plan-toggle {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+}
+.today-toolbar { position: relative; }
+.today-more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1010;
+  width: min(280px, calc(100vw - 16px));
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px #0005;
+}
+.today-menu-label { margin: 8px; font-size: 0.7rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; }
+.today-more-menu.menu-up { bottom: calc(100% + 0.35rem); top: auto; }
+.today-more-menu [role="menuitem"] {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left;
+}
+.today-more-menu [role="menuitem"]:hover,
+.today-more-menu [role="menuitem"]:focus-visible { background: rgba(148,163,184,0.12); }
+.today-toolbar:has([aria-expanded="true"]#today-more-toggle) .icon-control::after { display: none; }
