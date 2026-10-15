@@ -1,3 +1,5 @@
+import { icon, hydrateIcons } from "./icons.js";
+hydrateIcons();
 import { SITE_VERSION } from "./version.js";
 import {
   checkSoftCapSum,
@@ -76,6 +78,9 @@ import {
   weekJourneyStats,
   weekReflection,
 } from "./journey.js";
+
+
+
 function createWebSessionBackend() {
   return {
     id: "web-session",
@@ -215,6 +220,16 @@ let pendingIntention = null;
 let pendingBreakGlass = null;
 /** @type {null | { summary: string, proposals: Array }} */
 let allyProposal = null;
+/**
+ * Session-only “Add to plan” disclosure.
+ * null follows the plan: collapsed when today is empty, open when it already has commitments.
+ */
+let planToolsExpanded = null;
+
+function planToolsIsOpen(todayCount) {
+  if (planToolsExpanded == null) return todayCount > 0 || !!allyProposal;
+  return planToolsExpanded;
+}
 /** @type {BeforeInstallPromptEvent | null} */
 let deferredInstall = null;
 /** @type {ServiceWorkerRegistration | null} */
@@ -1142,7 +1157,7 @@ function trayLabel() {
   if (!isReady(state)) return "AIly · Setup";
   const focusLabel = focusRemainingLabel();
   if (focusLabel) {
-    const titleBit = focusLabel.replace(" (paused)", "⏸");
+    const titleBit = focusLabel;
     document.title = `Focus ${titleBit} · AIly`;
     return `AIly · Focus ${focusLabel}`;
   }
@@ -1233,8 +1248,7 @@ function renderInstallBanner() {
       ? "Install the browser PWA — no OS admin, no app blocks"
       : "This browser has not offered a PWA install prompt yet";
   }
-  const win = $("#install-windows-link");
-  if (win) win.href = WINDOWS_DOWNLOAD_URL;
+  for (const win of $$("[data-windows-package]")) win.href = WINDOWS_DOWNLOAD_URL;
   const update = $("#update-banner");
   if (update) {
     const waiting = !!(swRegistration && swRegistration.waiting && !updateBannerDismissed);
@@ -1435,6 +1449,9 @@ function renderToday() {
   const cap = state.user.weeklyCapacityHours;
   const daily = dailySoftCapMinutes(cap, state.user.nightsPerWeek);
   const today = todayCommitments();
+  const hasActiveTargets = state.targets.some((t) => t.status === "active");
+  const leadClass = hasActiveTargets ? "primary" : "";
+  const planOpen = planToolsIsOpen(today.length);
   const nextThing = pickNextCommitment(today);
   const invalidCommitments = state.recovery?.invalidCommitments || [];
   const used = plannedMinutes();
@@ -1523,9 +1540,9 @@ function renderToday() {
       ${
         state.ui.dailyIntention
           ? `<p class="ally-line intention-chip">Today’s intention: <strong>${escapeHtml(state.ui.dailyIntention)}</strong>
-             <button type="button" class="ghost" data-action="open-checkin">Edit</button>
-             <button type="button" class="ghost" data-action="clear-intention">Clear</button></p>`
-          : `<p class="ally-line"><button type="button" class="primary" data-action="open-checkin">Set today’s intention</button></p>`
+             <span class="icon-actions">${secondaryIcon("Edit", "edit", 'data-action="open-checkin"')}
+             ${secondaryIcon("Clear", "clear", 'data-action="clear-intention"')}</span></p>`
+          : `<p class="ally-line"><button type="button" class="${leadClass}" data-action="open-checkin">Set today’s intention</button></p>`
       }
       ${
         state.ui.dailyNote
@@ -1535,17 +1552,18 @@ function renderToday() {
       ${
         focusRemainingLabel()
           ? `<p class="ally-line">Focus session: <strong id="today-focus-remaining">${focusRemainingLabel()}</strong> left.
+             <span class="icon-actions">
              ${
                isFocusPaused()
                  ? `<button type="button" class="primary" data-action="resume-focus">Resume</button>`
-                 : `<button type="button" data-action="pause-focus">Pause</button>
-                    <button type="button" data-action="extend-focus-10">+10m</button>`
+                 : `${secondaryIcon("Pause", "pause", 'data-action="pause-focus"')}
+                    ${secondaryIcon("+10m", "extend", 'data-action="extend-focus-10"')}`
              }
-             <button type="button" data-action="end-focus">End early</button></p>`
+             ${secondaryIcon("End early", "end", 'data-action="end-focus"')}</span></p>`
           : `<p class="ally-line row">
                <button type="button" data-action="start-focus-15">Focus 15m</button>
                <button type="button" data-action="start-focus-25">Focus 25m</button>
-               <button type="button" class="primary" data-action="start-focus-50">Focus 50m</button>
+               <button type="button" class="${leadClass}" data-action="start-focus-50">Focus 50m</button>
              </p>
              <details class="custom-focus">
                <summary>Custom duration</summary>
@@ -1560,7 +1578,7 @@ function renderToday() {
     </div>
     ${
       !check.ok
-        ? `<div class="banner danger">${errorLabel(check.error)} <button type="button" data-action="replan">Force replan</button></div>`
+        ? `<div class="banner danger">${errorLabel(check.error)} ${secondaryIcon("Force replan", "notice", 'data-action="replan"')}</div>`
         : ""
     }
     ${
@@ -1568,12 +1586,12 @@ function renderToday() {
         const notices = [];
         if (state.blockRules.some((r) => r.armed)) {
           notices.push(
-            `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. <button type="button" data-action="goto-blocks">Manage blocks</button></div>`
+            `<div class="banner focus-armed">Focus rules armed — distractions you listed stay off-limits. ${secondaryIcon("Manage blocks", "notice", 'data-action="goto-blocks"')}</div>`
           );
         }
         if (!isReady(state)) {
           notices.push(
-            `<div class="banner warn">Finish Setup so AIly can guide your full journey. <button type="button" data-action="open-tutorial">Continue tutorial</button></div>`
+            `<div class="banner warn">Finish Setup so AIly can guide your full journey. ${secondaryIcon("Continue tutorial", "setup", 'data-action="open-tutorial"')}</div>`
           );
         }
         if (invalidCommitments.length) {
@@ -1582,7 +1600,7 @@ function renderToday() {
       They cannot block today’s plan. Recreate anything you still need, then remove these damaged records.
       <ul>${invalidCommitments.slice(0, 3).map((item) => `<li><strong>${escapeHtml(item.text)}</strong> — ${escapeHtml(item.reason)}</li>`).join("")}</ul>
       ${invalidCommitments.length > 3 ? `<p>And ${invalidCommitments.length - 3} more.</p>` : ""}
-      <button type="button" data-action="discard-invalid-commitments">Remove quarantined items</button>
+      ${secondaryIcon("Remove quarantined items", "notice", 'data-action="discard-invalid-commitments"')}
     </div>`);
         }
         if (check.ok) {
@@ -1600,7 +1618,7 @@ function renderToday() {
             stale.length === 1 ? "" : "s"
           } from earlier days (~${mins|0}m). Recover with honesty — not guilt.
           <button type="button" class="primary" data-action="pull-stale-today">Pull to today</button>
-          <button type="button" data-action="drop-stale">Drop stale</button>
+          ${secondaryIcon("Drop stale", "notice", 'data-action="drop-stale"')}
         </div>`);
         }
         const overs = softCapOverTargets();
@@ -1616,7 +1634,7 @@ function renderToday() {
         }
         if (isEveningLocal() && pendingReviewCount() > 0) {
           notices.push(
-            `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. <button type="button" data-action="goto-review">Review with honesty</button></div>`
+            `<div class="banner warn">Evening check — ${pendingReviewCount()} open commitment${pendingReviewCount() === 1 ? "" : "s"}. ${secondaryIcon("Review with honesty", "notice", 'data-action="goto-review"')}</div>`
           );
         }
         if (backupIsStale()) {
@@ -1625,25 +1643,30 @@ function renderToday() {
           );
         }
         if (!notices.length) return "";
+        const noticeLabel = `${notices.length} notice${notices.length === 1 ? "" : "s"}`;
         return `<details class="today-notices">
-          <summary>${notices.length} notice${notices.length === 1 ? "" : "s"}</summary>
+          <summary aria-expanded="false" aria-label="${noticeLabel}">${icon("notice")}<span>${noticeLabel}</span></summary>
           ${notices.join("")}
         </details>`;
       })()
     }
+    ${(() => {
+      const item = (label, action) => `<button type="button" role="menuitem" tabindex="-1" data-action="${action}">${icon(action)}<span>${label}</span></button>`;
+      const share = today.length ? item("Export plan", "export-today-plan") + item("Copy plan", "copy-today-plan") : "";
+      const tidy = [
+        today.some(c => c.status === "pending") ? item("Move open → tomorrow", "defer-pending-tomorrow") : "",
+        today.some(c => c.status === "done") ? item("Drop done from list", "hide-done-today") : "",
+        allyProposal ? item("Clear proposal", "ally-clear") : "",
+      ].join("");
+      const undo = undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
+        ? secondaryIcon("Undo accepted plan change", "undo", 'data-action="undo"') : "";
+      const group = (label, id, contents) => contents ? `<div role="group" aria-labelledby="${id}"><h3 class="today-menu-label" id="${id}">${label}</h3>${contents}</div>` : "";
+      return `<div class="today-toolbar icon-row"><button type="button" class="plan-tools-toggle icon-button icon-control" aria-label="Add to plan" data-label="Add to plan" id="add-to-plan-toggle" aria-expanded="${planOpen ? "true" : "false"}" aria-controls="plan-tools-panel">${icon("add")}</button>${undo}${share || tidy ? `<button type="button" id="today-more-toggle" class="icon-button icon-control" aria-label="More options" data-label="More options" aria-haspopup="menu" aria-expanded="false" aria-controls="today-more-menu">${icon("more")}</button><div id="today-more-menu" class="today-more-menu" role="menu" aria-label="More options" hidden>${group("Share plan", "today-share-label", share)}${group("Tidy today", "today-tidy-label", tidy)}</div>` : ""}</div>`;
+    })()}
+    <div id="plan-tools-panel" class="plan-tools-panel"${planOpen ? "" : " hidden"}>
     <div class="row">
-      <button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>
-      <button type="button" data-action="clone-yesterday">Clone yesterday</button>
-      ${today.length ? `<button type="button" data-action="export-today-plan">Export plan</button>` : ""}
-      ${today.length ? `<button type="button" data-action="copy-today-plan">Copy plan</button>` : ""}
-      ${today.some((c) => c.status === "pending") ? `<button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>` : ""}
-      ${today.some((c) => c.status === "done") ? `<button type="button" data-action="hide-done-today">Drop done from list</button>` : ""}
-      ${allyProposal ? `<button type="button" data-action="ally-clear">Clear proposal</button>` : ""}
-      ${
-        undoStack[0]?.type === "ally-accept" || undoStack[0]?.type === "replan"
-          ? `<button type="button" data-action="undo">Undo accepted plan change</button>`
-          : ""
-      }
+      ${leadClass === "primary" ? `<button type="button" class="primary" data-action="ally-propose">Ask AIly to propose a plan</button>` : secondaryIcon("Ask AIly to propose a plan", "ally-propose", 'data-action="ally-propose"')}
+      ${secondaryIcon("Clone yesterday", "clone-yesterday", 'data-action="clone-yesterday"')}
     </div>
     ${
       allyProposal
@@ -1710,7 +1733,7 @@ function renderToday() {
       <button type="button" class="chip" data-action="quick-commit" data-text="Review + close loops" data-min="30">Review 30m</button>
       <button type="button" class="chip" data-action="quick-commit" data-text="Learn / read with intention" data-min="30">Learn 30m</button>
     </div>
-    <div class="row">
+    <div class="row commitment-form">
       <input id="new-commit-text" placeholder="Next commitment…" />
       <select id="new-commit-target">${state.targets
         .filter((t) => t.status === "active")
@@ -1722,7 +1745,8 @@ function renderToday() {
         .join("")}</select>
       <input id="new-commit-min" type="number" min="15" step="15" value="30" style="width:5rem" />
       <label class="chk"><input type="checkbox" id="new-commit-keep" /> must-keep</label>
-      <button type="button" class="primary" data-action="add-commit">Add</button>
+      <button type="button" class="${leadClass}" data-action="add-commit">Add</button>
+    </div>
     </div>
     <ul class="list today-rest">
       ${rankCommitments(today)
@@ -1740,19 +1764,19 @@ function renderToday() {
                 : ""
             }
             <details class="commit-overflow">
-              <summary aria-label="More actions">⋯</summary>
+              <summary class="icon-control" data-label="More actions" aria-label="More actions">${icon("more")}</summary>
               <div class="commit-overflow-menu">
                 ${
                   c.status !== "done"
                     ? `<button type="button" data-action="edit-commit" data-id="${c.id}">Edit</button>
-                       <button type="button" data-action="estimate-minus" data-id="${c.id}" title="−15 minutes">−15m</button>
+                       <button type="button" data-action="estimate-minus" data-id="${c.id}" title="-15 minutes">-15m</button>
                        <button type="button" data-action="estimate-plus" data-id="${c.id}" title="+15 minutes">+15m</button>
                        <button type="button" data-action="toggle-must-keep" data-id="${c.id}">${c.mustKeep ? "Unprotect" : "Must-keep"}</button>
                        <button type="button" data-action="prio-up" data-id="${c.id}" title="Less important (sacrifice first)">P+</button>
-                       <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P−</button>
+                       <button type="button" data-action="prio-down" data-id="${c.id}" title="More important">P-</button>
                        ${
                          c.status === "pending"
-                           ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">→tmr</button>
+                           ? `<button type="button" data-action="defer-one-tomorrow" data-id="${c.id}" title="Move to tomorrow">${icon("defer-pending-tomorrow")}<span>Tomorrow</span></button>
                               <button type="button" data-action="copy-one-tomorrow" data-id="${c.id}" title="Copy to tomorrow">+tmr</button>`
                            : ""
                        }`
@@ -1767,12 +1791,64 @@ function renderToday() {
         .join("") || (nextThing ? "" : emptyTodayCta())}
     </ul>
   `;
+  el.querySelectorAll(".today-notices").forEach((details) => {
+    const summary = details.querySelector("summary");
+    const syncNoticeExpanded = () => {
+      summary?.setAttribute("aria-expanded", details.open ? "true" : "false");
+    };
+    syncNoticeExpanded();
+    details.addEventListener("toggle", syncNoticeExpanded);
+  });
   $("#custom-focus-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const input = $("#custom-focus-min");
     const minutes = input?.valueAsNumber;
     if (!input?.reportValidity() || !Number.isInteger(minutes) || minutes < 1 || minutes > 180) return;
     startFocusMinutes(minutes, { rememberCustom: true });
+  });
+  $("#add-to-plan-toggle")?.addEventListener("click", () => {
+    planToolsExpanded = !planOpen;
+    renderToday();
+    $("#add-to-plan-toggle")?.focus();
+  });
+  const moreTrigger = $("#today-more-toggle");
+  const moreMenu = $("#today-more-menu");
+  const openTodayMenu = () => {
+    moreMenu.hidden = false;
+    moreMenu.classList.remove("menu-up");
+    moreTrigger.setAttribute("aria-expanded", "true");
+    const row = moreTrigger.closest(".today-toolbar").getBoundingClientRect();
+    const { width, height, top } = moreMenu.getBoundingClientRect();
+    const nav = document.querySelector("nav.side");
+    const navRect = nav?.getBoundingClientRect();
+    const navStyle = nav && getComputedStyle(nav);
+    const bottom = navRect?.height && ["fixed", "sticky"].includes(navStyle.position) && navStyle.visibility !== "hidden"
+      && navRect.top > 0 && navRect.top < innerHeight ? navRect.top : innerHeight;
+    moreMenu.classList.toggle("menu-up", top + height > bottom);
+    moreMenu.style.left = `${Math.max(8 - row.left, Math.min(moreTrigger.getBoundingClientRect().left - row.left, innerWidth - 8 - width - row.left))}px`;
+    moreMenu.querySelector('[role="menuitem"]')?.focus();
+  };
+  moreTrigger?.addEventListener("click", () => {
+    if (moreMenu.hidden) openTodayMenu();
+    else closeTodayMenu(true);
+  });
+  moreTrigger?.addEventListener("keydown", event => {
+    if (["ArrowDown", "Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      openTodayMenu();
+    }
+  });
+  moreMenu?.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeTodayMenu(true);
+    } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      const items = [...moreMenu.querySelectorAll('[role="menuitem"]')];
+      const index = items.indexOf(document.activeElement);
+      items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (event.key === "Tab") closeTodayMenu();
   });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
     if (e.isComposing || e.keyCode === 229) return;
@@ -1894,7 +1970,7 @@ function renderTargets() {
               ${
                 t.status === "active"
                   ? `<button type="button" data-action="bump-metric" data-id="${t.id}">+ progress</button>
-                     <button type="button" data-action="nudge-metric-back" data-id="${t.id}">− progress</button>
+                     <button type="button" data-action="nudge-metric-back" data-id="${t.id}">Reduce progress</button>
                      <button type="button" data-action="snap-metric-goal" data-id="${t.id}">Snap to goal</button>
                      <button type="button" data-action="set-metric" data-id="${t.id}">Set value</button>
                      <button type="button" data-action="edit-step" data-id="${t.id}">Step size</button>
@@ -1997,7 +2073,7 @@ function renderReview() {
         ? `<div class="row">
              <button type="button" data-action="review-all-done-metric">All done + metric</button>
              <button type="button" data-action="review-all-noimpact">All no-impact</button>
-             <button type="button" data-action="defer-pending-tomorrow">Move open → tomorrow</button>
+             <button type="button" data-action="defer-pending-tomorrow">Move open to tomorrow</button>
            </div>`
         : ""
     }
@@ -2460,6 +2536,7 @@ function cloneYesterday() {
 }
 
 function runAllyPropose() {
+  planToolsExpanded = true;
   const result = proposeDayPlan({
     targets: state.targets,
     weeklyCapacityHours: state.user.weeklyCapacityHours,
@@ -3012,7 +3089,17 @@ function markdownLite(s) {
 }
 
 // Events
+function closeTodayMenu(returnFocus = false) {
+  const menu = $("#today-more-menu");
+  const trigger = $("#today-more-toggle");
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  trigger?.setAttribute("aria-expanded", "false");
+  if (returnFocus) trigger?.focus();
+}
+
 document.addEventListener("click", async (e) => {
+  if (!e.target.closest("#today-more-toggle")) closeTodayMenu(Boolean(e.target.closest('#today-more-menu [role="menuitem"]')));
   if (!topVisibleModal()) {
     const trigger = e.target.closest("button, a[href], input, select, textarea, [tabindex]");
     const descriptor = focusDescriptor(trigger);
@@ -4627,6 +4714,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+
 window.addEventListener("online", () => {
   renderNetStatus();
   $("#tray-status").textContent = trayLabel();
@@ -4859,3 +4947,122 @@ document.addEventListener("keydown", (e) => {
     if (undoStack.length) undoLast();
   }
 });
+
+function secondaryIcon(label, iconName, attributes = "") {
+  return `<button type="button" class="icon-button icon-control" aria-label="${escapeHtml(label)}" data-label="${escapeHtml(label)}" ${attributes}>${icon(iconName)}</button>`;
+}
+
+// Anchor tooltips to their controls and flip them away from viewport edges/nav.
+function positionControlTooltip(eventOrControl) {
+  const control = eventOrControl?.classList?.contains("icon-control")
+    ? eventOrControl
+    : iconControlFrom(eventOrControl?.target);
+  if (!control) return;
+  const rect = control.getBoundingClientRect();
+  const tooltip = getComputedStyle(control, "::after");
+  const context = document.createElement("canvas").getContext("2d");
+  context.font = `${tooltip.fontWeight} ${tooltip.fontSize} ${tooltip.fontFamily}`;
+  const labelWidth = context.measureText(control.dataset.label || "").width
+    + parseFloat(tooltip.paddingLeft) + parseFloat(tooltip.paddingRight)
+    + parseFloat(tooltip.borderLeftWidth) + parseFloat(tooltip.borderRightWidth);
+  const maxWidth = Math.min(240, window.innerWidth - 16);
+  control.classList.toggle("tooltip-wrap", labelWidth > maxWidth);
+  control.classList.toggle("tooltip-right", rect.left + Math.min(labelWidth, maxWidth) > window.innerWidth - 8);
+  const nav = document.querySelector("nav.side");
+  const navPosition = nav && getComputedStyle(nav).position;
+  const navTop = nav && ["fixed", "sticky"].includes(navPosition)
+    ? nav.getBoundingClientRect().top : window.innerHeight;
+  control.classList.toggle("tooltip-above", rect.bottom + 48 > Math.min(window.innerHeight, navTop));
+}
+
+function iconControlFrom(target) {
+  const element = target instanceof Element ? target : target?.parentElement;
+  return element?.closest?.(".icon-control") || null;
+}
+
+const touchTipTimers = new WeakMap();
+const longPressTimers = new WeakMap();
+let lastIconPointerType = "";
+let lastTouchPointerAt = 0;
+
+function locateIconControl(identity) {
+  if (!identity) return null;
+  if (identity.id) {
+    const byId = document.getElementById(identity.id);
+    if (byId?.classList.contains("icon-control")) return byId;
+  }
+  if (identity.action) {
+    return document.querySelector(`.icon-control[data-action="${CSS.escape(identity.action)}"]`);
+  }
+  return null;
+}
+
+function showTouchTip(control) {
+  if (!control) return;
+  positionControlTooltip(control);
+  const pending = touchTipTimers.get(control);
+  if (pending) clearTimeout(pending);
+  control.classList.add("is-tip-visible");
+  touchTipTimers.set(control, setTimeout(() => {
+    control.classList.remove("is-tip-visible");
+    touchTipTimers.delete(control);
+  }, 1500));
+}
+
+function clearLongPress(control) {
+  const timer = longPressTimers.get(control);
+  if (!timer) return;
+  clearTimeout(timer);
+  longPressTimers.delete(control);
+}
+
+function revealTouchTip(control) {
+  const identity = {
+    id: control.id || "",
+    action: control.getAttribute("data-action") || "",
+  };
+  const apply = () => {
+    const live = control.isConnected ? control : locateIconControl(identity);
+    if (live) showTouchTip(live);
+  };
+  apply();
+  // Add to plan and other actions replace the control during this click.
+  queueMicrotask(() => {
+    const live = locateIconControl(identity);
+    if (live) showTouchTip(live);
+  });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  const control = iconControlFrom(event.target);
+  const touchLike = event.pointerType === "touch" || event.pointerType === "pen";
+  if (touchLike) lastTouchPointerAt = Date.now();
+  if (event.pointerType === "mouse" && Date.now() - lastTouchPointerAt < 700) return;
+  if (control) lastIconPointerType = event.pointerType || "";
+  if (!control) return;
+  const hoverNone = window.matchMedia?.("(hover: none)")?.matches;
+  if (!touchLike && !hoverNone) return;
+  clearLongPress(control);
+  longPressTimers.set(control, setTimeout(() => {
+    longPressTimers.delete(control);
+    if (control.isConnected) showTouchTip(control);
+  }, 500));
+}, true);
+
+function endIconLongPress(event) {
+  const control = iconControlFrom(event.target);
+  if (control) clearLongPress(control);
+}
+document.addEventListener("pointerup", endIconLongPress);
+document.addEventListener("pointercancel", endIconLongPress);
+document.addEventListener("pointermove", endIconLongPress);
+
+document.addEventListener("click", (event) => {
+  const control = iconControlFrom(event.target);
+  if (!control) return;
+  if (lastIconPointerType !== "touch" && lastIconPointerType !== "pen") return;
+  revealTouchTip(control);
+});
+
+document.addEventListener("pointerover", positionControlTooltip);
+document.addEventListener("focusin", positionControlTooltip);

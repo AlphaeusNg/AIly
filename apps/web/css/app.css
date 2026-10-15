@@ -1,4 +1,10 @@
 :root {
+  --icon-btn-size: 32px;
+  --icon-btn-radius: 8px;
+  --icon-size: 18px;
+  --icon-stroke: 1.75;
+  --icon-btn-target: 44px;
+  --icon-btn-gap: 4px;
   --bg: #0e1116;
   --panel: #161b22;
   --border: #2a3340;
@@ -190,6 +196,30 @@ body.app-ready .app-shell[hidden] {
   border-radius: 8px;
   flex-shrink: 0;
 }
+
+.install-options {
+  display: none;
+}
+
+.install-options > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.install-desc {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.plan-tools-toggle {
+  margin: 0.85rem 0 0.15rem;
+}
+
+.plan-tools-panel[hidden] {
+  display: none !important;
+}
+
 
 .topbar {
   display: flex;
@@ -692,7 +722,7 @@ main {
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--icon-btn-gap);
   align-items: center;
   margin: 0.75rem 0;
 }
@@ -1006,12 +1036,20 @@ button.version-btn:hover {
   border-top: 1px solid var(--border);
 }
 
-.install-banner a.primary {
+.install-banner a.primary,
+.install-windows-wide {
   text-decoration: none;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+}
+
+.install-windows-wide {
+  display: inline-flex;
+}
+
+#install-banner .install-options[open] a.primary {
+  display: inline-flex;
 }
 
 .today-rest {
@@ -1074,26 +1112,47 @@ button.version-btn:hover {
 }
 
 .today-notices {
-  margin: 0.75rem 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5rem 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: var(--panel);
-  padding: 0.2rem 0.85rem 0.35rem;
+  padding: 0;
+}
+
+.today-notices[open] {
+  width: 100%;
 }
 
 .today-notices > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0.2rem 0.6rem;
   cursor: pointer;
-  color: var(--muted);
-  padding: 0.45rem 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
   list-style: none;
 }
 
-.today-notices > summary::-webkit-details-marker {
+.today-notices > summary::-webkit-details-marker,
+.today-notices > summary::marker {
   display: none;
+  content: "";
+}
+
+.today-notices > summary svg {
+  flex: 0 0 auto;
+  color: var(--warn);
 }
 
 .today-notices .banner {
-  margin: 0.45rem 0;
+  margin: 0.45rem;
 }
 
 @media (max-width: 720px) {
@@ -1255,3 +1314,184 @@ body.high-contrast .banner.danger {
   border-color: #f87171;
   background: #450a0a;
 }
+
+/* Shared icon controls and centered touch targets. */
+.icon-button,
+.icon-control,
+summary.icon-control,
+[data-modal-close] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
+  min-width: var(--icon-btn-size);
+  max-width: var(--icon-btn-size);
+  min-height: var(--icon-btn-size);
+  max-height: var(--icon-btn-size);
+  padding: 0;
+  border-radius: var(--icon-btn-radius);
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  box-shadow: none;
+  line-height: 1;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  cursor: pointer;
+}
+summary.icon-control {
+  list-style: none;
+}
+summary.icon-control::-webkit-details-marker {
+  display: none;
+}
+.icon-button svg, .icon-control svg, [data-modal-close] svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke-width: var(--icon-stroke);
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.icon-control::after {
+  content: attr(data-label);
+  display: none;
+  position: absolute;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 16px));
+  left: 0;
+  top: calc(100% + 6px);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel, #18202c);
+  color: var(--text, #fff);
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+.icon-control.tooltip-right::after {
+  left: auto;
+  right: 0;
+}
+.icon-control.tooltip-wrap::after {
+  white-space: normal;
+}
+.icon-control.tooltip-above::after {
+  bottom: calc(100% + 6px);
+  top: auto;
+}
+@media (hover: hover) and (pointer: fine) {
+  .icon-control:hover {
+    z-index: 1001;
+  }
+  .icon-control:hover::after {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+.icon-control:focus-visible,
+.icon-control.is-tip-visible {
+  z-index: 1001;
+}
+.icon-control:focus-visible::after,
+.icon-control.is-tip-visible::after {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+}
+details[open] > summary.icon-control::after {
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-button,
+  .icon-control,
+  .icon-control::after,
+  [data-modal-close] {
+    transition: none !important;
+  }
+}
+
+.icon { width: var(--icon-size); height: var(--icon-size); stroke-width: var(--icon-stroke); vertical-align: middle; }
+.icon-button::before, .icon-control::before, [data-modal-close]::before {
+  content: ""; position: absolute;
+  width: var(--icon-btn-target); height: var(--icon-btn-target);
+  /* Center against the padding box, including controls with a border. */
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+}
+.icon-row {
+  display: flex; align-items: center; gap: var(--icon-btn-gap); flex-wrap: nowrap;
+}
+.today-toolbar { margin: 0.85rem 0; }
+.plan-tools-toggle { margin: 0; }
+#install-banner { flex-wrap: wrap; position: relative; }
+#install-banner .install-actions { position: relative; align-items: flex-start; }
+#install-banner .install-options { display: block; }
+#install-banner .install-windows-wide { display: inline-flex !important; }
+#install-banner .install-options[open] { padding-bottom: 0; }
+#install-banner .install-desc { position: absolute; top: 100%; left: 0; right: 0; margin-top: 8px; }
+#install-banner:has(.install-options[open]) { padding-bottom: 5rem; }
+@media (max-width: 600px) {
+  #install-banner .install-copy { flex-basis: calc(100% - 60px); }
+  #install-banner .install-desc-wide { display: none; }
+  #install-banner .install-actions { flex-basis: 100%; }
+}
+
+.icon-actions { display: inline-flex; align-items: center; gap: var(--icon-btn-gap); flex-wrap: nowrap; vertical-align: middle; }
+
+.quick-chips > .chip { flex: 0 0 auto; white-space: nowrap; }
+.commitment-form > * { flex-shrink: 0; }
+.commitment-form > input:first-child { flex: 1 1 12rem; }
+.commitment-form > select { flex: 1 1 10rem; }
+.commitment-form > .chk,
+.commitment-form > button { white-space: nowrap; }
+#install-banner:has(.install-options[open]) .install-desc-wide { display: none; }
+
+.icon-button:hover, .icon-control:hover, [data-modal-close]:hover,
+.icon-button:focus-visible, .icon-control:focus-visible, [data-modal-close]:focus-visible {
+  background: rgba(148,163,184,0.12);
+  color: var(--text);
+}
+#add-to-plan-toggle {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+}
+.today-toolbar { position: relative; }
+.today-more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1010;
+  width: min(280px, calc(100vw - 16px));
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px #0005;
+}
+.today-menu-label { margin: 8px; font-size: 0.7rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; }
+.today-more-menu.menu-up { bottom: calc(100% + 0.35rem); top: auto; }
+.today-more-menu [role="menuitem"] {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left;
+}
+.today-more-menu [role="menuitem"]:hover,
+.today-more-menu [role="menuitem"]:focus-visible { background: rgba(148,163,184,0.12); }
+.today-toolbar:has([aria-expanded="true"]#today-more-toggle) .icon-control::after { display: none; }

@@ -15,7 +15,7 @@ assert.equal(currentCache, `aily-${versionId}`, "worker cache name matches SITE_
 
 const assetsBlock = /const ASSETS = \[([\s\S]*?)\];/.exec(source)?.[1] || "";
 const precached = [...assetsBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
-for (const kept of ["./", "./index.html", "./offline.html", "./css/app.css", "./js/app.js", "./js/store.js", "./js/capacity.js", "./js/target.js"]) {
+for (const kept of ["./", "./index.html", "./offline.html", "./css/app.css", "./js/app.js", "./js/icons.js", "./js/store.js", "./js/capacity.js", "./js/target.js"]) {
   assert.ok(precached.includes(kept), `install precache keeps first-paint ${kept}`);
 }
 for (const deferred of ["./js/activity-view.js", "./js/block-view.js", "./js/tutorial-view.js", "./js/platform-usage.js", "./js/setup-view.js"]) {

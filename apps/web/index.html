@@ -42,17 +42,23 @@
           <span class="muted">Reload to use the newer AIly.</span>
         </div>
         <button type="button" class="primary" data-action="apply-update">Reload</button>
-        <button type="button" data-action="dismiss-update" aria-label="Dismiss">✕</button>
+        <button type="button" class="icon-button icon-control tooltip-right" data-action="dismiss-update" aria-label="Dismiss" data-label="Dismiss"><span data-icon="close"></span></button>
       </div>
       <div id="install-banner" class="install-banner hidden" role="region" aria-label="Get AIly on this device">
         <img src="assets/logo.svg" width="36" height="36" alt="" />
         <div class="install-copy">
           <strong>Get AIly on this device</strong>
-          <span class="muted">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</span>
+          <span class="muted install-desc-wide">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</span>
         </div>
+        <div class="install-actions icon-row">
         <button type="button" class="primary" id="install-pwa-btn" data-action="install-app">Install PWA</button>
-        <a class="primary" id="install-windows-link" href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener">Windows package</a>
-        <button type="button" data-action="dismiss-install" aria-label="Dismiss">✕</button>
+        <a class="icon-button icon-control tooltip-right install-windows-wide" id="install-windows-link" data-windows-package href="https://github.com/AlphaeusNg/AIly/releases/latest/download/AIly-setup.exe" target="_blank" rel="noopener" aria-label="Windows package" data-label="Windows package"><span data-icon="windows"></span></a>
+        <button type="button" class="install-dismiss icon-button icon-control tooltip-right" data-action="dismiss-install" aria-label="Dismiss" data-label="Dismiss"><span data-icon="close"></span></button>
+        <details class="install-options" id="install-options">
+          <summary class="icon-button icon-control tooltip-right" aria-label="Install options" data-label="Install options"><span data-icon="menu"></span></summary>
+          <p class="muted install-desc">The PWA installs in this browser. The Windows package is unsigned. Neither install blocks apps.</p>
+        </details>
+        </div>
       </div>
 
       <header class="topbar">
@@ -72,29 +78,29 @@
       <div class="layout">
         <nav class="side" aria-label="Primary">
           <button type="button" data-nav="today" class="active">
-            <span class="nav-ico" aria-hidden="true">◎</span> Today
+            <span class="nav-ico" aria-hidden="true"><span data-icon="today"></span></span> Today
           </button>
           <button type="button" data-nav="targets">
-            <span class="nav-ico" aria-hidden="true">◈</span> Targets
+            <span class="nav-ico" aria-hidden="true"><span data-icon="targets"></span></span> Targets
           </button>
           <button type="button" data-nav="review">
-            <span class="nav-ico" aria-hidden="true">✓</span> Review
+            <span class="nav-ico" aria-hidden="true"><span data-icon="review"></span></span> Review
           </button>
           <button type="button" data-nav="usage">
-            <span class="nav-ico" aria-hidden="true">◔</span> Usage
+            <span class="nav-ico" aria-hidden="true"><span data-icon="usage"></span></span> Usage
           </button>
           <button type="button" data-nav="blocks" class="nav-more-item">
-            <span class="nav-ico" aria-hidden="true">▣</span> Blocks
+            <span class="nav-ico" aria-hidden="true"><span data-icon="blocks"></span></span> Blocks
           </button>
           <button type="button" data-nav="setup" class="nav-more-item">
-            <span class="nav-ico" aria-hidden="true">⚙</span> Setup
+            <span class="nav-ico" aria-hidden="true"><span data-icon="setup"></span></span> Setup
             <span class="badge setup-badge" id="setup-badge">!</span>
           </button>
           <button type="button" data-nav="activity" class="nav-more-item">
-            <span class="nav-ico" aria-hidden="true">≡</span> Activity
+            <span class="nav-ico" aria-hidden="true"><span data-icon="menu"></span></span> Activity
           </button>
           <button type="button" class="nav-more-trigger" data-action="open-more" aria-expanded="false" aria-controls="more-sheet">
-            <span class="nav-ico" aria-hidden="true">⋯</span> More
+            <span class="nav-ico" aria-hidden="true"><span data-icon="more"></span></span> More
             <span class="badge setup-badge">!</span>
           </button>
         </nav>
@@ -120,7 +126,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted" id="tutorial-progress">0/8</span>
-          <button type="button" data-action="close-tutorial" data-modal-close aria-label="Close">✕</button>
+          <button type="button" data-action="close-tutorial" class="icon-button" data-modal-close aria-label="Close"><span data-icon="close"></span></button>
         </div>
         <h2 id="tutorial-title">Meet AIly</h2>
         <div id="tutorial-body"></div>
@@ -133,7 +139,7 @@
       <div class="modal intention-modal">
         <div class="modal-top">
           <span class="muted">Intentional check</span>
-          <button type="button" data-action="intention-cancel" data-modal-close aria-label="Cancel">✕</button>
+          <button type="button" data-action="intention-cancel" class="icon-button" data-modal-close aria-label="Cancel"><span data-icon="close"></span></button>
         </div>
         <h2 id="intention-title">Is this what you want?</h2>
         <p id="intention-body" class="intention-body"></p>
@@ -160,7 +166,7 @@
       <div class="modal intention-modal">
         <div class="modal-top">
           <span class="muted">You stepped away</span>
-          <button type="button" data-action="return-choose-next" data-modal-close aria-label="Close">✕</button>
+          <button type="button" data-action="return-choose-next" class="icon-button" data-modal-close aria-label="Close"><span data-icon="close"></span></button>
         </div>
         <h2 id="return-nudge-title">Still protecting this?</h2>
         <p id="return-nudge-body" class="intention-body"></p>
@@ -176,7 +182,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Daily check-in</span>
-          <button type="button" data-action="checkin-skip" data-modal-close aria-label="Skip">✕</button>
+          <button type="button" data-action="checkin-skip" class="icon-button" data-modal-close aria-label="Skip"><span data-icon="close"></span></button>
         </div>
         <h2 id="checkin-title">What do you want to protect today?</h2>
         <p class="muted">One sentence is enough. AIly shows it on Today.</p>
@@ -208,7 +214,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Break glass</span>
-          <button type="button" data-action="breakglass-cancel" data-modal-close aria-label="Cancel">✕</button>
+          <button type="button" data-action="breakglass-cancel" class="icon-button" data-modal-close aria-label="Cancel"><span data-icon="close"></span></button>
         </div>
         <h2 id="breakglass-title">Unlock for a moment</h2>
         <p id="breakglass-body" class="intention-body"></p>
@@ -227,7 +233,7 @@
       <div class="modal">
         <div class="modal-top">
           <span class="muted">Keyboard</span>
-          <button type="button" data-action="close-help" data-modal-close aria-label="Close">✕</button>
+          <button type="button" data-action="close-help" class="icon-button" data-modal-close aria-label="Close"><span data-icon="close"></span></button>
         </div>
         <h2 id="help-title">Shortcuts</h2>
         <ul class="list">
@@ -252,19 +258,19 @@
       <div class="modal more-sheet">
         <div class="modal-top">
           <span class="muted">More</span>
-          <button type="button" data-action="close-more" data-modal-close aria-label="Close">✕</button>
+          <button type="button" data-action="close-more" class="icon-button" data-modal-close aria-label="Close"><span data-icon="close"></span></button>
         </div>
         <h2 id="more-sheet-title">More</h2>
         <div class="more-sheet-nav">
           <button type="button" data-nav="blocks" data-modal-initial>
-            <span class="nav-ico" aria-hidden="true">▣</span> Blocks
+            <span class="nav-ico" aria-hidden="true"><span data-icon="blocks"></span></span> Blocks
           </button>
           <button type="button" data-nav="setup">
-            <span class="nav-ico" aria-hidden="true">⚙</span> Setup
+            <span class="nav-ico" aria-hidden="true"><span data-icon="setup"></span></span> Setup
             <span class="badge setup-badge">!</span>
           </button>
           <button type="button" data-nav="activity">
-            <span class="nav-ico" aria-hidden="true">≡</span> Activity
+            <span class="nav-ico" aria-hidden="true"><span data-icon="menu"></span></span> Activity
           </button>
         </div>
       </div>
