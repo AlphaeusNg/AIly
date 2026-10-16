@@ -842,11 +842,9 @@ function allyTimeMessage(dailyCap, planned, reading) {
       `Saved notes <strong>${reading.manualMinutes | 0}m</strong> · not measured usage.`
     );
   }
-  if (session >= 1) {
-    parts.push(
-      `This AIly session: <strong id="today-session-mins">${session}m</strong>.`
-    );
-  }
+  parts.push(
+    `<span id="today-session-line"${session < 1 ? " hidden" : ""}>This AIly session: <strong id="today-session-mins">${session}m</strong>.</span>`
+  );
   parts.push("Pause a second — is this how you want to spend the next stretch?");
   return parts.join(" ");
 }
@@ -4820,10 +4818,8 @@ function refreshIdleChrome() {
   const sessionEl = $("#today-session-mins");
   if (sessionEl) {
     sessionEl.textContent = `${mins}m`;
-  } else if (mins >= 1) {
-    // First minute of the session — the line did not exist on last full paint.
-    renderToday();
-    return;
+    const sessionLine = $("#today-session-line");
+    if (sessionLine) sessionLine.hidden = mins < 1;
   }
 
   const focusEl = $("#today-focus-remaining");

@@ -77,3 +77,25 @@ test("idle Today tick updates tray without rewriting the panel tree", async ({ p
   expect(result.stillHasCommitment).toBe(true);
   expect(result.trayAfter).toBeTruthy();
 });
+
+
+test("first session minute keeps an unfinished Today input and its focus", async ({ page }) => {
+  const seed = readyTodayState();
+  await page.clock.setFixedTime(new Date());
+  await page.addInitScript(seed => localStorage.setItem("aily.v1.state", JSON.stringify(seed)), seed);
+  await page.goto("/");
+  await expect(page.locator("body")).toHaveClass(/app-ready/);
+  if (await page.locator("#add-to-plan-toggle").getAttribute("aria-expanded") === "false") {
+    await page.locator("#add-to-plan-toggle").click();
+  }
+  const input = page.locator("#new-commit-text");
+  await input.fill("An unfinished commitment");
+  await input.focus();
+  const original = await input.elementHandle();
+  await page.clock.setFixedTime(new Date(Date.now() + 120000));
+  await page.evaluate(() => document.dispatchEvent(new Event("aily:idle-tick")));
+  expect(await original.evaluate(node => node.isConnected)).toBe(true);
+  await expect(input).toHaveValue("An unfinished commitment");
+  await expect(input).toBeFocused();
+  await expect(page.locator("#today-session-mins")).toHaveText("2m");
+});

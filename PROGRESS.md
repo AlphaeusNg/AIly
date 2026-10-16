@@ -2305,3 +2305,10 @@ The new Today overflow menu now restores its trigger before native Tab or Shift+
 Validation: complete npm gate passed: Rust formatting, strict Clippy, Rust/shared contracts, all browser-domain and workflow suites, recursive syntax, and all 42 Chromium journeys. The new keyboard regression failed before the fix.
 
 Hosted follow-up: CI exposed a race in the existing menu journey immediately after closing the intention modal. The shell remains inert until the scheduled focus-restoration frame; the test now waits for that documented transition and verifies trigger focus before sending ArrowDown. Eight consecutive CI-mode menu runs and the complete npm gate (42 Chromium journeys) passed. This follow-up changes only test synchronization; web assets and package versions are unchanged.
+
+
+## 2026-10-17 — Keep unfinished Today inputs when the session clock appears
+
+The elapsed-session line has a stable, initially hidden element. The first elapsed minute updates text and visibility without rebuilding Today and discarding an unfinished commitment or its focus. Elapsed timer time remains separate from measured usage. Version 2026.10.17.1.
+
+Validation: The complete Rust formatting/strict Clippy/shared-contract/Node/syntax gate and all 43 Chromium journeys passed. The added clock-controlled journey retains the same input node, its unfinished value and focus across the elapsed-time transition.
