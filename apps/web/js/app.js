@@ -1849,14 +1849,14 @@ function renderToday() {
     } else if (event.key === "Tab") closeTodayMenu(true);
   });
   $("#new-commit-text")?.addEventListener("keydown", (e) => {
-    if (e.isComposing || e.keyCode === 229) return;
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector('[data-action="add-commit"]')?.click();
     }
   });
   $("#today-metric-value")?.addEventListener("keydown", (e) => {
-    if (e.isComposing || e.keyCode === 229) return;
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector('[data-action="today-log-metric"]')?.click();
@@ -3791,7 +3791,7 @@ document.addEventListener("click", async (e) => {
     const m = t.metrics[0];
     const raw = $("#today-metric-value")?.value;
     const val = Number(raw);
-    if (!Number.isFinite(val)) {
+    if (!raw?.trim() || !Number.isFinite(val)) {
       showToast("Enter a number to check in.", "error");
       return;
     }

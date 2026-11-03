@@ -2312,3 +2312,10 @@ Hosted follow-up: CI exposed a race in the existing menu journey immediately aft
 The elapsed-session line has a stable, initially hidden element. The first elapsed minute updates text and visibility without rebuilding Today and discarding an unfinished commitment or its focus. Elapsed timer time remains separate from measured usage. Version 2026.10.17.1.
 
 Validation: The complete Rust formatting/strict Clippy/shared-contract/Node/syntax gate and all 43 Chromium journeys passed. The added clock-controlled journey retains the same input node, its unfinished value and focus across the elapsed-time transition.
+
+
+## 2026-11-04 — Require intentional Today submissions
+
+Today commitment and metric Enter shortcuts respect consumed events and Ctrl/Meta/Alt chords alongside existing composition guards. Empty metric check-ins now show the existing number guidance instead of replacing progress with zero; an explicitly entered zero remains valid. Web/worker 2026.11.04.1; native package version stays 0.1.13.
+
+Validation: Chromium regressions reproduced unintended commitment submission and blank-input progress loss before their fixes. The complete Rust formatting/strict Clippy/shared-contract/Node/syntax gate and Chromium suite passed, including preserved draft inputs, metric values, plain Enter and explicit zero.

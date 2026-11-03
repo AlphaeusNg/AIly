@@ -166,12 +166,19 @@ test.describe("offline focus controls", () => {
 });
 
 
-test('Today waits for composition to finish before adding a commitment', async ({page}) => {
+test('Today preserves composition and shortcut chords before adding a commitment', async ({page}) => {
   await openReady(page);
   const field = page.locator('#new-commit-text');
   await field.fill('Composed commitment');
   await page.locator('#new-commit-min').fill('15');
-  await field.evaluate(input => input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',isComposing:true,bubbles:true,cancelable:true})));
+  for (const extra of [{isComposing:true}, {keyCode:229}, {ctrlKey:true}, {metaKey:true}, {altKey:true}, {prevented:true}]) {
+    await field.evaluate((input, extra) => {
+      const event = new KeyboardEvent('keydown', {key:'Enter',bubbles:true,cancelable:true,...extra});
+      if (extra.prevented) event.preventDefault();
+      input.dispatchEvent(event);
+    }, extra);
+    await expect(field).toHaveValue('Composed commitment');
+  }
   await expect(field).toHaveValue('Composed commitment');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('aily.v1.state')).commitments.length)).toBe(1);
   await field.press('Enter');
@@ -224,4 +231,27 @@ test("custom focus validates input, remembers duration and stays compact", async
   await expect(input).toHaveValue("40");
   await start.click();
   await expect(page.locator('[data-action="pause-focus"]')).toBeVisible();
+});
+
+
+test("Today metric check-in ignores shortcut chords and requires a number", async ({ page }) => {
+  await openReady(page);
+  const field = page.locator("#today-metric-value");
+  await field.fill("7");
+  for (const extra of [{isComposing:true}, {keyCode:229}, {ctrlKey:true}, {metaKey:true}, {altKey:true}, {prevented:true}]) {
+    await field.evaluate((input, extra) => {
+      const event = new KeyboardEvent("keydown", {key:"Enter",bubbles:true,cancelable:true,...extra});
+      if (extra.prevented) event.preventDefault();
+      input.dispatchEvent(event);
+    }, extra);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets[0].metrics[0].current)).toBe(1);
+    await expect(field).toHaveValue("7");
+  }
+  await field.fill("");
+  await field.press("Enter");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets[0].metrics[0].current)).toBe(1);
+  await expect(field).toHaveValue("");
+  await field.fill("0");
+  await field.press("Enter");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets[0].metrics[0].current)).toBe(0);
 });
