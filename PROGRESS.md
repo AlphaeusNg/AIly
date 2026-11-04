@@ -2336,3 +2336,21 @@ shared-contract/Node/syntax gate and all 45 Chromium journeys passed. The
 expanded affected journey additionally checks Setup fractional inputs and
 passed. Android JVM tests passed. Physical-device checks and native glib
 remediation remain open; this change creates no new native package release.
+
+
+## 2026-11-05 — Patch Capacitor CLI filesystem dependencies
+
+The existing Capacitor 7.6.9 CLI resolves rimraf's compatible patch 6.1.4,
+which selects glob 14.0.3 and minimatch 11.0.4. This removes the current glob
+cancellation-bypass and minimatch amplification advisories from the npm graph,
+without a Capacitor major upgrade or forced transitive override. Advisory sources:
+https://github.com/advisories/GHSA-3g3m-2fjr-6pw4 and
+https://github.com/advisories/GHSA-g3hv-75wg-m249.
+
+Validation: clean npm ci and npm audit report zero vulnerabilities; the complete
+Rust/Clippy/Node/syntax gate and all 45 Chromium journeys pass. Real Capacitor
+Android sync, Android JVM tests and the build helper pass. The rebuilt debug
+APK passes identity com.alphaeusng.aily, native version 0.1.13 and signature
+verification (4,236,222 bytes). Web 2026.11.05.1 and native 0.1.13 are retained;
+no new public native release is created. The separate native glib advisory and
+physical-device checks remain open.
