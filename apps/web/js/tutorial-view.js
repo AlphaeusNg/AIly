@@ -47,7 +47,7 @@ export function renderTutorialContent({ state, actions }) {
     container.appendChild(button);
   } else if (pending.id === "capacity") {
     container.innerHTML = `
-      <label>Weekly hours <input type="number" id="tut-hours" min="1" max="80" value="${state.user.weeklyCapacityHours}" /></label>
+      <label>Weekly hours <input type="number" id="tut-hours" min="1" max="168" value="${state.user.weeklyCapacityHours}" /></label>
       <label>Nights/week <input type="number" id="tut-nights" min="1" max="7" value="${state.user.nightsPerWeek}" /></label>
     `;
     const button = document.createElement("button");
@@ -55,8 +55,8 @@ export function renderTutorialContent({ state, actions }) {
     button.textContent = "Save capacity";
     button.onclick = () => {
       actions.saveCapacity(
-        Number(document.querySelector("#tut-hours").value) || 10,
-        Number(document.querySelector("#tut-nights").value) || 4,
+        Number(document.querySelector("#tut-hours").value),
+        Number(document.querySelector("#tut-nights").value),
       );
     };
     container.appendChild(button);

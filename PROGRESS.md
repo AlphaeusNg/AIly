@@ -2319,3 +2319,20 @@ Validation: The complete Rust formatting/strict Clippy/shared-contract/Node/synt
 Today commitment and metric Enter shortcuts respect consumed events and Ctrl/Meta/Alt chords alongside existing composition guards. Empty metric check-ins now show the existing number guidance instead of replacing progress with zero; an explicitly entered zero remains valid. Web/worker 2026.11.04.1; native package version stays 0.1.13.
 
 Validation: Chromium regressions reproduced unintended commitment submission and blank-input progress loss before their fixes. The complete Rust formatting/strict Clippy/shared-contract/Node/syntax gate and Chromium suite passed, including preserved draft inputs, metric values, plain Enter and explicit zero.
+
+
+## 2026-11-05 — Validate capacity before completing the tutorial
+
+The tutorial now checks weekly hours (1–168), whole nights per week (1–7),
+and existing target soft caps before saving or completing its capacity chapter.
+Blank and zero entries retain the draft for correction instead of silently
+substituting 10 hours/four nights. The tutorial's displayed hours maximum now
+matches Setup. Setup also rejects fractional nights and hours below one.
+Web/worker stamp: 2026.11.05.1; native package remains 0.1.13.
+
+Validation: the new Chromium journey failed on the previous code because a
+blank field completed the chapter. The complete Rust formatting/strict Clippy/
+shared-contract/Node/syntax gate and all 45 Chromium journeys passed. The
+expanded affected journey additionally checks Setup fractional inputs and
+passed. Android JVM tests passed. Physical-device checks and native glib
+remediation remain open; this change creates no new native package release.

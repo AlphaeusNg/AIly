@@ -2359,6 +2359,19 @@ function paintTutorial() {
         persist();
       },
       saveCapacity: (weeklyHours, nightsPerWeek) => {
+        if (!Number.isFinite(weeklyHours) || weeklyHours < 1 || weeklyHours > 168) {
+          showToast("Weekly hours must be between 1 and 168.", "error");
+          return;
+        }
+        if (!Number.isInteger(nightsPerWeek) || nightsPerWeek < 1 || nightsPerWeek > 7) {
+          showToast("Nights/week must be a whole number from 1–7.", "error");
+          return;
+        }
+        const softCheck = checkSoftCapSum(softCaps(), weeklyHours);
+        if (!softCheck.ok) {
+          showToast("Lower soft hours on targets before reducing weekly capacity.", "error");
+          return;
+        }
         state.user.weeklyCapacityHours = weeklyHours;
         state.user.nightsPerWeek = nightsPerWeek;
         completeChapter("capacity");
@@ -4418,12 +4431,12 @@ document.addEventListener("click", async (e) => {
   if (action === "save-capacity") {
     const hours = Number($("#setup-hours")?.value);
     const nights = Number($("#setup-nights")?.value);
-    if (!Number.isFinite(hours) || hours <= 0 || hours > 168) {
+    if (!Number.isFinite(hours) || hours < 1 || hours > 168) {
       showToast("Weekly hours must be between 1 and 168.", "error");
       return;
     }
-    if (!Number.isFinite(nights) || nights < 1 || nights > 7) {
-      showToast("Nights/week must be 1–7.", "error");
+    if (!Number.isInteger(nights) || nights < 1 || nights > 7) {
+      showToast("Nights/week must be a whole number from 1–7.", "error");
       return;
     }
     const softCheck = checkSoftCapSum(softCaps(), hours);
