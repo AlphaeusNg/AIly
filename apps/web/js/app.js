@@ -3821,7 +3821,7 @@ document.addEventListener("click", async (e) => {
     const raw = prompt(`Set current ${m.name} (${m.unit})`, String(m.current));
     if (raw == null) return;
     const val = Number(raw);
-    if (!Number.isFinite(val)) {
+    if (!raw.trim() || !Number.isFinite(val)) {
       showToast("Enter a number.", "error");
       return;
     }

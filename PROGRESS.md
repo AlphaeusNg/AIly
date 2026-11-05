@@ -2383,3 +2383,17 @@ Validation: the new regression failed on the original one-hour case, and now
 covers whole/fractional weekly limits, fair equal splits and immutable inputs.
 Complete npm gate passed, including Rust formatting, strict Clippy, core/shared
 contracts, domain/workflow/syntax suites and all 46 Chromium journeys.
+
+## 2026-11-06 — Preserve progress when Set value is left blank
+
+Targets' Set value dialog now rejects empty or whitespace-only input instead
+of converting it to zero and replacing saved metric progress. Cancel still
+leaves the metric alone, and explicitly entering zero remains valid.
+Web/worker stamp: 2026.11.06.1; native package remains 0.1.13.
+
+Validation: the Chromium regression reproduced saved progress changing from
+one to zero before the fix. It now covers empty, whitespace, invalid, cancelled
+and explicit-zero answers. The complete npm gate passed, including Rust
+formatting, strict Clippy, core/shared contracts, domain/workflow/syntax suites
+and all 47 Chromium journeys. Android JVM tests passed. Physical-device checks
+and the existing native dependency migration remain open.

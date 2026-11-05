@@ -272,3 +272,17 @@ test("Today requires an estimate before adding a commitment", async ({ page }) =
   await page.locator('[data-action="add-commit"]').click();
   await expect.poll(count).toBe(2);
 });
+
+test("Targets Set value keeps progress on blank input and accepts explicit zero", async ({ page }) => {
+  await openReady(page);
+  await page.locator('[data-nav="targets"]').click();
+  const value = () => page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets[0].metrics[0].current);
+  for (const response of ["", "   ", "not a number", null]) {
+    page.once("dialog", (dialog) => response === null ? dialog.dismiss() : dialog.accept(response));
+    await page.locator('[data-action="set-metric"]').click();
+    expect(await value()).toBe(1);
+  }
+  page.once("dialog", (dialog) => dialog.accept("0"));
+  await page.locator('[data-action="set-metric"]').click();
+  await expect.poll(value).toBe(0);
+});
