@@ -286,3 +286,22 @@ test("Targets Set value keeps progress on blank input and accepts explicit zero"
   await page.locator('[data-action="set-metric"]').click();
   await expect.poll(value).toBe(0);
 });
+
+test("creating a sixth target keeps automatically shared caps within one weekly hour", async ({ page }) => {
+  const seed = readyTodayState();
+  seed.user.weeklyCapacityHours = 1;
+  seed.commitments = [];
+  seed.targets = Array.from({ length: 5 }, (_, index) => ({
+    ...structuredClone(seed.targets[0]), id: `existing-${index}`, softCapacityHours: 0.2,
+  }));
+  seed.ui.tab = "targets";
+  await page.addInitScript((state) => localStorage.setItem("aily.v1.state", JSON.stringify(state)), seed);
+  await page.goto("/");
+  await page.locator('#target-form input[name="title"]').fill("Sixth target");
+  await page.locator('#target-form input[name="metric"]').fill("Steps");
+  await page.locator('#target-form button[type="submit"]').click();
+  await expect(page.locator(".target-card")).toHaveCount(6);
+  const caps = await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets.map((target) => target.softCapacityHours));
+  expect(caps.reduce((sum, cap) => sum + cap, 0)).toBeLessThanOrEqual(1 + 1e-9);
+  expect(Math.max(...caps) - Math.min(...caps)).toBeLessThanOrEqual(0.1 + 1e-9);
+});

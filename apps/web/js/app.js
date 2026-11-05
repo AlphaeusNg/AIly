@@ -3062,12 +3062,10 @@ function onCreateTarget(e) {
       }
       const after = checkSoftCapSum(softCaps(), state.user.weeklyCapacityHours);
       if (!after.ok) {
-        // Auto-share oversubscribed — scale down proportionally
-        const scale = after.weekly / after.sum;
+        const result = scaleSoftCapsToFit(softCaps(), state.user.weeklyCapacityHours);
+        const byId = new Map(result.softCaps.map((cap) => [cap.targetId, cap.hours]));
         for (const x of active) {
-          if (x.softCapacityHours != null && x.softCapacityHours > 0) {
-            x.softCapacityHours = Math.round(x.softCapacityHours * scale * 10) / 10;
-          }
+          if (byId.has(x.id)) x.softCapacityHours = byId.get(x.id);
         }
         showToast("Soft hours auto-scaled to fit weekly capacity.", "ok", 4000);
       }

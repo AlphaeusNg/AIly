@@ -2397,3 +2397,17 @@ and explicit-zero answers. The complete npm gate passed, including Rust
 formatting, strict Clippy, core/shared contracts, domain/workflow/syntax suites
 and all 47 Chromium journeys. Android JVM tests passed. Physical-device checks
 and the existing native dependency migration remain open.
+
+## 2026-11-06 — Fit automatic new-target hour sharing within the week
+
+New-target creation now uses the shared remainder allocator when automatic
+soft-hour sharing needs scaling. Its separate rounding loop could still save
+six 0.2-hour caps for a one-hour week, despite claiming they had been scaled to
+fit. The existing manual Scale action already used the corrected allocator.
+Web/worker stamp: 2026.11.06.2; native package remains 0.1.13.
+
+Validation: the new Chromium journey reproduced a 1.2-hour saved sum before
+the fix. It now creates the sixth target and verifies the saved caps fit one
+hour with no more than one tenth between equal shares. The complete npm gate
+passed, including Rust formatting, strict Clippy, core/shared contracts,
+domain/workflow/syntax suites and all 48 Chromium journeys.
