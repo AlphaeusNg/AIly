@@ -255,3 +255,20 @@ test("Today metric check-in ignores shortcut chords and requires a number", asyn
   await field.press("Enter");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).targets[0].metrics[0].current)).toBe(0);
 });
+
+
+test("Today requires an estimate before adding a commitment", async ({ page }) => {
+  await openReady(page);
+  await page.locator("#new-commit-text").fill("Keep this draft");
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem("aily.v1.state")).commitments.length);
+  for (const value of ["", "0", "-15", "14"]) {
+    await page.locator("#new-commit-min").fill(value);
+    await page.locator('[data-action="add-commit"]').click();
+    expect(await count()).toBe(1);
+    await expect(page.locator("#new-commit-text")).toHaveValue("Keep this draft");
+    await expect(page.locator("#new-commit-min")).toHaveValue(value);
+  }
+  await page.locator("#new-commit-min").fill("15");
+  await page.locator('[data-action="add-commit"]').click();
+  await expect.poll(count).toBe(2);
+});

@@ -2354,3 +2354,18 @@ APK passes identity com.alphaeusng.aily, native version 0.1.13 and signature
 verification (4,236,222 bytes). Web 2026.11.05.1 and native 0.1.13 are retained;
 no new public native release is created. The separate native glib advisory and
 physical-device checks remain open.
+
+
+## 2026-11-05 — Require an estimate for new Today commitments
+
+A blank or zero estimate now keeps the commitment draft and shows the existing
+15-minute minimum guidance. The action no longer silently replaces that input
+with 30 minutes or opens an intention prompt for that substituted estimate.
+Valid estimates retain the existing 15-minute snapping and capacity checks.
+Web/worker stamp: 2026.11.05.2; native package remains 0.1.13.
+
+Validation: the Chromium regression reproduced the blank estimate changing to
+30 before the fix. It now checks blank, zero, negative and below-minimum
+estimates preserve the draft and add nothing, followed by a valid 15-minute
+submission. Complete Rust formatting/strict Clippy/shared-contract/Node/syntax
+gate and all 46 Chromium journeys passed. Android JVM tests passed.

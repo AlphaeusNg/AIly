@@ -3328,7 +3328,7 @@ document.addEventListener("click", async (e) => {
     }
     const text = $("#new-commit-text")?.value?.trim();
     const targetId = $("#new-commit-target")?.value;
-    let estimateMin = Number($("#new-commit-min")?.value) || 30;
+    let estimateMin = Number($("#new-commit-min")?.value);
     const mustKeep = $("#new-commit-keep")?.checked;
     if (!text || !targetId) {
       showToast("Add a commitment and pick a target.", "error");
