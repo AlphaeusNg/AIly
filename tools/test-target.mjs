@@ -124,6 +124,19 @@ assert.ok(scaled.sum <= 10 + 1e-9);
 assert.equal(scaled.softCaps[0].hours, 5);
 assert.equal(scaled.softCaps[1].hours, 5);
 
+// Independent rounding used to turn six equal caps into 1.2h for a 1h week.
+for (const weekly of [1, 1.05, 1.1, 2.7]) {
+  const caps = Array.from({ length: 6 }, (_, i) => ({ targetId: String(i), hours: 2 }));
+  const before = structuredClone(caps);
+  const fit = scaleSoftCapsToFit(caps, weekly);
+  assert.equal(fit.ok, true, `scaled caps must fit ${weekly}h`);
+  assert.ok(fit.sum <= weekly + 1e-9);
+  assert.ok(fit.sum >= Math.floor((weekly + 1e-9) * 10) / 10 - 1e-9);
+  assert.deepEqual(caps, before, "scaling does not mutate the input");
+  const hours = fit.softCaps.map((cap) => cap.hours);
+  assert.ok(Math.max(...hours) - Math.min(...hours) <= 0.1 + 1e-9);
+}
+
 const alreadyFit = scaleSoftCapsToFit(
   [
     { targetId: "a", hours: 4 },

@@ -142,10 +142,26 @@ export function scaleSoftCapsToFit(softCaps, weeklyCapacityHours) {
     };
   }
   const scale = check.weekly / check.sum;
-  const scaled = (Array.isArray(softCaps) ? softCaps : []).map((s) => {
-    if (!s || !Number.isFinite(s.hours) || s.hours <= 0) return { ...s };
-    return { ...s, hours: Math.round(s.hours * scale * 10) / 10 };
+  // Allocate whole tenths first, then give spare tenths to the largest
+  // remainders. Rounding each cap independently can exceed weekly capacity.
+  const budget = Math.floor(check.weekly * 10 + 1e-9);
+  const allocations = softCaps.flatMap((s, index) => {
+    if (!s || !Number.isFinite(s.hours) || s.hours <= 0) return [];
+    const exact = s.hours * scale * 10;
+    const tenths = Math.floor(exact);
+    return [{ index, tenths, remainder: exact - tenths }];
   });
+  let spare = budget - allocations.reduce((sum, entry) => sum + entry.tenths, 0);
+  allocations.sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  for (const entry of allocations) {
+    if (spare <= 0) break;
+    entry.tenths += 1;
+    spare -= 1;
+  }
+  const hoursByIndex = new Map(allocations.map((entry) => [entry.index, entry.tenths / 10]));
+  const scaled = softCaps.map((s, index) => hoursByIndex.has(index)
+    ? { ...s, hours: hoursByIndex.get(index) }
+    : { ...s });
   const after = checkSoftCapSum(scaled, check.weekly);
   return {
     ok: after.ok,

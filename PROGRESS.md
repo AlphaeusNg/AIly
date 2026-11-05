@@ -2369,3 +2369,17 @@ Validation: the Chromium regression reproduced the blank estimate changing to
 estimates preserve the draft and add nothing, followed by a valid 15-minute
 submission. Complete Rust formatting/strict Clippy/shared-contract/Node/syntax
 gate and all 46 Chromium journeys passed. Android JVM tests passed.
+
+## 2026-11-05 — Keep scaled target hours within weekly capacity
+
+Scaling oversubscribed target soft caps now allocates whole tenths of an hour
+and distributes spare tenths by proportional remainder. Independent rounding
+previously made six equal caps total 1.2 hours for a one-hour week, leaving the
+Scale to fit and even-share recovery actions oversubscribed. Equal remainders
+use target order, and fractional weekly capacity never rounds the total up.
+Web/worker stamp: 2026.11.05.3; native package remains 0.1.13.
+
+Validation: the new regression failed on the original one-hour case, and now
+covers whole/fractional weekly limits, fair equal splits and immutable inputs.
+Complete npm gate passed, including Rust formatting, strict Clippy, core/shared
+contracts, domain/workflow/syntax suites and all 46 Chromium journeys.
